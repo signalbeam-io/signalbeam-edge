@@ -88,6 +88,126 @@ The **AppBundle** aggregate represents a deployable application package.
 - `UpdateDescription()` - Update description
 - `UpdateLatestVersion()` - Set latest version
 
+#### AppBundleVersion
+Represents a specific version of an app bundle with container specifications.
+
+**Entity:** `AppBundleVersion`
+
+**Identity:** `Guid`
+
+**Properties:**
+- `BundleId` - Parent bundle identifier
+- `Version` - Semantic version (BundleVersion)
+- `CreatedAt` - Creation timestamp
+- `CreatedBy` - User or system that created this version
+- `ReleaseNotes` - Release notes for this version
+- `ContainerSpecs` - Collection of container specifications
+- `IsStable` - Whether this version is production-ready
+- `ArtifactStorageUrl` - Storage URL for bundle artifacts
+- `Checksum` - SHA-256 checksum of artifacts
+
+**Behaviors:**
+- `Create()` - Factory method with container specs
+- `MarkAsStable()` / `MarkAsUnstable()` - Manage stability status
+- `UpdateArtifactInfo()` - Set storage URL and checksum
+
+#### DeviceDesiredState
+Represents the desired state for a device (what should be running).
+
+**Entity:** `DeviceDesiredState`
+
+**Identity:** `Guid`
+
+**Properties:**
+- `DeviceId` - Target device
+- `BundleId` - Desired bundle to run
+- `Version` - Desired bundle version
+- `SetAt` - When desired state was set
+- `UpdatedAt` - Last update timestamp
+- `ContainerSpecsJson` - Container specifications as JSON
+
+**Behaviors:**
+- `Create()` - Factory method to create desired state
+- `UpdateVersion()` - Update to new version
+
+#### DeviceReportedState
+Represents the actual state reported by the device (what is running).
+
+**Entity:** `DeviceReportedState`
+
+**Identity:** `Guid`
+
+**Properties:**
+- `DeviceId` - Reporting device
+- `BundleId` - Currently running bundle
+- `Version` - Currently running version
+- `ReportedAt` - When state was reported
+- `RunningContainersJson` - Running containers as JSON
+- `ErrorMessage` - Any error messages from device
+
+**Behaviors:**
+- `Create()` - Factory method to create reported state
+- `UpdateState()` - Update with bundle information
+- `ReportError()` - Report error without bundle info
+
+#### DeviceHeartbeat
+Represents a heartbeat from a device with health metrics (time-series data).
+
+**Entity:** `DeviceHeartbeat`
+
+**Identity:** `Guid`
+
+**Properties:**
+- `DeviceId` - Device sending heartbeat
+- `Timestamp` - Heartbeat timestamp (TimescaleDB partition key)
+- `CpuUsagePercent` - CPU usage (0-100)
+- `MemoryUsagePercent` - Memory usage (0-100)
+- `DiskUsagePercent` - Disk usage (0-100)
+- `TemperatureCelsius` - Device temperature (optional)
+- `RunningContainersCount` - Number of running containers
+- `UptimeSeconds` - Device uptime
+- `AdditionalMetricsJson` - Additional metrics as JSON
+
+**Behaviors:**
+- `Create()` - Factory method with optional metrics
+
+#### DeviceMetrics
+Represents detailed telemetry/metrics data (time-series data).
+
+**Entity:** `DeviceMetrics`
+
+**Identity:** `Guid`
+
+**Properties:**
+- `DeviceId` - Device sending metrics
+- `Timestamp` - Metric timestamp (TimescaleDB partition key)
+- `MetricName` - Metric name/key (e.g., "container.cpu.usage")
+- `Value` - Metric value
+- `Unit` - Unit of measurement (e.g., "percent", "bytes")
+- `TagsJson` - Metric dimensions/tags as JSON
+
+**Behaviors:**
+- `Create()` - Factory method with metric data
+
+#### DeviceEvent
+Represents an audit log event for a device.
+
+**Entity:** `DeviceEvent`
+
+**Identity:** `Guid`
+
+**Properties:**
+- `DeviceId` - Device this event belongs to
+- `Timestamp` - Event timestamp
+- `EventType` - Event type (e.g., "DeviceRegistered")
+- `Severity` - Event severity (Information, Warning, Error, Critical)
+- `Message` - Human-readable message
+- `DataJson` - Additional event data as JSON
+- `TriggeredBy` - User or system that triggered event
+
+**Behaviors:**
+- `Create()` - Factory method to create event
+
 ### Value Objects
 
 #### Strongly-Typed Identifiers
