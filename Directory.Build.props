@@ -12,6 +12,12 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
 
+    <!-- Package metadata -->
+    <Authors>SignalBeam Team</Authors>
+    <Company>SignalBeam</Company>
+    <Product>SignalBeam Edge</Product>
+    <Copyright>Copyright © 2025 SignalBeam</Copyright>
+
     <!-- Deterministic builds -->
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
