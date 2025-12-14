@@ -15,6 +15,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionIt
 		..\Directory.Packages.props = ..\Directory.Packages.props
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SignalBeam.Shared.Infrastructure", "Shared\SignalBeam.Shared.Infrastructure\SignalBeam.Shared.Infrastructure.csproj", "{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SignalBeam.Shared.Infrastructure.Tests", "..\tests\SignalBeam.Shared.Infrastructure.Tests\SignalBeam.Shared.Infrastructure.Tests.csproj", "{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,11 +53,36 @@ Global
 		{D8B533CC-D453-4581-950F-BCFA8FFAAFF1}.Release|x64.Build.0 = Release|Any CPU
 		{D8B533CC-D453-4581-950F-BCFA8FFAAFF1}.Release|x86.ActiveCfg = Release|Any CPU
 		{D8B533CC-D453-4581-950F-BCFA8FFAAFF1}.Release|x86.Build.0 = Release|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Debug|x64.Build.0 = Debug|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Debug|x86.Build.0 = Debug|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Release|x64.ActiveCfg = Release|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Release|x64.Build.0 = Release|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Release|x86.ActiveCfg = Release|Any CPU
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E}.Release|x86.Build.0 = Release|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Debug|x64.Build.0 = Debug|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Debug|x86.Build.0 = Debug|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Release|x64.ActiveCfg = Release|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Release|x64.Build.0 = Release|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Release|x86.ActiveCfg = Release|Any CPU
+		{32EA18DD-16DC-4C4C-9A9F-EDA921B2DF40}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{D8B533CC-D453-4581-950F-BCFA8FFAAFF1} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{FE3C17F7-7E22-45E1-AB67-FC2884CA800E} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
 	EndGlobalSection
 EndGlobal
