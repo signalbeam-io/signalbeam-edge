@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SignalBeam.Domain.Abstractions;
 using SignalBeam.Domain.Entities;
 using System.Reflection;
 
@@ -13,13 +14,21 @@ public class DeviceDbContext : DbContext
     {
     }
 
+    // Regular tables
     public DbSet<Device> Devices => Set<Device>();
-    public DbSet<DeviceMetrics> DeviceMetrics => Set<DeviceMetrics>();
+    public DbSet<DeviceGroup> DeviceGroups => Set<DeviceGroup>();
     public DbSet<DeviceActivityLog> DeviceActivityLogs => Set<DeviceActivityLog>();
+
+    // TimescaleDB hypertables (time-series data)
+    public DbSet<DeviceHeartbeat> DeviceHeartbeats => Set<DeviceHeartbeat>();
+    public DbSet<DeviceMetrics> DeviceMetrics => Set<DeviceMetrics>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Ignore domain event base types (not persisted as separate entities)
+        modelBuilder.Ignore<DomainEvent>();
 
         // Apply all configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

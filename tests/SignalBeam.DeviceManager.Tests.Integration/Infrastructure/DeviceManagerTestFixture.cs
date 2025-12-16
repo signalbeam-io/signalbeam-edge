@@ -13,7 +13,7 @@ public class DeviceManagerTestFixture : IAsyncLifetime
     public DeviceManagerTestFixture()
     {
         _postgresContainer = new PostgreSqlBuilder()
-            .WithImage("postgres:16-alpine")
+            .WithImage("timescale/timescaledb:latest-pg16")
             .WithDatabase("signalbeam_test")
             .WithUsername("postgres")
             .WithPassword("postgres")
