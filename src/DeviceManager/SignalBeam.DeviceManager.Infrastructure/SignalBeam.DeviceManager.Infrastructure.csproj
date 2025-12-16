@@ -12,6 +12,11 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="NATS.Client.Core" />
+    <PackageReference Include="NATS.Client.JetStream" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Polly" />
   </ItemGroup>
 
   <ItemGroup>

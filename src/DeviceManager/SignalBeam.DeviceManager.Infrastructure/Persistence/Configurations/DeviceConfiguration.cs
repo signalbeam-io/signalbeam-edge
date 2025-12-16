@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using System.Text.Json;
 
 namespace SignalBeam.DeviceManager.Infrastructure.Persistence.Configurations;
 
@@ -61,7 +62,15 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
         builder.Property<List<string>>("_tags")
             .HasColumnName("tags")
             .HasColumnType("jsonb")
-            .HasDefaultValue(new List<string>());
+            .HasDefaultValueSql("'[]'::jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>())
+            .Metadata.SetValueComparer(
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                    (c1, c2) => c1!.SequenceEqual(c2!),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()));
 
         // AssignedBundleId
         builder.Property(d => d.AssignedBundleId)

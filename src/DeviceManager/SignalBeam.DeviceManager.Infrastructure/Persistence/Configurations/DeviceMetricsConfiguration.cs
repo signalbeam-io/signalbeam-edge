@@ -9,9 +9,11 @@ public class DeviceMetricsConfiguration : IEntityTypeConfiguration<DeviceMetrics
 {
     public void Configure(EntityTypeBuilder<DeviceMetrics> builder)
     {
-        builder.ToTable("device_metrics");
+        builder.ToTable("device_metrics", tb =>
+            tb.HasComment("TimescaleDB hypertable for device metrics"));
 
-        builder.HasKey(m => m.Id);
+        // TimescaleDB requires primary key to include partitioning column (timestamp)
+        builder.HasKey(m => new { m.Id, m.Timestamp });
 
         builder.Property(m => m.Id)
             .HasColumnName("id")
