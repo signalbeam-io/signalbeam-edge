@@ -53,7 +53,7 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .HasColumnName("registered_at")
             .IsRequired();
 
-        // Metadata (JSON)
+        // Metadata (stored as TEXT to allow plain text or JSON)
         builder.Property(d => d.Metadata)
             .HasColumnName("metadata")
             .HasColumnType("jsonb");

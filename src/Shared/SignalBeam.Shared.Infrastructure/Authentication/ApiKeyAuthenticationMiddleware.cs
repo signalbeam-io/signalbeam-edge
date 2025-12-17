@@ -26,9 +26,11 @@ public class ApiKeyAuthenticationMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Skip authentication for health checks and metrics
+        // Skip authentication for health checks, metrics, and API documentation
         if (context.Request.Path.StartsWithSegments("/health") ||
-            context.Request.Path.StartsWithSegments("/metrics"))
+            context.Request.Path.StartsWithSegments("/metrics") ||
+            context.Request.Path.StartsWithSegments("/scalar") ||
+            context.Request.Path.StartsWithSegments("/openapi"))
         {
             await _next(context);
             return;

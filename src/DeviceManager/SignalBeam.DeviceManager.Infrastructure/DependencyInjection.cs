@@ -4,10 +4,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.Core;
 using SignalBeam.DeviceManager.Application.Repositories;
+using SignalBeam.DeviceManager.Infrastructure.Authentication;
 using SignalBeam.DeviceManager.Infrastructure.Caching;
 using SignalBeam.DeviceManager.Infrastructure.Persistence;
 using SignalBeam.DeviceManager.Infrastructure.Persistence.Repositories;
 using SignalBeam.DeviceManager.Infrastructure.Storage;
+using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Messaging;
 using StackExchange.Redis;
 
@@ -25,7 +27,11 @@ public static class DependencyInjection
         // Register DbContext
         services.AddDbContext<DeviceDbContext>(options =>
         {
-            var connectionString = configuration.GetConnectionString("DeviceDb");
+            // Try Aspire-injected connection string first, fallback to DeviceDb
+            var connectionString = configuration.GetConnectionString("signalbeam")
+                ?? configuration.GetConnectionString("DeviceDb")
+                ?? throw new InvalidOperationException("Database connection string not found. Expected 'signalbeam' (Aspire) or 'DeviceDb'.");
+
             options.UseNpgsql(connectionString);
         });
 
@@ -33,10 +39,14 @@ public static class DependencyInjection
         services.AddScoped<IDeviceRepository, DeviceRepository>();
         services.AddScoped<IDeviceQueryRepository, DeviceRepository>();
         services.AddScoped<IDeviceMetricsRepository, DeviceMetricsRepository>();
+        services.AddScoped<IDeviceMetricsQueryRepository, DeviceMetricsRepository>();
         services.AddScoped<IDeviceActivityLogRepository, DeviceActivityLogRepository>();
         services.AddScoped<IDeviceActivityLogQueryRepository, DeviceActivityLogRepository>();
         services.AddScoped<IDeviceGroupRepository, DeviceGroupRepository>();
         services.AddScoped<IDeviceHeartbeatRepository, DeviceHeartbeatRepository>();
+
+        // Register authentication services
+        services.AddSingleton<IApiKeyValidator, ApiKeyValidator>();
 
         // NATS message publisher
         var natsUrl = configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222";

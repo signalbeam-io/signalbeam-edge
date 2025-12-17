@@ -15,4 +15,8 @@
     <PackageReference Include="Aspire.Hosting.Redis" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\DeviceManager\SignalBeam.DeviceManager.Host\SignalBeam.DeviceManager.Host.csproj" />
+  </ItemGroup>
+
 </Project>

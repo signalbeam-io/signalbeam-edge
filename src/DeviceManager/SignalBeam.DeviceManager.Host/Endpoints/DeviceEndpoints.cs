@@ -73,6 +73,11 @@ public static class DeviceEndpoints
             .WithSummary("Update device metrics")
             .WithDescription("Records device metrics (CPU, memory, disk usage, etc.) for monitoring.");
 
+        group.MapGet("/{deviceId:guid}/metrics", GetDeviceMetrics)
+            .WithName("GetDeviceMetrics")
+            .WithSummary("Get device metrics history")
+            .WithDescription("Retrieves historical metrics data for a device with optional date range filtering.");
+
         group.MapGet("/{deviceId:guid}/activity-log", GetDeviceActivityLog)
             .WithName("GetDeviceActivityLog")
             .WithSummary("Get device activity log")
@@ -291,6 +296,23 @@ public static class DeviceEndpoints
     private static async Task<IResult> GetDeviceActivityLog(
         [AsParameters] GetDeviceActivityLogQuery query,
         GetDeviceActivityLogHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(query, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> GetDeviceMetrics(
+        [AsParameters] GetDeviceMetricsQuery query,
+        GetDeviceMetricsHandler handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(query, cancellationToken);

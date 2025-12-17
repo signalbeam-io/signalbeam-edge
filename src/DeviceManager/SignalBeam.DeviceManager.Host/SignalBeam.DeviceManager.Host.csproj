@@ -9,9 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Scalar.AspNetCore" />
-    <PackageReference Include="WolverineFx" />
-    <PackageReference Include="WolverineFx.Http" />
     <PackageReference Include="Serilog.AspNetCore" />
   </ItemGroup>
 
