@@ -78,8 +78,10 @@
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.1.0" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="9.1.0" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="9.1.0" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="9.1.0" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.1.0" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="9.1.0" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="9.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="9.1.0" />
   </ItemGroup>

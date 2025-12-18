@@ -17,12 +17,11 @@ var nats = builder.AddContainer("nats", "nats", "latest")
     .WithEndpoint(4222, targetPort: 4222, name: "nats")
     .WithLifetime(ContainerLifetime.Persistent);
 
-// TODO: Add MinIO container when BundleOrchestrator is ready
-// var minio = builder.AddContainer("minio", "minio/minio", "latest")
-//     .WithArgs("server", "/data", "--console-address", ":9001")
-//     .WithHttpEndpoint(9000, targetPort: 9000, name: "api")
-//     .WithHttpEndpoint(9001, targetPort: 9001, name: "console")
-//     .WithLifetime(ContainerLifetime.Persistent);
+// Azurite - Azure Storage Emulator for local development
+var storage = builder.AddAzureStorage("storage")
+    .RunAsEmulator();
+
+var blobs = storage.AddBlobs("blobs");
 
 // Microservices
 var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("device-manager")
@@ -30,10 +29,11 @@ var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
-// TODO: Add when BundleOrchestrator is ready
-// var bundleOrchestrator = builder.AddProject<Projects.BundleOrchestrator_Host>("bundle-orchestrator")
-//     .WithReference(signalbeamDb)
-//     .WithReference(valkey);
+var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrator_Host>("bundle-orchestrator")
+    .WithReference(signalbeamDb)
+    .WithReference(valkey)
+    .WithReference(blobs)
+    .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
 // TODO: Add when TelemetryProcessor is ready
 // var telemetryProcessor = builder.AddProject<Projects.TelemetryProcessor_Host>("telemetry-processor")
