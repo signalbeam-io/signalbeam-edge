@@ -190,3 +190,6 @@ app.MapDeviceEndpoints();
 app.MapGroupEndpoints();
 
 app.Run();
+
+// Make Program accessible to WebApplicationFactory in tests
+public partial class Program { }
