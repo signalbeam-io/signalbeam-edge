@@ -47,6 +47,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SignalBeam.BundleOrchestrat
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SignalBeam.BundleOrchestrator.Host", "BundleOrchestrator\SignalBeam.BundleOrchestrator.Host\SignalBeam.BundleOrchestrator.Host.csproj", "{D03B38A6-C975-420F-A772-C1A4CFD1BFA4}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TelemetryProcessor", "TelemetryProcessor", "{753C040B-FF22-6614-8951-D1DF5F026DDF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SignalBeam.TelemetryProcessor.Application", "TelemetryProcessor\SignalBeam.TelemetryProcessor.Application\SignalBeam.TelemetryProcessor.Application.csproj", "{BF657246-0043-45EE-A144-C6986E8C3B4E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -237,6 +241,18 @@ Global
 		{D03B38A6-C975-420F-A772-C1A4CFD1BFA4}.Release|x64.Build.0 = Release|Any CPU
 		{D03B38A6-C975-420F-A772-C1A4CFD1BFA4}.Release|x86.ActiveCfg = Release|Any CPU
 		{D03B38A6-C975-420F-A772-C1A4CFD1BFA4}.Release|x86.Build.0 = Release|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Debug|x64.Build.0 = Debug|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Debug|x86.Build.0 = Debug|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Release|x64.ActiveCfg = Release|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Release|x64.Build.0 = Release|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Release|x86.ActiveCfg = Release|Any CPU
+		{BF657246-0043-45EE-A144-C6986E8C3B4E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -254,5 +270,6 @@ Global
 		{1DD230A4-9C9F-4922-ADD8-DABBAFD2DF8E} = {D93E8024-34A5-9AC6-62A0-BA1E08432049}
 		{5E49B415-80DB-43DD-8D20-B9DDEF3C2A6A} = {D93E8024-34A5-9AC6-62A0-BA1E08432049}
 		{D03B38A6-C975-420F-A772-C1A4CFD1BFA4} = {D93E8024-34A5-9AC6-62A0-BA1E08432049}
+		{BF657246-0043-45EE-A144-C6986E8C3B4E} = {753C040B-FF22-6614-8951-D1DF5F026DDF}
 	EndGlobalSection
 EndGlobal
