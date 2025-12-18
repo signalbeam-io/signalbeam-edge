@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DeviceManager\SignalBeam.DeviceManager.Host\SignalBeam.DeviceManager.Host.csproj" />
     <ProjectReference Include="..\BundleOrchestrator\SignalBeam.BundleOrchestrator.Host\SignalBeam.BundleOrchestrator.Host.csproj" />
+    <ProjectReference Include="..\TelemetryProcessor\SignalBeam.TelemetryProcessor.Host\SignalBeam.TelemetryProcessor.Host.csproj" />
   </ItemGroup>
 
 </Project>

@@ -35,9 +35,9 @@ var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrat
     .WithReference(blobs)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
-// TODO: Add when TelemetryProcessor is ready
-// var telemetryProcessor = builder.AddProject<Projects.TelemetryProcessor_Host>("telemetry-processor")
-//     .WithReference(signalbeamDb)
-//     .WithReference(valkey);
+var telemetryProcessor = builder.AddProject<Projects.SignalBeam_TelemetryProcessor_Host>("telemetry-processor")
+    .WithReference(signalbeamDb)
+    .WithReference(valkey)
+    .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
 builder.Build().Run();
