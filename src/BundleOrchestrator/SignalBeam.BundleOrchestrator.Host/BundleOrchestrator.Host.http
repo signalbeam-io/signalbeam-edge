@@ -1,0 +1,92 @@
+@BundleOrchestrator.Host_HostAddress = http://localhost:5002
+
+### Create a new bundle
+POST {{BundleOrchestrator.Host_HostAddress}}/api/bundles
+Content-Type: application/json
+
+{
+  "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "IoT Sensor Suite",
+  "description": "Complete IoT sensor monitoring suite"
+}
+
+### Get all bundles for tenant
+GET {{BundleOrchestrator.Host_HostAddress}}/api/bundles?tenantId=550e8400-e29b-41d4-a716-446655440000
+
+### Get bundle by ID
+GET {{BundleOrchestrator.Host_HostAddress}}/api/bundles/bundle-550e8400-e29b-41d4-a716-446655440000
+
+### Create a bundle version
+POST {{BundleOrchestrator.Host_HostAddress}}/api/bundles/bundle-550e8400-e29b-41d4-a716-446655440000/versions
+Content-Type: application/json
+
+{
+  "version": "1.0.0",
+  "releaseNotes": "Initial release with temperature and humidity sensors",
+  "containers": [
+    {
+      "name": "temp-sensor",
+      "image": "ghcr.io/signalbeam/temp-sensor:1.0.0",
+      "environment": {
+        "SENSOR_ID": "temp-001",
+        "POLLING_INTERVAL": "30"
+      },
+      "ports": ["8080:8080"]
+    },
+    {
+      "name": "humidity-sensor",
+      "image": "ghcr.io/signalbeam/humidity-sensor:1.0.0",
+      "environment": {
+        "SENSOR_ID": "humidity-001",
+        "POLLING_INTERVAL": "60"
+      },
+      "ports": ["8081:8080"]
+    }
+  ]
+}
+
+### Get bundle version details
+GET {{BundleOrchestrator.Host_HostAddress}}/api/bundles/bundle-550e8400-e29b-41d4-a716-446655440000/versions/1.0.0
+
+### Assign bundle to device
+POST {{BundleOrchestrator.Host_HostAddress}}/api/devices/device-660e8400-e29b-41d4-a716-446655440000/bundle
+Content-Type: application/json
+
+{
+  "bundleId": "bundle-550e8400-e29b-41d4-a716-446655440000",
+  "version": "1.0.0",
+  "assignedBy": "admin@signalbeam.io"
+}
+
+### Get device desired state
+GET {{BundleOrchestrator.Host_HostAddress}}/api/devices/device-660e8400-e29b-41d4-a716-446655440000/desired-state
+
+### Assign bundle to device group
+POST {{BundleOrchestrator.Host_HostAddress}}/api/device-groups/group-770e8400-e29b-41d4-a716-446655440000/bundle
+Content-Type: application/json
+
+{
+  "bundleId": "bundle-550e8400-e29b-41d4-a716-446655440000",
+  "version": "1.0.0",
+  "assignedBy": "admin@signalbeam.io"
+}
+
+### Get rollout status for bundle
+GET {{BundleOrchestrator.Host_HostAddress}}/api/rollouts/bundles/bundle-550e8400-e29b-41d4-a716-446655440000
+
+### Update rollout status
+PUT {{BundleOrchestrator.Host_HostAddress}}/api/rollouts/880e8400-e29b-41d4-a716-446655440000/status
+Content-Type: application/json
+
+{
+  "status": "Succeeded"
+}
+
+### Update rollout status to Failed
+PUT {{BundleOrchestrator.Host_HostAddress}}/api/rollouts/880e8400-e29b-41d4-a716-446655440000/status
+Content-Type: application/json
+
+{
+  "status": "Failed",
+  "errorMessage": "Failed to pull container image"
+}

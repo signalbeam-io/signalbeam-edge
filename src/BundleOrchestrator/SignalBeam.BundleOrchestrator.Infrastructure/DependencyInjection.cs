@@ -53,35 +53,42 @@ public static class DependencyInjection
         IServiceCollection services,
         IConfiguration configuration)
     {
-        var useManagedIdentity = configuration.GetValue<bool>("AzureBlobStorage:UseManagedIdentity");
-        var blobServiceUri = configuration.GetValue<string>("AzureBlobStorage:ServiceUri");
-        var connectionString = configuration.GetValue<string>("AzureBlobStorage:ConnectionString");
+        // Check if BlobServiceClient is already registered (by Aspire)
+        var serviceDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(BlobServiceClient));
 
-        if (useManagedIdentity && !string.IsNullOrEmpty(blobServiceUri))
+        if (serviceDescriptor == null)
         {
-            // Use Managed Identity for authentication (production)
-            services.AddSingleton(sp =>
+            // BlobServiceClient not registered by Aspire, configure it manually
+            var useManagedIdentity = configuration.GetValue<bool>("AzureBlobStorage:UseManagedIdentity");
+            var blobServiceUri = configuration.GetValue<string>("AzureBlobStorage:ServiceUri");
+            var connectionString = configuration.GetValue<string>("AzureBlobStorage:ConnectionString");
+
+            if (useManagedIdentity && !string.IsNullOrEmpty(blobServiceUri))
             {
-                var credential = new DefaultAzureCredential();
-                return new BlobServiceClient(new Uri(blobServiceUri), credential);
-            });
-        }
-        else if (!string.IsNullOrEmpty(connectionString))
-        {
-            // Use connection string (development)
-            services.AddSingleton(sp => new BlobServiceClient(connectionString));
-        }
-        else
-        {
-            // No blob storage configured - register a null implementation
-            // This allows the application to run without blob storage for testing
-            services.AddSingleton<BlobServiceClient>(sp =>
+                // Use Managed Identity for authentication (production)
+                services.AddSingleton(sp =>
+                {
+                    var credential = new DefaultAzureCredential();
+                    return new BlobServiceClient(new Uri(blobServiceUri), credential);
+                });
+            }
+            else if (!string.IsNullOrEmpty(connectionString))
             {
-                throw new InvalidOperationException(
-                    "Azure Blob Storage is not configured. " +
-                    "Set AzureBlobStorage:ConnectionString or AzureBlobStorage:ServiceUri with UseManagedIdentity=true");
-            });
+                // Use connection string (development)
+                services.AddSingleton(sp => new BlobServiceClient(connectionString));
+            }
+            else
+            {
+                // No blob storage configured - throw an error
+                services.AddSingleton<BlobServiceClient>(sp =>
+                {
+                    throw new InvalidOperationException(
+                        "Azure Blob Storage is not configured. " +
+                        "Set AzureBlobStorage:ConnectionString or AzureBlobStorage:ServiceUri with UseManagedIdentity=true");
+                });
+            }
         }
+        // If BlobServiceClient is already registered (by Aspire), use it as-is
 
         // Register bundle storage service
         services.AddSingleton<IBundleStorageService>(sp =>
