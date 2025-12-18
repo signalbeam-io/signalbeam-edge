@@ -1,9 +1,11 @@
+using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using SignalBeam.TelemetryProcessor.Application.MessageHandlers;
 using SignalBeam.TelemetryProcessor.Infrastructure.Messaging.Options;
 
 namespace SignalBeam.TelemetryProcessor.Infrastructure.Messaging;
@@ -18,17 +20,23 @@ public class NatsConsumerService : BackgroundService
     private readonly NatsConnection _connection;
     private readonly INatsJSContext _jetStreamContext;
     private readonly NatsOptions _natsOptions;
+    private readonly DeviceHeartbeatMessageHandler _heartbeatHandler;
+    private readonly DeviceMetricsMessageHandler _metricsHandler;
 
     public NatsConsumerService(
         ILogger<NatsConsumerService> logger,
         NatsConnection connection,
         INatsJSContext jetStreamContext,
-        IOptions<NatsOptions> natsOptions)
+        IOptions<NatsOptions> natsOptions,
+        DeviceHeartbeatMessageHandler heartbeatHandler,
+        DeviceMetricsMessageHandler metricsHandler)
     {
         _logger = logger;
         _connection = connection;
         _jetStreamContext = jetStreamContext;
         _natsOptions = natsOptions.Value;
+        _heartbeatHandler = heartbeatHandler;
+        _metricsHandler = metricsHandler;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -132,10 +140,59 @@ public class NatsConsumerService : BackgroundService
             },
             cancellationToken);
 
-        // TODO: Implement message consumption when NATS client API is finalized
-        // For now, consumer is created but message processing is deferred to Application layer
-        _logger.LogInformation("Device Metrics consumer created successfully");
-        await Task.CompletedTask;
+        _logger.LogInformation("Device Metrics consumer created, starting message processing...");
+
+        // Consume messages in a loop
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                // Fetch and process messages
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 10, Expires = TimeSpan.FromSeconds(5) },
+                    serializer: default,
+                    cancellationToken))
+                {
+                    try
+                    {
+                        // Deserialize message
+                        var message = JsonSerializer.Deserialize<DeviceMetricsMessage>(msg.Data);
+                        if (message == null)
+                        {
+                            _logger.LogWarning("Received null metrics message, skipping");
+                            await msg.AckAsync(cancellationToken: cancellationToken);
+                            continue;
+                        }
+
+                        // Process message using Application layer handler
+                        await _metricsHandler.Handle(message, cancellationToken);
+
+                        // Acknowledge successful processing
+                        await msg.AckAsync(cancellationToken: cancellationToken);
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogError(ex, "Failed to deserialize metrics message");
+                        await msg.AckAsync(cancellationToken: cancellationToken); // Ack to skip bad message
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing metrics message");
+                        await msg.NakAsync(delay: TimeSpan.FromSeconds(5), cancellationToken: cancellationToken);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Device Metrics consumer cancelled");
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in Device Metrics consumer loop, retrying...");
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            }
+        }
     }
 
     private async Task ConsumeDeviceHeartbeatsAsync(CancellationToken cancellationToken)
@@ -155,10 +212,59 @@ public class NatsConsumerService : BackgroundService
             },
             cancellationToken);
 
-        // TODO: Implement message consumption when NATS client API is finalized
-        // For now, consumer is created but message processing is deferred to Application layer
-        _logger.LogInformation("Device Heartbeats consumer created successfully");
-        await Task.CompletedTask;
+        _logger.LogInformation("Device Heartbeats consumer created, starting message processing...");
+
+        // Consume messages in a loop
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                // Fetch and process messages
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 10, Expires = TimeSpan.FromSeconds(5) },
+                    serializer: default,
+                    cancellationToken))
+                {
+                    try
+                    {
+                        // Deserialize message
+                        var message = JsonSerializer.Deserialize<DeviceHeartbeatMessage>(msg.Data);
+                        if (message == null)
+                        {
+                            _logger.LogWarning("Received null heartbeat message, skipping");
+                            await msg.AckAsync(cancellationToken: cancellationToken);
+                            continue;
+                        }
+
+                        // Process message using Application layer handler
+                        await _heartbeatHandler.Handle(message, cancellationToken);
+
+                        // Acknowledge successful processing
+                        await msg.AckAsync(cancellationToken: cancellationToken);
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogError(ex, "Failed to deserialize heartbeat message");
+                        await msg.AckAsync(cancellationToken: cancellationToken); // Ack to skip bad message
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing heartbeat message");
+                        await msg.NakAsync(delay: TimeSpan.FromSeconds(5), cancellationToken: cancellationToken);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Device Heartbeats consumer cancelled");
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in Device Heartbeats consumer loop, retrying...");
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            }
+        }
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

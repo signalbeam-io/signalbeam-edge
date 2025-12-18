@@ -21,8 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\SignalBeam.Domain\SignalBeam.Domain.csproj" />
-    <!-- Application layer will be added when it's created (issue #16) -->
-    <!-- <ProjectReference Include="..\SignalBeam.TelemetryProcessor.Application\SignalBeam.TelemetryProcessor.Application.csproj" /> -->
+    <ProjectReference Include="..\SignalBeam.TelemetryProcessor.Application\SignalBeam.TelemetryProcessor.Application.csproj" />
   </ItemGroup>
 
 </Project>

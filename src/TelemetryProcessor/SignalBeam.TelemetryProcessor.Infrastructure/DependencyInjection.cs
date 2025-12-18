@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using SignalBeam.TelemetryProcessor.Application.MessageHandlers;
 using SignalBeam.TelemetryProcessor.Infrastructure.Messaging;
 using SignalBeam.TelemetryProcessor.Infrastructure.Messaging.Options;
 using SignalBeam.TelemetryProcessor.Infrastructure.Persistence;
@@ -80,6 +81,10 @@ public static class DependencyInjection
             var connection = sp.GetRequiredService<NatsConnection>();
             return new NatsJSContext(connection);
         });
+
+        // Register message handlers from Application layer
+        services.AddScoped<DeviceHeartbeatMessageHandler>();
+        services.AddScoped<DeviceMetricsMessageHandler>();
 
         // Register NATS consumer as hosted service
         services.AddHostedService<NatsConsumerService>();
