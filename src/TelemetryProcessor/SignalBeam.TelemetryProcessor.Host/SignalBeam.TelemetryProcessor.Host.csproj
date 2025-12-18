@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SignalBeam.TelemetryProcessor.Host</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="AspNetCore.HealthChecks.Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SignalBeam.TelemetryProcessor.Application\SignalBeam.TelemetryProcessor.Application.csproj" />
+    <ProjectReference Include="..\SignalBeam.TelemetryProcessor.Infrastructure\SignalBeam.TelemetryProcessor.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\SignalBeam.ServiceDefaults\SignalBeam.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>
