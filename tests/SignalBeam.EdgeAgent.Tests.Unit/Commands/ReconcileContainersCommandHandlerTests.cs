@@ -63,7 +63,7 @@ public class ReconcileContainersCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.ContainersStarted.Should().Be(1);
-        await _containerManager.Received(1).PullImageAsync("image1:v1", Arg.Any<CancellationToken>());
+        await _containerManager.Received(1).PullImageAsync("image1:v1", null, Arg.Any<CancellationToken>());
         await _containerManager.Received(1).StartContainerAsync(
             Arg.Is<ContainerSpec>(c => c.Name == "app1" && c.Image == "image1:v1"),
             Arg.Any<CancellationToken>());
@@ -131,7 +131,7 @@ public class ReconcileContainersCommandHandlerTests
         result.Value.ContainersStarted.Should().Be(1);
         result.Value.ContainersStopped.Should().Be(1);
         await _containerManager.Received(1).StopContainerAsync("container-1", Arg.Any<CancellationToken>());
-        await _containerManager.Received(1).PullImageAsync("image1:v2", Arg.Any<CancellationToken>());
+        await _containerManager.Received(1).PullImageAsync("image1:v2", null, Arg.Any<CancellationToken>());
         await _containerManager.Received(1).StartContainerAsync(
             Arg.Is<ContainerSpec>(c => c.Image == "image1:v2"),
             Arg.Any<CancellationToken>());

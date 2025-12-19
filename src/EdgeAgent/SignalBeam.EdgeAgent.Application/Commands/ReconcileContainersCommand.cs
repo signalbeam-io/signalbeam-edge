@@ -85,7 +85,7 @@ public class ReconcileContainersCommandHandler
                 try
                 {
                     // Pull image first
-                    await _containerManager.PullImageAsync(desired.Image, cancellationToken);
+                    await _containerManager.PullImageAsync(desired.Image, null, cancellationToken);
 
                     // Start container
                     await _containerManager.StartContainerAsync(desired, cancellationToken);
@@ -108,7 +108,7 @@ public class ReconcileContainersCommandHandler
                         await _containerManager.StopContainerAsync(running.Id, cancellationToken);
 
                         // Pull new image
-                        await _containerManager.PullImageAsync(desired.Image, cancellationToken);
+                        await _containerManager.PullImageAsync(desired.Image, null, cancellationToken);
 
                         // Start new container
                         await _containerManager.StartContainerAsync(desired, cancellationToken);
