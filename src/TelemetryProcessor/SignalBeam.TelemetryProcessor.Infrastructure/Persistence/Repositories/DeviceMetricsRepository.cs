@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.TelemetryProcessor.Application.Repositories;
 
 namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// Repository for DeviceMetrics with optimized time-series queries.
 /// </summary>
-public class DeviceMetricsRepository
+public class DeviceMetricsRepository : IDeviceMetricsRepository
 {
     private readonly TelemetryDbContext _context;
 
@@ -64,6 +65,58 @@ public class DeviceMetricsRepository
             .OrderByDescending(m => m.Timestamp)
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets the most recent metrics for a device (implements interface method).
+    /// </summary>
+    public Task<DeviceMetrics?> GetLatestByDeviceIdAsync(DeviceId deviceId, CancellationToken cancellationToken = default)
+    {
+        return GetLatestByDeviceAsync(deviceId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets metrics for a device within a time range (implements interface method).
+    /// </summary>
+    public async Task<IReadOnlyCollection<DeviceMetrics>> GetByDeviceIdAndTimeRangeAsync(
+        DeviceId deviceId,
+        DateTimeOffset startTime,
+        DateTimeOffset endTime,
+        CancellationToken cancellationToken = default)
+    {
+        return await GetByDeviceAndTimeRangeAsync(deviceId, startTime, endTime, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets paginated metrics history for a device.
+    /// </summary>
+    public async Task<(IReadOnlyCollection<DeviceMetrics> Metrics, int TotalCount)> GetMetricsHistoryAsync(
+        DeviceId deviceId,
+        DateTimeOffset? startTime,
+        DateTimeOffset? endTime,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.DeviceMetrics
+            .Where(m => m.DeviceId == deviceId);
+
+        if (startTime.HasValue)
+            query = query.Where(m => m.Timestamp >= startTime.Value);
+
+        if (endTime.HasValue)
+            query = query.Where(m => m.Timestamp <= endTime.Value);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var metrics = await query
+            .OrderByDescending(m => m.Timestamp)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return (metrics, totalCount);
     }
 
     /// <summary>
@@ -204,9 +257,9 @@ public class DeviceMetricsRepository
     /// <summary>
     /// Saves all pending changes to the database.
     /// </summary>
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }
 

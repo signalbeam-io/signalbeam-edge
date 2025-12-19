@@ -4,7 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using SignalBeam.Shared.Infrastructure.Messaging;
 using SignalBeam.TelemetryProcessor.Application.MessageHandlers;
+using SignalBeam.TelemetryProcessor.Application.Repositories;
 using SignalBeam.TelemetryProcessor.Infrastructure.Messaging;
 using SignalBeam.TelemetryProcessor.Infrastructure.Messaging.Options;
 using SignalBeam.TelemetryProcessor.Infrastructure.Persistence;
@@ -26,11 +28,15 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // Configure options
-        services.Configure<NatsOptions>(configuration.GetSection(NatsOptions.SectionName));
+        services.Configure<Messaging.Options.NatsOptions>(
+            configuration.GetSection(Messaging.Options.NatsOptions.SectionName));
 
         // Register DbContext with connection string
-        var connectionString = configuration.GetConnectionString("TelemetryDb")
-            ?? throw new InvalidOperationException("TelemetryDb connection string is not configured");
+        // Try Aspire-injected connection string first, fallback to TelemetryDb
+        var connectionString = configuration.GetConnectionString("signalbeam")
+            ?? configuration.GetConnectionString("TelemetryDb")
+            ?? throw new InvalidOperationException(
+                "Database connection string not found. Expected 'signalbeam' (Aspire) or 'TelemetryDb'.");
 
         services.AddDbContext<TelemetryDbContext>(options =>
         {
@@ -53,13 +59,25 @@ public static class DependencyInjection
             }
         });
 
-        // Register repositories
-        services.AddScoped<DeviceMetricsRepository>();
-        services.AddScoped<DeviceHeartbeatRepository>();
+        // Register repositories with their interfaces
+        services.AddScoped<IDeviceMetricsRepository, DeviceMetricsRepository>();
+        services.AddScoped<IDeviceHeartbeatRepository, DeviceHeartbeatRepository>();
+        services.AddScoped<IMetricsAggregateRepository, MetricsAggregateRepository>();
 
         // Register NATS connection
-        var natsUrl = configuration.GetSection(NatsOptions.SectionName)["Url"]
+        var natsUrl = configuration.GetSection(Messaging.Options.NatsOptions.SectionName)["Url"]
+            ?? configuration.GetConnectionString("nats") // Try Aspire connection string
             ?? "nats://localhost:4222";
+
+        // Normalize URL to use nats:// scheme (Aspire may provide tcp://)
+        if (natsUrl.StartsWith("tcp://", StringComparison.OrdinalIgnoreCase))
+        {
+            natsUrl = "nats://" + natsUrl.Substring("tcp://".Length);
+        }
+        else if (!natsUrl.StartsWith("nats://", StringComparison.OrdinalIgnoreCase))
+        {
+            natsUrl = "nats://" + natsUrl;
+        }
 
         services.AddSingleton<NatsConnection>(sp =>
         {
@@ -75,12 +93,18 @@ public static class DependencyInjection
             return new NatsConnection(opts);
         });
 
+        // Register as INatsConnection for IMessagePublisher
+        services.AddSingleton<INatsConnection>(sp => sp.GetRequiredService<NatsConnection>());
+
         // Register JetStream context
         services.AddSingleton<INatsJSContext>(sp =>
         {
             var connection = sp.GetRequiredService<NatsConnection>();
             return new NatsJSContext(connection);
         });
+
+        // Register message publisher for publishing events
+        services.AddSingleton<IMessagePublisher, NatsMessagePublisher>();
 
         // Register message handlers from Application layer
         services.AddScoped<DeviceHeartbeatMessageHandler>();
@@ -101,9 +125,15 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // Use the same connection string resolution as the main DbContext
+        var connectionString = configuration.GetConnectionString("signalbeam")
+            ?? configuration.GetConnectionString("TelemetryDb")
+            ?? throw new InvalidOperationException(
+                "Database connection string not found. Expected 'signalbeam' (Aspire) or 'TelemetryDb'.");
+
         services.AddHealthChecks()
             .AddNpgSql(
-                configuration.GetConnectionString("TelemetryDb")!,
+                connectionString,
                 name: "telemetry-db",
                 tags: new[] { "database", "postgresql", "timescaledb" })
             .AddCheck<NatsHealthCheck>(

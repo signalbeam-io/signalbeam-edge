@@ -108,6 +108,7 @@ builder.Services.AddScoped<GetBundleVersionHandler>();
 builder.Services.AddScoped<GetDeviceDesiredStateHandler>();
 builder.Services.AddScoped<GetRolloutStatusHandler>();
 
+
 // Add OpenAPI and Scalar
 builder.Services.AddOpenApi(options =>
 {

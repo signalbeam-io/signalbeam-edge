@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,23 +21,20 @@ public class NatsConsumerService : BackgroundService
     private readonly NatsConnection _connection;
     private readonly INatsJSContext _jetStreamContext;
     private readonly NatsOptions _natsOptions;
-    private readonly DeviceHeartbeatMessageHandler _heartbeatHandler;
-    private readonly DeviceMetricsMessageHandler _metricsHandler;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public NatsConsumerService(
         ILogger<NatsConsumerService> logger,
         NatsConnection connection,
         INatsJSContext jetStreamContext,
         IOptions<NatsOptions> natsOptions,
-        DeviceHeartbeatMessageHandler heartbeatHandler,
-        DeviceMetricsMessageHandler metricsHandler)
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _connection = connection;
         _jetStreamContext = jetStreamContext;
         _natsOptions = natsOptions.Value;
-        _heartbeatHandler = heartbeatHandler;
-        _metricsHandler = metricsHandler;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -164,8 +162,12 @@ public class NatsConsumerService : BackgroundService
                             continue;
                         }
 
-                        // Process message using Application layer handler
-                        await _metricsHandler.Handle(message, cancellationToken);
+                        // Create scope to resolve scoped handler
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var handler = scope.ServiceProvider.GetRequiredService<DeviceMetricsMessageHandler>();
+                            await handler.Handle(message, cancellationToken);
+                        }
 
                         // Acknowledge successful processing
                         await msg.AckAsync(cancellationToken: cancellationToken);
@@ -236,8 +238,12 @@ public class NatsConsumerService : BackgroundService
                             continue;
                         }
 
-                        // Process message using Application layer handler
-                        await _heartbeatHandler.Handle(message, cancellationToken);
+                        // Create scope to resolve scoped handler
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var handler = scope.ServiceProvider.GetRequiredService<DeviceHeartbeatMessageHandler>();
+                            await handler.Handle(message, cancellationToken);
+                        }
 
                         // Acknowledge successful processing
                         await msg.AckAsync(cancellationToken: cancellationToken);

@@ -27,10 +27,10 @@ export enum DeviceStatus {
 }
 
 export interface DeviceFilters extends PaginationParams {
-  status?: DeviceStatus
-  tags?: string[]
-  groupIds?: string[]
-  search?: string
+  status?: DeviceStatus | undefined
+  tags?: string[] | undefined
+  groupIds?: string[] | undefined
+  search?: string | undefined
 }
 
 export interface RegisterDeviceRequest {

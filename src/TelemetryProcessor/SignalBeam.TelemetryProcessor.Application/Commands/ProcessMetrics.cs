@@ -29,18 +29,16 @@ public record ProcessMetricsResponse(
 /// <summary>
 /// Handler for ProcessMetricsCommand.
 /// Stores metrics in TimescaleDB for time-series analysis.
+/// Note: Does not verify device existence - TelemetryProcessor doesn't own Device aggregate.
+/// DeviceManager is responsible for device lifecycle.
 /// </summary>
 public class ProcessMetricsHandler
 {
     private readonly IDeviceMetricsRepository _metricsRepository;
-    private readonly IDeviceRepository _deviceRepository;
 
-    public ProcessMetricsHandler(
-        IDeviceMetricsRepository metricsRepository,
-        IDeviceRepository deviceRepository)
+    public ProcessMetricsHandler(IDeviceMetricsRepository metricsRepository)
     {
         _metricsRepository = metricsRepository;
-        _deviceRepository = deviceRepository;
     }
 
     public async Task<Result<ProcessMetricsResponse>> Handle(
@@ -48,16 +46,6 @@ public class ProcessMetricsHandler
         CancellationToken cancellationToken)
     {
         var deviceId = new DeviceId(command.DeviceId);
-
-        // Verify device exists
-        var device = await _deviceRepository.GetByIdAsync(deviceId, cancellationToken);
-        if (device is null)
-        {
-            var error = Error.NotFound(
-                "DEVICE_NOT_FOUND",
-                $"Device with ID {command.DeviceId} was not found.");
-            return Result.Failure<ProcessMetricsResponse>(error);
-        }
 
         // Create metrics record using domain factory
         DeviceMetrics metrics;

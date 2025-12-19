@@ -9,6 +9,7 @@ using SignalBeam.BundleOrchestrator.Infrastructure.Persistence;
 using SignalBeam.BundleOrchestrator.Infrastructure.Persistence.Repositories;
 using SignalBeam.BundleOrchestrator.Infrastructure.Storage;
 using SignalBeam.Shared.Infrastructure.Messaging;
+using SignalBeam.Shared.Infrastructure.Authentication;
 
 namespace SignalBeam.BundleOrchestrator.Infrastructure;
 
@@ -45,6 +46,9 @@ public static class DependencyInjection
 
         // NATS message publisher
         ConfigureNats(services, configuration);
+
+        // API Key Authentication
+        services.AddSingleton<IApiKeyValidator, ApiKeyValidator>();
 
         return services;
     }

@@ -11,6 +11,6 @@ export interface PaginatedResponse<T> {
 }
 
 export interface PaginationParams {
-  page?: number
-  pageSize?: number
+  page?: number | undefined
+  pageSize?: number | undefined
 }

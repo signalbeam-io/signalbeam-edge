@@ -1,5 +1,6 @@
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.Shared.Infrastructure.Messaging;
 using SignalBeam.Shared.Infrastructure.Results;
 using SignalBeam.TelemetryProcessor.Application.Repositories;
 
@@ -22,23 +23,33 @@ public record ProcessHeartbeatResponse(
     Guid HeartbeatId,
     Guid DeviceId,
     DateTimeOffset Timestamp,
-    string DeviceStatus);
+    string Status);
+
+/// <summary>
+/// Event published when a device heartbeat is received and processed.
+/// DeviceManager subscribes to this to update device status.
+/// </summary>
+public record DeviceHeartbeatReceivedEvent(
+    Guid DeviceId,
+    DateTimeOffset Timestamp,
+    string Status,
+    string? IpAddress);
 
 /// <summary>
 /// Handler for ProcessHeartbeatCommand.
-/// Stores heartbeat in TimescaleDB and updates device status.
+/// Stores heartbeat in TimescaleDB and publishes event for DeviceManager.
 /// </summary>
 public class ProcessHeartbeatHandler
 {
     private readonly IDeviceHeartbeatRepository _heartbeatRepository;
-    private readonly IDeviceRepository _deviceRepository;
+    private readonly IMessagePublisher _messagePublisher;
 
     public ProcessHeartbeatHandler(
         IDeviceHeartbeatRepository heartbeatRepository,
-        IDeviceRepository deviceRepository)
+        IMessagePublisher messagePublisher)
     {
         _heartbeatRepository = heartbeatRepository;
-        _deviceRepository = deviceRepository;
+        _messagePublisher = messagePublisher;
     }
 
     public async Task<Result<ProcessHeartbeatResponse>> Handle(
@@ -46,16 +57,6 @@ public class ProcessHeartbeatHandler
         CancellationToken cancellationToken)
     {
         var deviceId = new DeviceId(command.DeviceId);
-
-        // Get device to update its status
-        var device = await _deviceRepository.GetByIdAsync(deviceId, cancellationToken);
-        if (device is null)
-        {
-            var error = Error.NotFound(
-                "DEVICE_NOT_FOUND",
-                $"Device with ID {command.DeviceId} was not found.");
-            return Result.Failure<ProcessHeartbeatResponse>(error);
-        }
 
         // Create heartbeat record
         var heartbeat = DeviceHeartbeat.Create(
@@ -69,14 +70,22 @@ public class ProcessHeartbeatHandler
         await _heartbeatRepository.AddAsync(heartbeat, cancellationToken);
         await _heartbeatRepository.SaveChangesAsync(cancellationToken);
 
-        // Update device status (this will raise domain events if status changes)
-        device.RecordHeartbeat(command.Timestamp);
-        await _deviceRepository.SaveChangesAsync(cancellationToken);
+        // Publish event for DeviceManager to update device status
+        var @event = new DeviceHeartbeatReceivedEvent(
+            command.DeviceId,
+            command.Timestamp,
+            command.Status,
+            command.IpAddress);
+
+        await _messagePublisher.PublishAsync(
+            "signalbeam.devices.events.heartbeat_received",
+            @event,
+            cancellationToken);
 
         return Result<ProcessHeartbeatResponse>.Success(new ProcessHeartbeatResponse(
             heartbeat.Id,
-            device.Id.Value,
+            deviceId.Value,
             heartbeat.Timestamp,
-            device.Status.ToString()));
+            command.Status));
     }
 }

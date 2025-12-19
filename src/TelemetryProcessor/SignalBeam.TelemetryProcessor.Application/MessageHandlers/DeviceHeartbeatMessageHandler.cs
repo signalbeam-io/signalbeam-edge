@@ -55,7 +55,7 @@ public class DeviceHeartbeatMessageHandler
                 _logger.LogDebug(
                     "Successfully processed heartbeat for device {DeviceId}, status: {Status}",
                     message.DeviceId,
-                    result.Value?.DeviceStatus);
+                    result.Value?.Status);
             }
         }
         catch (Exception ex)

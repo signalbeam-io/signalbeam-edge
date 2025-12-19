@@ -1,9 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Results;
 
-namespace SignalBeam.DeviceManager.Infrastructure.Authentication;
+namespace SignalBeam.Shared.Infrastructure.Authentication;
 
 /// <summary>
 /// Simple in-memory API key validator for MVP.
