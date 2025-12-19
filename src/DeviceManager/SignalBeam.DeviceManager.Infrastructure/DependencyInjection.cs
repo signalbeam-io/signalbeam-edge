@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.Core;
 using SignalBeam.DeviceManager.Application.Repositories;
-using SignalBeam.DeviceManager.Infrastructure.Authentication;
 using SignalBeam.DeviceManager.Infrastructure.Caching;
 using SignalBeam.DeviceManager.Infrastructure.Persistence;
 using SignalBeam.DeviceManager.Infrastructure.Persistence.Repositories;

@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.TelemetryProcessor.Application.Repositories;
 
 namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// Repository for DeviceHeartbeat with optimized time-series queries.
 /// </summary>
-public class DeviceHeartbeatRepository
+public class DeviceHeartbeatRepository : IDeviceHeartbeatRepository
 {
     private readonly TelemetryDbContext _context;
 
@@ -65,6 +66,37 @@ public class DeviceHeartbeatRepository
             .OrderByDescending(h => h.Timestamp)
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets the most recent heartbeat for a device (implements interface method).
+    /// </summary>
+    public Task<DeviceHeartbeat?> GetLatestByDeviceIdAsync(DeviceId deviceId, CancellationToken cancellationToken = default)
+    {
+        return GetLatestByDeviceAsync(deviceId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets heartbeats for a device within a time range (implements interface method).
+    /// </summary>
+    public async Task<IReadOnlyCollection<DeviceHeartbeat>> GetByDeviceIdAndTimeRangeAsync(
+        DeviceId deviceId,
+        DateTimeOffset startTime,
+        DateTimeOffset endTime,
+        CancellationToken cancellationToken = default)
+    {
+        return await GetByDeviceAndTimeRangeAsync(deviceId, startTime, endTime, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets all devices that haven't sent a heartbeat within the specified threshold (implements interface method).
+    /// </summary>
+    public async Task<IReadOnlyCollection<DeviceId>> GetStaleDevicesAsync(
+        TimeSpan threshold,
+        CancellationToken cancellationToken = default)
+    {
+        var deviceGuids = await GetInactiveDevicesAsync(threshold, cancellationToken);
+        return deviceGuids.Select(guid => new DeviceId(guid)).ToList();
     }
 
     /// <summary>
@@ -225,9 +257,9 @@ public class DeviceHeartbeatRepository
     /// <summary>
     /// Saves all pending changes to the database.
     /// </summary>
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }
 

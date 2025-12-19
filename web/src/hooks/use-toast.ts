@@ -3,8 +3,8 @@ import { useState, useCallback } from 'react'
 interface Toast {
   id: string
   title: string
-  description?: string
-  variant?: 'default' | 'destructive'
+  description?: string | undefined
+  variant?: 'default' | 'destructive' | undefined
 }
 
 /**

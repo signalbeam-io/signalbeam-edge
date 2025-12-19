@@ -1,31 +1,41 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SignalBeam.Domain.Enums;
-using SignalBeam.TelemetryProcessor.Application.Commands;
+using SignalBeam.Shared.Infrastructure.Messaging;
 using SignalBeam.TelemetryProcessor.Application.Repositories;
 
 namespace SignalBeam.TelemetryProcessor.Application.BackgroundServices;
 
 /// <summary>
-/// Background service that monitors device heartbeats and marks stale devices as offline.
+/// Event published when a device is detected as stale (no recent heartbeats).
+/// DeviceManager subscribes to this to mark devices as offline.
+/// </summary>
+public record DeviceStaleDetectedEvent(
+    Guid DeviceId,
+    DateTimeOffset LastHeartbeatTime,
+    DateTimeOffset DetectedAt);
+
+/// <summary>
+/// Background service that monitors device heartbeats and detects stale devices.
+/// Publishes events for DeviceManager to mark devices as offline.
 /// Runs periodically to check for devices that haven't sent heartbeats within the threshold.
 /// </summary>
 public class DeviceStatusMonitor : BackgroundService
 {
-    private readonly IDeviceHeartbeatRepository _heartbeatRepository;
-    private readonly UpdateDeviceStatusHandler _updateStatusHandler;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IMessagePublisher _messagePublisher;
     private readonly ILogger<DeviceStatusMonitor> _logger;
     private readonly DeviceStatusMonitorOptions _options;
 
     public DeviceStatusMonitor(
-        IDeviceHeartbeatRepository heartbeatRepository,
-        UpdateDeviceStatusHandler updateStatusHandler,
+        IServiceScopeFactory scopeFactory,
+        IMessagePublisher messagePublisher,
         ILogger<DeviceStatusMonitor> logger,
         IOptions<DeviceStatusMonitorOptions> options)
     {
-        _heartbeatRepository = heartbeatRepository;
-        _updateStatusHandler = updateStatusHandler;
+        _scopeFactory = scopeFactory;
+        _messagePublisher = messagePublisher;
         _logger = logger;
         _options = options.Value;
     }
@@ -56,9 +66,16 @@ public class DeviceStatusMonitor : BackgroundService
     {
         _logger.LogDebug("Checking for stale devices...");
 
-        var staleDevices = await _heartbeatRepository.GetStaleDevicesAsync(
-            _options.HeartbeatThreshold,
-            cancellationToken);
+        IReadOnlyCollection<Domain.ValueObjects.DeviceId> staleDevices;
+
+        // Create scope to resolve scoped repository
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var heartbeatRepository = scope.ServiceProvider.GetRequiredService<IDeviceHeartbeatRepository>();
+            staleDevices = await heartbeatRepository.GetStaleDevicesAsync(
+                _options.HeartbeatThreshold,
+                cancellationToken);
+        }
 
         if (staleDevices.Count == 0)
         {
@@ -74,33 +91,30 @@ public class DeviceStatusMonitor : BackgroundService
         {
             try
             {
-                var command = new UpdateDeviceStatusCommand(
+                var now = DateTimeOffset.UtcNow;
+                var lastHeartbeatTime = now - _options.HeartbeatThreshold;
+
+                var @event = new DeviceStaleDetectedEvent(
                     deviceId.Value,
-                    DeviceStatus.Offline,
-                    DateTimeOffset.UtcNow);
+                    lastHeartbeatTime,
+                    now);
 
-                var result = await _updateStatusHandler.Handle(command, cancellationToken);
+                // Publish event for DeviceManager to mark device as offline
+                await _messagePublisher.PublishAsync(
+                    "signalbeam.devices.events.stale_detected",
+                    @event,
+                    cancellationToken);
 
-                if (result.IsSuccess)
-                {
-                    _logger.LogInformation(
-                        "Marked device {DeviceId} as offline due to stale heartbeat",
-                        deviceId.Value);
-                }
-                else
-                {
-                    _logger.LogWarning(
-                        "Failed to mark device {DeviceId} as offline: {ErrorCode} - {ErrorMessage}",
-                        deviceId.Value,
-                        result.Error?.Code,
-                        result.Error?.Message);
-                }
+                _logger.LogInformation(
+                    "Published stale device event for {DeviceId} (no heartbeat since {LastHeartbeat})",
+                    deviceId.Value,
+                    lastHeartbeatTime);
             }
             catch (Exception ex)
             {
                 _logger.LogError(
                     ex,
-                    "Error marking device {DeviceId} as offline",
+                    "Error publishing stale device event for {DeviceId}",
                     deviceId.Value);
             }
         }

@@ -30,7 +30,8 @@ builder.Services.Configure<MetricsAggregationOptions>(
     builder.Configuration.GetSection("MetricsAggregation"));
 
 // Register command handlers from Application layer
-builder.Services.AddScoped<UpdateDeviceStatusHandler>();
+builder.Services.AddScoped<ProcessHeartbeatHandler>();
+builder.Services.AddScoped<ProcessMetricsHandler>();
 
 // Register background services from Application layer
 builder.Services.AddHostedService<DeviceStatusMonitor>();
