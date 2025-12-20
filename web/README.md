@@ -49,6 +49,21 @@ VITE_APP_ENV=development
 VITE_ENABLE_DEVTOOLS=true
 ```
 
+Authentication configuration (pick one mode):
+
+```env
+VITE_AUTH_MODE=apiKey
+# VITE_AUTH_MODE=entra
+VITE_ENTRA_CLIENT_ID=your-client-id
+VITE_ENTRA_TENANT_ID=your-tenant-id
+VITE_ENTRA_SCOPES=openid,profile,email,api://signalbeam-device-manager/.default
+```
+
+API key MVP testing uses the backend dev keys. Example (from `src/DeviceManager/SignalBeam.DeviceManager.Host/appsettings.json`):
+
+- Tenant `00000000-0000-0000-0000-000000000001`
+- API key `dev-api-key-1`
+
 ### 3. Run Development Server
 
 ```bash
@@ -67,6 +82,7 @@ The application will start at `http://localhost:3000`
 - `npm run format` - Format code with Prettier
 - `npm run format:check` - Check code formatting
 - `npm run type-check` - Run TypeScript type checking
+- `npm run test` - Run Vitest unit tests
 
 ## Project Structure
 

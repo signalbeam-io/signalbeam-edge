@@ -1,5 +1,8 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { logout } from '@/auth/auth-service'
+import { useAuthStore } from '@/stores/auth-store'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard' },
@@ -9,6 +12,13 @@ const navigation = [
 
 export function DashboardLayout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -35,6 +45,12 @@ export function DashboardLayout() {
                   </Link>
                 ))}
               </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {user && <span className="text-sm text-muted-foreground">{user.name}</span>}
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                Logout
+              </Button>
             </div>
           </div>
         </div>

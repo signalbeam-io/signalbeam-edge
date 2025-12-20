@@ -304,6 +304,27 @@ cd src/EdgeAgent/SignalBeam.EdgeAgent.Host
 dotnet build
 ```
 
+### Simulator (API Key)
+
+Use the simulator to register a device and emit heartbeats/metrics against the local APIs:
+
+```bash
+dotnet run --project src/EdgeAgent/SignalBeam.EdgeAgent.Simulator -- \
+  --device-manager-url http://localhost:5001 \
+  --bundle-orchestrator-url http://localhost:5002 \
+  --api-key dev-api-key-1 \
+  --tenant-id 00000000-0000-0000-0000-000000000001
+```
+
+You can also set environment variables instead of CLI flags:
+
+```bash
+export SIM_DEVICE_MANAGER_URL=http://localhost:5001
+export SIM_BUNDLE_ORCHESTRATOR_URL=http://localhost:5002
+export SIM_API_KEY=dev-api-key-1
+export SIM_TENANT_ID=00000000-0000-0000-0000-000000000001
+```
+
 ### Run Locally
 
 ```bash
