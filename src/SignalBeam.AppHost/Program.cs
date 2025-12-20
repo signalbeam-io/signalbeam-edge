@@ -40,4 +40,10 @@ var telemetryProcessor = builder.AddProject<Projects.SignalBeam_TelemetryProcess
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
+var edgeAgentSimulator = builder.AddProject<Projects.SignalBeam_EdgeAgent_Simulator>("edge-agent-simulator")
+    .WithEnvironment("SIM_DEVICE_MANAGER_URL", deviceManager.GetEndpoint("http"))
+    .WithEnvironment("SIM_BUNDLE_ORCHESTRATOR_URL", bundleOrchestrator.GetEndpoint("http"))
+    .WithEnvironment("SIM_API_KEY", "dev-api-key-1")
+    .WithEnvironment("SIM_TENANT_ID", "00000000-0000-0000-0000-000000000001");
+
 builder.Build().Run();

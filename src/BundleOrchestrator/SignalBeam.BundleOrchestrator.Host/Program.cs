@@ -95,6 +95,17 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+// Add CORS for local web UI development
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("WebDev", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 // Register CQRS handlers manually (we're using manual endpoints, not Wolverine HTTP)
 builder.Services.AddScoped<CreateBundleHandler>();
 builder.Services.AddScoped<CreateBundleVersionHandler>();
@@ -166,6 +177,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("WebDev");
+}
 
 // Add API key authentication middleware (for edge devices)
 app.UseApiKeyAuthentication();
