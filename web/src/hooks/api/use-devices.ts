@@ -83,3 +83,64 @@ export function useDeleteDevice() {
     },
   })
 }
+
+/**
+ * Get device metrics (24h history)
+ */
+export function useDeviceMetrics(id: string, enabled = true) {
+  return useQuery({
+    queryKey: [QUERY_KEY, id, 'metrics'],
+    queryFn: () => devicesApi.getDeviceMetrics(id),
+    enabled,
+    staleTime: 60_000, // 1 minute
+    refetchInterval: 60_000, // Refetch every minute
+  })
+}
+
+/**
+ * Get device containers
+ */
+export function useDeviceContainers(id: string, enabled = true) {
+  return useQuery({
+    queryKey: [QUERY_KEY, id, 'containers'],
+    queryFn: () => devicesApi.getDeviceContainers(id),
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: 30_000, // Refetch every 30 seconds
+  })
+}
+
+/**
+ * Get container logs
+ */
+export function useContainerLogs(
+  deviceId: string,
+  containerName: string,
+  tail?: number,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: [QUERY_KEY, deviceId, 'containers', containerName, 'logs', tail],
+    queryFn: () => devicesApi.getContainerLogs(deviceId, containerName, tail),
+    enabled,
+    staleTime: 10_000,
+    refetchInterval: 10_000, // Refetch every 10 seconds for logs
+  })
+}
+
+/**
+ * Get device activity/events
+ */
+export function useDeviceActivity(
+  id: string,
+  page: number = 1,
+  pageSize: number = 20,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: [QUERY_KEY, id, 'activity', page, pageSize],
+    queryFn: () => devicesApi.getDeviceActivity(id, page, pageSize),
+    enabled,
+    staleTime: 30_000,
+  })
+}

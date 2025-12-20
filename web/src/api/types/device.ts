@@ -47,3 +47,62 @@ export interface UpdateDeviceRequest {
   groupIds?: string[]
   metadata?: Record<string, unknown>
 }
+
+/**
+ * Device metrics for charts (24h aggregated data)
+ */
+export interface DeviceMetrics {
+  timestamp: string
+  cpuUsage: number
+  memoryUsage: number
+  diskUsage: number
+}
+
+/**
+ * Device activity/event entry
+ */
+export interface DeviceActivity {
+  id: string
+  deviceId: string
+  eventType: DeviceEventType
+  message: string
+  metadata?: Record<string, unknown>
+  timestamp: string
+}
+
+export enum DeviceEventType {
+  Registered = 'registered',
+  Updated = 'updated',
+  StatusChanged = 'status_changed',
+  BundleAssigned = 'bundle_assigned',
+  BundleUpdated = 'bundle_updated',
+  ContainerStarted = 'container_started',
+  ContainerStopped = 'container_stopped',
+  ContainerError = 'container_error',
+  HeartbeatMissed = 'heartbeat_missed',
+  HeartbeatResumed = 'heartbeat_resumed',
+}
+
+/**
+ * Container log entry
+ */
+export interface ContainerLog {
+  timestamp: string
+  container: string
+  level: 'info' | 'warn' | 'error' | 'debug'
+  message: string
+}
+
+/**
+ * Container details with extended information
+ */
+export interface ContainerDetails {
+  name: string
+  image: string
+  status: string
+  state: 'running' | 'stopped' | 'error'
+  uptime?: number
+  restartCount?: number
+  ports?: string[]
+  createdAt?: string
+}
