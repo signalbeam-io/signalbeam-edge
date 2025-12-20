@@ -4,8 +4,12 @@
 
 import { apiRequest } from '../client'
 import type {
+  ContainerDetails,
+  ContainerLog,
   Device,
+  DeviceActivity,
   DeviceFilters,
+  DeviceMetrics,
   PaginatedResponse,
   RegisterDeviceRequest,
   UpdateDeviceRequest,
@@ -76,6 +80,61 @@ export const devicesApi = {
     return apiRequest<void>({
       method: 'DELETE',
       url: `${BASE_PATH}/${id}`,
+    })
+  },
+
+  /**
+   * Get device metrics (24h history)
+   */
+  async getDeviceMetrics(id: string): Promise<DeviceMetrics[]> {
+    return apiRequest<DeviceMetrics[]>({
+      method: 'GET',
+      url: `${BASE_PATH}/${id}/metrics`,
+    })
+  },
+
+  /**
+   * Get device containers
+   */
+  async getDeviceContainers(id: string): Promise<ContainerDetails[]> {
+    return apiRequest<ContainerDetails[]>({
+      method: 'GET',
+      url: `${BASE_PATH}/${id}/containers`,
+    })
+  },
+
+  /**
+   * Get container logs
+   */
+  async getContainerLogs(
+    deviceId: string,
+    containerName: string,
+    tail?: number
+  ): Promise<ContainerLog[]> {
+    const params = new URLSearchParams()
+    if (tail) params.append('tail', tail.toString())
+
+    return apiRequest<ContainerLog[]>({
+      method: 'GET',
+      url: `${BASE_PATH}/${deviceId}/containers/${containerName}/logs?${params.toString()}`,
+    })
+  },
+
+  /**
+   * Get device activity/events
+   */
+  async getDeviceActivity(
+    id: string,
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<PaginatedResponse<DeviceActivity>> {
+    const params = new URLSearchParams()
+    params.append('page', page.toString())
+    params.append('pageSize', pageSize.toString())
+
+    return apiRequest<PaginatedResponse<DeviceActivity>>({
+      method: 'GET',
+      url: `${BASE_PATH}/${id}/activity?${params.toString()}`,
     })
   },
 }
