@@ -1,5 +1,8 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { ApiException, type ApiError } from './types'
+import { AUTH_MODE } from '@/auth/auth-config'
+import { getAccessToken } from '@/auth/auth-service'
+import { useAuthStore } from '@/stores/auth-store'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
@@ -18,11 +21,18 @@ export const apiClient: AxiosInstance = axios.create({
  * Request interceptor to add authentication token
  */
 apiClient.interceptors.request.use(
-  (config) => {
-    // Add auth token from storage if available
-    const token = localStorage.getItem('authToken')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+  async (config) => {
+    const authState = useAuthStore.getState()
+    config.headers = config.headers ?? {}
+    if (AUTH_MODE === 'apiKey') {
+      if (authState.apiKey) {
+        config.headers['X-Api-Key'] = authState.apiKey
+      }
+    } else {
+      const token = await getAccessToken()
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
     }
     return config
   },
@@ -38,9 +48,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken')
-      window.location.href = '/login'
+      const nextUrl = `${window.location.pathname}${window.location.search}`
+      useAuthStore.getState().clearAuth()
+      window.location.href = `/login?redirect=${encodeURIComponent(nextUrl)}`
     }
     return Promise.reject(error)
   }

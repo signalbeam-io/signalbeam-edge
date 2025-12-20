@@ -162,9 +162,9 @@ The query client is configured with intelligent retry logic:
 ## Authentication
 
 The API client automatically:
-- Adds JWT token from localStorage to all requests
+- Adds JWT bearer tokens (Entra ID) or `X-Api-Key` (MVP) based on auth mode
 - Redirects to `/login` on 401 Unauthorized responses
-- Clears auth token on logout
+- Clears stored auth state on logout
 
 ## Configuration
 
