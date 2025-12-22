@@ -77,7 +77,7 @@ export function AssignBundleDialog({ open, onOpenChange, bundle }: AssignBundleD
       if (data.groupIds && data.groupIds.length > 0) {
         await createRollout.mutateAsync({
           bundleId: bundle.id,
-          bundleVersion: bundle.currentVersion,
+          version: bundle.currentVersion,
           targetType: 'group',
           targetIds: data.groupIds,
         })
@@ -87,7 +87,7 @@ export function AssignBundleDialog({ open, onOpenChange, bundle }: AssignBundleD
       if (data.deviceIds && data.deviceIds.length > 0) {
         await createRollout.mutateAsync({
           bundleId: bundle.id,
-          bundleVersion: bundle.currentVersion,
+          version: bundle.currentVersion,
           targetType: 'device',
           targetIds: data.deviceIds,
         })
@@ -301,11 +301,11 @@ export function AssignBundleDialog({ open, onOpenChange, bundle }: AssignBundleD
               )}
             </div>
 
-            <FormDescription>
+            <p className="text-sm text-muted-foreground">
               {totalSelected === 0
                 ? 'Select at least one group or device to assign this bundle'
                 : `${totalSelected} target(s) selected`}
-            </FormDescription>
+            </p>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>

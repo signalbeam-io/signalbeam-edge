@@ -2,7 +2,7 @@
  * CreateBundle Dialog Component
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash2, Package } from 'lucide-react'
@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useCreateBundle } from '@/hooks/api/use-bundles'
 import { createBundleSchema, CreateBundleFormData } from '../validation/bundle-schemas'
 import { useToast } from '@/hooks/use-toast'
@@ -40,14 +41,23 @@ export function CreateBundleDialog({ open, onOpenChange }: CreateBundleDialogPro
   const { toast } = useToast()
   const createBundle = useCreateBundle()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [includeVersion, setIncludeVersion] = useState(false)
 
   const form = useForm<CreateBundleFormData>({
     resolver: zodResolver(createBundleSchema),
     defaultValues: {
       name: '',
       description: '',
-      version: '1.0.0',
-      containers: [
+      version: undefined,
+      containers: undefined,
+    },
+  })
+
+  // Update version and containers when toggle changes
+  useEffect(() => {
+    if (includeVersion) {
+      form.setValue('version', '1.0.0')
+      form.setValue('containers', [
         {
           name: '',
           image: '',
@@ -56,9 +66,12 @@ export function CreateBundleDialog({ open, onOpenChange }: CreateBundleDialogPro
           ports: [],
           volumes: [],
         },
-      ],
-    },
-  })
+      ])
+    } else {
+      form.setValue('version', undefined)
+      form.setValue('containers', undefined)
+    }
+  }, [includeVersion, form])
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -68,10 +81,15 @@ export function CreateBundleDialog({ open, onOpenChange }: CreateBundleDialogPro
   const onSubmit = async (data: CreateBundleFormData) => {
     setIsSubmitting(true)
     try {
-      const payload = {
+      const payload: any = {
         name: data.name,
-        version: data.version,
-        containers: data.containers.map((c) => ({
+        ...(data.description && { description: data.description }),
+      }
+
+      // Only include version and containers if provided
+      if (data.version && data.containers) {
+        payload.version = data.version
+        payload.containers = data.containers.map((c) => ({
           name: c.name,
           image: c.image,
           tag: c.tag,
@@ -84,15 +102,18 @@ export function CreateBundleDialog({ open, onOpenChange }: CreateBundleDialogPro
               ...(v.readOnly !== undefined && { readOnly: v.readOnly }),
             })),
           }),
-        })),
-        ...(data.description && { description: data.description }),
+        }))
       }
+
       await createBundle.mutateAsync(payload)
       toast({
         title: 'Bundle created',
-        description: `Bundle "${data.name}" has been created successfully.`,
+        description: data.version
+          ? `Bundle "${data.name}" v${data.version} has been created successfully.`
+          : `Bundle "${data.name}" has been created successfully. Add a version to deploy it to devices.`,
       })
       form.reset()
+      setIncludeVersion(false)
       onOpenChange(false)
     } catch (error) {
       toast({
@@ -118,6 +139,7 @@ export function CreateBundleDialog({ open, onOpenChange }: CreateBundleDialogPro
 
   const handleClose = () => {
     form.reset()
+    setIncludeVersion(false)
     onOpenChange(false)
   }
 
@@ -168,38 +190,63 @@ export function CreateBundleDialog({ open, onOpenChange }: CreateBundleDialogPro
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="version"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Initial Version</FormLabel>
-                    <FormControl>
-                      <Input placeholder="1.0.0" {...field} />
-                    </FormControl>
-                    <FormDescription>Use semantic versioning (e.g., 1.0.0)</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Include Initial Version Toggle */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeVersion"
+                  checked={includeVersion}
+                  onCheckedChange={(checked) => setIncludeVersion(checked === true)}
+                />
+                <label
+                  htmlFor="includeVersion"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Create initial version now
+                </label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {includeVersion
+                  ? 'Define the first version with containers to deploy to devices'
+                  : 'Create bundle without a version - you can add versions later'}
+              </p>
             </div>
 
-            {/* Container Definitions */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Containers</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Define the containers to run on devices
-                  </p>
+            {/* Version and Container Definitions - Only show if includeVersion is true */}
+            {includeVersion && (
+              <>
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="version"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Initial Version</FormLabel>
+                        <FormControl>
+                          <Input placeholder="1.0.0" {...field} />
+                        </FormControl>
+                        <FormDescription>Use semantic versioning (e.g., 1.0.0)</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddContainer}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Container
-                </Button>
-              </div>
 
-              {fields.map((field, index) => (
+                {/* Container Definitions */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Containers</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Define the containers to run on devices
+                      </p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={handleAddContainer}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Container
+                    </Button>
+                  </div>
+
+                  {fields?.map((field, index) => (
                 <Card key={field.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
@@ -265,8 +312,10 @@ export function CreateBundleDialog({ open, onOpenChange }: CreateBundleDialogPro
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>

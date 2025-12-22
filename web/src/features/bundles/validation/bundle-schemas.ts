@@ -43,7 +43,7 @@ export const containerDefinitionSchema = z.object({
 })
 
 /**
- * Create bundle schema
+ * Create bundle schema (with optional initial version)
  */
 export const createBundleSchema = z.object({
   name: z
@@ -53,12 +53,25 @@ export const createBundleSchema = z.object({
   description: z.string().max(500, 'Description must be less than 500 characters').optional(),
   version: z
     .string()
-    .regex(semanticVersionPattern, 'Version must be in semantic versioning format (e.g., 1.0.0)'),
+    .regex(semanticVersionPattern, 'Version must be in semantic versioning format (e.g., 1.0.0)')
+    .optional(),
   containers: z
     .array(containerDefinitionSchema)
     .min(1, 'At least one container is required')
-    .max(10, 'Maximum 10 containers per bundle'),
-})
+    .max(10, 'Maximum 10 containers per bundle')
+    .optional(),
+}).refine(
+  (data) => {
+    // Version and containers must both be provided or both be omitted
+    const hasVersion = !!data.version
+    const hasContainers = !!data.containers && data.containers.length > 0
+    return hasVersion === hasContainers
+  },
+  {
+    message: 'Version and containers must both be provided or both be omitted',
+    path: ['version'],
+  }
+)
 
 /**
  * Update bundle schema

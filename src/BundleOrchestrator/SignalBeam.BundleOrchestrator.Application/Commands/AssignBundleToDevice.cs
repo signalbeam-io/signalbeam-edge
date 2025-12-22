@@ -116,9 +116,11 @@ public class AssignBundleToDeviceHandler
             await _desiredStateRepository.AddAsync(desiredState, cancellationToken);
         }
 
-        // Create rollout status entry
+        // Create rollout status entry (each device assignment is its own rollout)
+        var rolloutId = Guid.NewGuid();
         var rolloutStatus = RolloutStatus.Create(
             Guid.NewGuid(),
+            rolloutId,
             bundleId,
             bundleVersion,
             deviceId,

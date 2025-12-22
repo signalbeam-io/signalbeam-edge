@@ -55,6 +55,16 @@ public class RolloutStatusRepository : IRolloutStatusRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<RolloutStatus>> GetByRolloutIdAsync(
+        Guid rolloutId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.RolloutStatuses
+            .Where(r => r.RolloutId == rolloutId)
+            .OrderBy(r => r.DeviceId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(RolloutStatus rolloutStatus, CancellationToken cancellationToken = default)
     {
         await _context.RolloutStatuses.AddAsync(rolloutStatus, cancellationToken);

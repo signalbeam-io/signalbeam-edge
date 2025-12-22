@@ -269,11 +269,30 @@ export const bundlesApi = {
    * Create a new bundle
    */
   async createBundle(data: CreateBundleRequest): Promise<AppBundle> {
-    return apiRequest<AppBundle>({
+    interface CreateBundleBackendResponse {
+      bundleId: string
+      name: string
+      description: string | null
+      createdAt: string
+    }
+
+    const response = await apiRequest<CreateBundleBackendResponse>({
       method: 'POST',
       url: BASE_PATH,
       data: withTenantId(data),
     })
+
+    // Map backend response to AppBundle
+    return {
+      id: response.bundleId,
+      tenantId: '',
+      name: response.name,
+      description: response.description,
+      currentVersion: '', // No version yet
+      versions: [], // Empty versions array
+      createdAt: response.createdAt,
+      updatedAt: response.createdAt,
+    }
   },
 
   /**
@@ -320,11 +339,36 @@ export const bundlesApi = {
     bundleId: string,
     data: CreateBundleVersionRequest
   ): Promise<BundleVersion> {
-    return apiRequest<BundleVersion>({
+    interface CreateBundleVersionBackendResponse {
+      versionId: string
+      bundleId: string
+      version: string
+      containerCount: number
+      createdAt: string
+    }
+
+    const response = await apiRequest<CreateBundleVersionBackendResponse>({
       method: 'POST',
       url: `${BASE_PATH}/${bundleId}/versions`,
       data: withTenantId(data),
     })
+
+    // Map backend response to BundleVersion
+    // Note: We don't have full container details in the response,
+    // so we use the request data
+    return {
+      version: response.version,
+      containers: data.containers.map((c) => ({
+        name: c.name,
+        image: c.image,
+        tag: c.tag || 'latest',
+        environment: c.environment,
+        ports: c.ports,
+        volumes: c.volumes,
+      })),
+      createdAt: response.createdAt,
+      isActive: false, // Will be updated when fetching full bundle details
+    }
   },
 
   /**

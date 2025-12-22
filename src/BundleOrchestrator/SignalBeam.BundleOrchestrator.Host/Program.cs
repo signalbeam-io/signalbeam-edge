@@ -119,6 +119,11 @@ builder.Services.AddScoped<GetBundleVersionHandler>();
 builder.Services.AddScoped<GetDeviceDesiredStateHandler>();
 builder.Services.AddScoped<GetRolloutStatusHandler>();
 
+// Unified Rollout handlers
+builder.Services.AddScoped<CreateRolloutHandler>();
+builder.Services.AddScoped<GetRolloutByIdHandler>();
+builder.Services.AddScoped<GetRolloutDevicesHandler>();
+builder.Services.AddScoped<CancelRolloutHandler>();
 
 // Add OpenAPI and Scalar
 builder.Services.AddOpenApi(options =>
@@ -201,6 +206,7 @@ app.MapBundleEndpoints();
 app.MapBundleVersionEndpoints();
 app.MapBundleAssignmentEndpoints();
 app.MapRolloutStatusEndpoints();
+app.MapRolloutEndpoints(); // Unified Rollout API
 
 app.Run();
 

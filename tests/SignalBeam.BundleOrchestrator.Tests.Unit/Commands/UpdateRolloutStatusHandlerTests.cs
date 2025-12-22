@@ -20,8 +20,10 @@ public class UpdateRolloutStatusHandlerTests
     public async Task Handle_ShouldMarkRolloutAsInProgress_WhenStatusIsInProgress()
     {
         // Arrange
+        var rolloutStatusId = Guid.NewGuid();
         var rolloutId = Guid.NewGuid();
         var rolloutStatus = RolloutStatus.Create(
+            rolloutStatusId,
             rolloutId,
             new BundleId(Guid.NewGuid()),
             BundleVersion.Parse("1.0.0"),
@@ -29,7 +31,7 @@ public class UpdateRolloutStatusHandlerTests
             DateTimeOffset.UtcNow);
 
         var command = new UpdateRolloutStatusCommand(
-            RolloutId: rolloutId,
+            RolloutId: rolloutStatusId,
             Status: "InProgress");
 
         _rolloutStatusRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -45,7 +47,7 @@ public class UpdateRolloutStatusHandlerTests
         rolloutStatus.Status.Should().Be(RolloutState.InProgress);
 
         await _rolloutStatusRepository.Received(1).UpdateAsync(
-            Arg.Is<RolloutStatus>(rs => rs.Id == rolloutId),
+            Arg.Is<RolloutStatus>(rs => rs.Id == rolloutStatusId),
             Arg.Any<CancellationToken>());
     }
 
@@ -53,8 +55,10 @@ public class UpdateRolloutStatusHandlerTests
     public async Task Handle_ShouldMarkRolloutAsSucceeded_WhenStatusIsSucceeded()
     {
         // Arrange
+        var rolloutStatusId = Guid.NewGuid();
         var rolloutId = Guid.NewGuid();
         var rolloutStatus = RolloutStatus.Create(
+            rolloutStatusId,
             rolloutId,
             new BundleId(Guid.NewGuid()),
             BundleVersion.Parse("1.0.0"),
@@ -63,7 +67,7 @@ public class UpdateRolloutStatusHandlerTests
         rolloutStatus.MarkInProgress();
 
         var command = new UpdateRolloutStatusCommand(
-            RolloutId: rolloutId,
+            RolloutId: rolloutStatusId,
             Status: "Succeeded");
 
         _rolloutStatusRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -84,8 +88,10 @@ public class UpdateRolloutStatusHandlerTests
     public async Task Handle_ShouldMarkRolloutAsFailed_WhenStatusIsFailedWithErrorMessage()
     {
         // Arrange
+        var rolloutStatusId = Guid.NewGuid();
         var rolloutId = Guid.NewGuid();
         var rolloutStatus = RolloutStatus.Create(
+            rolloutStatusId,
             rolloutId,
             new BundleId(Guid.NewGuid()),
             BundleVersion.Parse("1.0.0"),
@@ -94,7 +100,7 @@ public class UpdateRolloutStatusHandlerTests
         rolloutStatus.MarkInProgress();
 
         var command = new UpdateRolloutStatusCommand(
-            RolloutId: rolloutId,
+            RolloutId: rolloutStatusId,
             Status: "Failed",
             ErrorMessage: "Container failed to start");
 
@@ -136,8 +142,10 @@ public class UpdateRolloutStatusHandlerTests
     public async Task Handle_ShouldReturnFailure_WhenStatusIsInvalid()
     {
         // Arrange
+        var rolloutStatusId = Guid.NewGuid();
         var rolloutId = Guid.NewGuid();
         var rolloutStatus = RolloutStatus.Create(
+            rolloutStatusId,
             rolloutId,
             new BundleId(Guid.NewGuid()),
             BundleVersion.Parse("1.0.0"),
@@ -145,7 +153,7 @@ public class UpdateRolloutStatusHandlerTests
             DateTimeOffset.UtcNow);
 
         var command = new UpdateRolloutStatusCommand(
-            RolloutId: rolloutId,
+            RolloutId: rolloutStatusId,
             Status: "InvalidStatus");
 
         _rolloutStatusRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -164,8 +172,10 @@ public class UpdateRolloutStatusHandlerTests
     public async Task Handle_ShouldReturnFailure_WhenFailedStatusHasNoErrorMessage()
     {
         // Arrange
+        var rolloutStatusId = Guid.NewGuid();
         var rolloutId = Guid.NewGuid();
         var rolloutStatus = RolloutStatus.Create(
+            rolloutStatusId,
             rolloutId,
             new BundleId(Guid.NewGuid()),
             BundleVersion.Parse("1.0.0"),
@@ -173,7 +183,7 @@ public class UpdateRolloutStatusHandlerTests
             DateTimeOffset.UtcNow);
 
         var command = new UpdateRolloutStatusCommand(
-            RolloutId: rolloutId,
+            RolloutId: rolloutStatusId,
             Status: "Failed",
             ErrorMessage: null);
 
