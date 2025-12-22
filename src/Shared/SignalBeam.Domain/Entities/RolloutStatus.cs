@@ -9,6 +9,11 @@ namespace SignalBeam.Domain.Entities;
 public class RolloutStatus : Entity<Guid>
 {
     /// <summary>
+    /// Unique identifier for the rollout operation (groups related device rollouts together).
+    /// </summary>
+    public Guid RolloutId { get; private set; }
+
+    /// <summary>
     /// Bundle being rolled out.
     /// </summary>
     public BundleId BundleId { get; private set; }
@@ -58,11 +63,13 @@ public class RolloutStatus : Entity<Guid>
 
     private RolloutStatus(
         Guid id,
+        Guid rolloutId,
         BundleId bundleId,
         BundleVersion bundleVersion,
         DeviceId deviceId,
         DateTimeOffset startedAt) : base(id)
     {
+        RolloutId = rolloutId;
         BundleId = bundleId;
         BundleVersion = bundleVersion;
         DeviceId = deviceId;
@@ -76,12 +83,13 @@ public class RolloutStatus : Entity<Guid>
     /// </summary>
     public static RolloutStatus Create(
         Guid id,
+        Guid rolloutId,
         BundleId bundleId,
         BundleVersion bundleVersion,
         DeviceId deviceId,
         DateTimeOffset startedAt)
     {
-        return new RolloutStatus(id, bundleId, bundleVersion, deviceId, startedAt);
+        return new RolloutStatus(id, rolloutId, bundleId, bundleVersion, deviceId, startedAt);
     }
 
     /// <summary>
@@ -125,6 +133,18 @@ public class RolloutStatus : Entity<Guid>
         CompletedAt = null;
         ErrorMessage = null;
     }
+
+    /// <summary>
+    /// Marks rollout as cancelled.
+    /// </summary>
+    public void MarkCancelled(DateTimeOffset cancelledAt)
+    {
+        if (Status == RolloutState.Succeeded)
+            throw new InvalidOperationException("Cannot cancel a succeeded rollout.");
+
+        Status = RolloutState.Cancelled;
+        CompletedAt = cancelledAt;
+    }
 }
 
 /// <summary>
@@ -135,5 +155,6 @@ public enum RolloutState
     Pending = 0,
     InProgress = 1,
     Succeeded = 2,
-    Failed = 3
+    Failed = 3,
+    Cancelled = 4
 }

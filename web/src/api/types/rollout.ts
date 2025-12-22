@@ -8,7 +8,7 @@ export interface Rollout {
   id: string
   tenantId: string
   bundleId: string
-  bundleVersion: string
+  version: string
   targetType: 'device' | 'group'
   targetIds: string[]
   status: RolloutStatus
@@ -52,7 +52,7 @@ export enum DeviceRolloutState {
 
 export interface CreateRolloutRequest {
   bundleId: string
-  bundleVersion: string
+  version: string
   targetType: 'device' | 'group'
   targetIds: string[]
 }

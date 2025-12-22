@@ -114,6 +114,9 @@ public class AssignBundleToGroupHandler
 
         var assignedAt = DateTimeOffset.UtcNow;
 
+        // Generate a single rollout ID for all devices in the group
+        var rolloutId = Guid.NewGuid();
+
         // Assign bundle to each device in the group
         foreach (var deviceId in deviceIds)
         {
@@ -140,9 +143,10 @@ public class AssignBundleToGroupHandler
                 await _desiredStateRepository.AddAsync(desiredState, cancellationToken);
             }
 
-            // Create rollout status entry for each device
+            // Create rollout status entry for each device (all share the same rolloutId)
             var rolloutStatus = RolloutStatus.Create(
                 Guid.NewGuid(),
+                rolloutId,
                 bundleId,
                 bundleVersion,
                 deviceId,

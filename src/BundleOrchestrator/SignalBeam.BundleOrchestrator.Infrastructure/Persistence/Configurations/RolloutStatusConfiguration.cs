@@ -20,6 +20,11 @@ public class RolloutStatusConfiguration : IEntityTypeConfiguration<RolloutStatus
         builder.Property(r => r.Id)
             .HasColumnName("id");
 
+        // RolloutId
+        builder.Property(r => r.RolloutId)
+            .HasColumnName("rollout_id")
+            .IsRequired();
+
         // BundleId
         builder.Property(r => r.BundleId)
             .HasConversion(
@@ -73,6 +78,12 @@ public class RolloutStatusConfiguration : IEntityTypeConfiguration<RolloutStatus
             .IsRequired();
 
         // Indexes for performance
+        builder.HasIndex(r => r.RolloutId)
+            .HasDatabaseName("ix_rollout_statuses_rollout_id");
+
+        builder.HasIndex(r => new { r.RolloutId, r.Status })
+            .HasDatabaseName("ix_rollout_statuses_rollout_id_status");
+
         builder.HasIndex(r => new { r.DeviceId, r.BundleId, r.BundleVersion })
             .IsUnique()
             .HasDatabaseName("ix_rollout_statuses_device_bundle_version");

@@ -8,12 +8,14 @@ namespace SignalBeam.BundleOrchestrator.Tests.Unit.Queries;
 public class GetBundlesHandlerTests
 {
     private readonly IBundleRepository _bundleRepository;
+    private readonly IBundleVersionRepository _bundleVersionRepository;
     private readonly GetBundlesHandler _handler;
 
     public GetBundlesHandlerTests()
     {
         _bundleRepository = Substitute.For<IBundleRepository>();
-        _handler = new GetBundlesHandler(_bundleRepository);
+        _bundleVersionRepository = Substitute.For<IBundleVersionRepository>();
+        _handler = new GetBundlesHandler(_bundleRepository, _bundleVersionRepository);
     }
 
     [Fact]

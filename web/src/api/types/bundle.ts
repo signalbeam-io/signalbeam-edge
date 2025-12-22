@@ -46,8 +46,8 @@ export interface VolumeMapping {
 export interface CreateBundleRequest {
   name: string
   description?: string
-  version: string
-  containers: ContainerDefinition[]
+  version?: string
+  containers?: ContainerDefinition[]
 }
 
 export interface UpdateBundleRequest {

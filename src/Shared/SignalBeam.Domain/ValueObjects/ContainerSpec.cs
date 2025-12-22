@@ -1,4 +1,5 @@
 using SignalBeam.Domain.Abstractions;
+using System.Text.Json.Serialization;
 
 namespace SignalBeam.Domain.ValueObjects;
 
@@ -39,6 +40,7 @@ public class ContainerSpec : ValueObject
 
     private ContainerSpec() { }
 
+    [JsonConstructor]
     private ContainerSpec(
         string name,
         string image,

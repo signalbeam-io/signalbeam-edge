@@ -37,6 +37,13 @@ public interface IRolloutStatusRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets all rollout statuses for a specific rollout ID.
+    /// </summary>
+    Task<IReadOnlyList<RolloutStatus>> GetByRolloutIdAsync(
+        Guid rolloutId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds a new rollout status.
     /// </summary>
     Task AddAsync(RolloutStatus rolloutStatus, CancellationToken cancellationToken = default);
