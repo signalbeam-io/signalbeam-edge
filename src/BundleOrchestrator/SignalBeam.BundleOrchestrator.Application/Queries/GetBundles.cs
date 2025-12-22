@@ -17,7 +17,8 @@ public record BundleSummaryDto(
     string Name,
     string? Description,
     string? LatestVersion,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<BundleVersionSummaryDto> Versions);
 
 /// <summary>
 /// Response for GetBundlesQuery.
@@ -32,10 +33,14 @@ public record GetBundlesResponse(
 public class GetBundlesHandler
 {
     private readonly IBundleRepository _bundleRepository;
+    private readonly IBundleVersionRepository _bundleVersionRepository;
 
-    public GetBundlesHandler(IBundleRepository bundleRepository)
+    public GetBundlesHandler(
+        IBundleRepository bundleRepository,
+        IBundleVersionRepository bundleVersionRepository)
     {
         _bundleRepository = bundleRepository;
+        _bundleVersionRepository = bundleVersionRepository;
     }
 
     public async Task<Result<GetBundlesResponse>> Handle(
@@ -48,13 +53,33 @@ public class GetBundlesHandler
         var bundles = await _bundleRepository.GetAllAsync(tenantId, cancellationToken);
 
         // Map to DTOs
-        var bundleDtos = bundles.Select(b => new BundleSummaryDto(
-            b.Id.Value,
-            b.Name,
-            b.Description,
-            b.LatestVersion?.ToString(),
-            b.CreatedAt
-        )).ToList();
+        var bundleDtos = new List<BundleSummaryDto>();
+        foreach (var bundle in bundles)
+        {
+            var versions = await _bundleVersionRepository.GetAllVersionsAsync(bundle.Id, cancellationToken);
+            var versionDtos = versions.Select(v => new BundleVersionSummaryDto(
+                v.Id,
+                v.Version.ToString(),
+                v.Containers.Select(c => new ContainerSpecDetailDto(
+                    c.Name,
+                    c.Image,
+                    c.EnvironmentVariables,
+                    c.PortMappings,
+                    c.VolumeMounts,
+                    c.AdditionalParameters)).ToList(),
+                v.Containers.Count,
+                v.ReleaseNotes,
+                v.CreatedAt
+            )).ToList();
+
+            bundleDtos.Add(new BundleSummaryDto(
+                bundle.Id.Value,
+                bundle.Name,
+                bundle.Description,
+                bundle.LatestVersion?.ToString(),
+                bundle.CreatedAt,
+                versionDtos));
+        }
 
         return Result<GetBundlesResponse>.Success(new GetBundlesResponse(bundleDtos));
     }

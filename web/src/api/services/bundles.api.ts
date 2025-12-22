@@ -3,6 +3,7 @@
  */
 
 import { apiRequest } from '../client'
+import { appendTenantId, withTenantId } from './tenant'
 import type {
   AppBundle,
   BundleFilters,
@@ -15,6 +16,212 @@ import type {
 
 const BASE_PATH = '/api/bundles'
 
+interface BackendBundleSummary {
+  bundleId: string
+  name: string
+  description: string | null
+  latestVersion: string | null
+  createdAt: string
+  versions: BackendBundleVersionSummary[]
+}
+
+interface BackendBundleListResponse {
+  bundles: BackendBundleSummary[]
+}
+
+interface BackendBundleVersionSummary {
+  versionId: string
+  version: string
+  containers: BackendContainerSpecDetail[]
+  containerCount: number
+  releaseNotes: string | null
+  createdAt: string
+}
+
+interface BackendContainerSpecDetail {
+  name: string
+  image: string
+  environmentVariables: string | null
+  portMappings: string | null
+  volumeMounts: string | null
+  additionalParameters: string | null
+}
+
+interface BackendBundleDetail {
+  bundleId: string
+  name: string
+  description: string | null
+  latestVersion: string | null
+  createdAt: string
+  versions: BackendBundleVersionSummary[]
+}
+
+interface BackendBundleDetailResponse {
+  bundle: BackendBundleDetail
+}
+
+function mapBundleSummary(bundle: BackendBundleSummary): AppBundle {
+  return {
+    id: bundle.bundleId,
+    tenantId: '',
+    name: bundle.name,
+    description: bundle.description,
+    currentVersion: bundle.latestVersion ?? '',
+    versions: bundle.versions.map((version) => mapBundleVersion(version, bundle.latestVersion)),
+    createdAt: bundle.createdAt,
+    updatedAt: bundle.createdAt,
+  }
+}
+
+function mapBundleDetail(bundle: BackendBundleDetail): AppBundle {
+  return {
+    id: bundle.bundleId,
+    tenantId: '',
+    name: bundle.name,
+    description: bundle.description,
+    currentVersion: bundle.latestVersion ?? '',
+    versions: bundle.versions.map((version) => mapBundleVersion(version, bundle.latestVersion)),
+    createdAt: bundle.createdAt,
+    updatedAt: bundle.createdAt,
+  }
+}
+
+function mapBundleVersion(
+  version: BackendBundleVersionSummary,
+  latestVersion: string | null
+): BundleVersion {
+  return {
+    version: version.version,
+    containers: version.containers.map(mapContainerSpec),
+    createdAt: version.createdAt,
+    isActive: latestVersion === version.version,
+  }
+}
+
+function mapContainerSpec(container: BackendContainerSpecDetail) {
+  const { image, tag } = splitImageTag(container.image)
+
+  return {
+    name: container.name,
+    image,
+    tag,
+    environment: parseJsonRecord(container.environmentVariables),
+    ports: parsePortMappings(container.portMappings),
+    volumes: parseVolumeMounts(container.volumeMounts),
+  }
+}
+
+function parseJsonRecord(value: string | null): Record<string, string> | undefined {
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
+}
+
+function parsePortMappings(value: string | null) {
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value)
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((entry) => {
+          if (typeof entry === 'string') {
+            return parsePortMappingString(entry)
+          }
+          if (entry && typeof entry === 'object') {
+            const { host, container, protocol } = entry as {
+              host?: number
+              container?: number
+              protocol?: 'tcp' | 'udp'
+            }
+            if (host && container) {
+              return { host, container, protocol: protocol ?? 'tcp' }
+            }
+          }
+          return null
+        })
+        .filter(Boolean)
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
+}
+
+function parsePortMappingString(value: string) {
+  const [mapping, proto] = value.split('/')
+  const [hostRaw, containerRaw] = mapping.split(':')
+  const host = Number(hostRaw)
+  const container = Number(containerRaw)
+  if (!Number.isFinite(host) || !Number.isFinite(container)) {
+    return null
+  }
+  return {
+    host,
+    container,
+    protocol: proto === 'udp' ? 'udp' : 'tcp',
+  }
+}
+
+function parseVolumeMounts(value: string | null) {
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value)
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((entry) => {
+          if (typeof entry === 'string') {
+            return parseVolumeMountString(entry)
+          }
+          if (entry && typeof entry === 'object') {
+            const { hostPath, containerPath, readOnly } = entry as {
+              hostPath?: string
+              containerPath?: string
+              readOnly?: boolean
+            }
+            if (hostPath && containerPath) {
+              return { hostPath, containerPath, readOnly }
+            }
+          }
+          return null
+        })
+        .filter(Boolean)
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
+}
+
+function parseVolumeMountString(value: string) {
+  const parts = value.split(':')
+  if (parts.length < 2) {
+    return null
+  }
+  return {
+    hostPath: parts[0],
+    containerPath: parts[1],
+    readOnly: parts[2] === 'ro',
+  }
+}
+
+function splitImageTag(image: string) {
+  const lastColon = image.lastIndexOf(':')
+  if (lastColon > -1 && !image.slice(lastColon).includes('/')) {
+    return {
+      image: image.slice(0, lastColon),
+      tag: image.slice(lastColon + 1),
+    }
+  }
+  return { image, tag: 'latest' }
+}
+
 export const bundlesApi = {
   /**
    * Get paginated list of bundles
@@ -22,24 +229,40 @@ export const bundlesApi = {
   async getBundles(filters?: BundleFilters): Promise<PaginatedResponse<AppBundle>> {
     const params = new URLSearchParams()
 
+    appendTenantId(params)
+
     if (filters?.page) params.append('page', filters.page.toString())
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
     if (filters?.search) params.append('search', filters.search)
 
-    return apiRequest<PaginatedResponse<AppBundle>>({
+    const response = await apiRequest<BackendBundleListResponse>({
       method: 'GET',
       url: `${BASE_PATH}?${params.toString()}`,
     })
+
+    const bundles = response.bundles.map(mapBundleSummary)
+    return {
+      data: bundles,
+      total: bundles.length,
+      page: filters?.page ?? 1,
+      pageSize: filters?.pageSize ?? bundles.length,
+      totalPages: 1,
+    }
   },
 
   /**
    * Get bundle by ID
    */
   async getBundle(id: string): Promise<AppBundle> {
-    return apiRequest<AppBundle>({
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
+    const response = await apiRequest<BackendBundleDetailResponse>({
       method: 'GET',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${params.toString()}`,
     })
+
+    return mapBundleDetail(response.bundle)
   },
 
   /**
@@ -49,7 +272,7 @@ export const bundlesApi = {
     return apiRequest<AppBundle>({
       method: 'POST',
       url: BASE_PATH,
-      data,
+      data: withTenantId(data),
     })
   },
 
@@ -60,7 +283,7 @@ export const bundlesApi = {
     return apiRequest<AppBundle>({
       method: 'PATCH',
       url: `${BASE_PATH}/${id}`,
-      data,
+      data: withTenantId(data),
     })
   },
 
@@ -68,9 +291,12 @@ export const bundlesApi = {
    * Delete bundle
    */
   async deleteBundle(id: string): Promise<void> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<void>({
       method: 'DELETE',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${params.toString()}`,
     })
   },
 
@@ -78,9 +304,12 @@ export const bundlesApi = {
    * Get bundle versions
    */
   async getBundleVersions(bundleId: string): Promise<BundleVersion[]> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<BundleVersion[]>({
       method: 'GET',
-      url: `${BASE_PATH}/${bundleId}/versions`,
+      url: `${BASE_PATH}/${bundleId}/versions?${params.toString()}`,
     })
   },
 
@@ -94,7 +323,7 @@ export const bundlesApi = {
     return apiRequest<BundleVersion>({
       method: 'POST',
       url: `${BASE_PATH}/${bundleId}/versions`,
-      data,
+      data: withTenantId(data),
     })
   },
 
@@ -102,9 +331,12 @@ export const bundlesApi = {
    * Set active version
    */
   async setActiveVersion(bundleId: string, version: string): Promise<AppBundle> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<AppBundle>({
       method: 'PUT',
-      url: `${BASE_PATH}/${bundleId}/versions/${version}/activate`,
+      url: `${BASE_PATH}/${bundleId}/versions/${version}/activate?${params.toString()}`,
     })
   },
 }

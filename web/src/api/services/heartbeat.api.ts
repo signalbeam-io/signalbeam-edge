@@ -3,6 +3,7 @@
  */
 
 import { apiRequest } from '../client'
+import { appendTenantId, withTenantId } from './tenant'
 import type {
   DeviceHeartbeat,
   HeartbeatFilters,
@@ -19,6 +20,7 @@ export const heartbeatApi = {
   async getHeartbeats(filters: HeartbeatFilters): Promise<PaginatedResponse<DeviceHeartbeat>> {
     const params = new URLSearchParams()
 
+    appendTenantId(params)
     params.append('deviceId', filters.deviceId)
     if (filters.page) params.append('page', filters.page.toString())
     if (filters.pageSize) params.append('pageSize', filters.pageSize.toString())
@@ -35,9 +37,12 @@ export const heartbeatApi = {
    * Get latest heartbeat for a device
    */
   async getLatestHeartbeat(deviceId: string): Promise<DeviceHeartbeat | null> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<DeviceHeartbeat | null>({
       method: 'GET',
-      url: `${BASE_PATH}/${deviceId}/latest`,
+      url: `${BASE_PATH}/${deviceId}/latest?${params.toString()}`,
     })
   },
 
@@ -48,7 +53,7 @@ export const heartbeatApi = {
     return apiRequest<void>({
       method: 'POST',
       url: BASE_PATH,
-      data,
+      data: withTenantId(data),
     })
   },
 }

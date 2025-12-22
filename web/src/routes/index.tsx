@@ -4,6 +4,7 @@ import { DashboardPage } from '@/features/dashboard/pages/dashboard-page'
 import { DevicesPage } from '@/features/devices/pages/devices-page'
 import { DeviceDetailPage } from '@/features/devices/pages/device-detail-page'
 import { BundlesPage } from '@/features/bundles/pages/bundles-page'
+import { BundleDetailPage } from '@/features/bundles/pages/bundle-detail-page'
 import { NotFoundPage } from '@/features/not-found/pages/not-found-page'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { ProtectedRoute } from './protected-route'
@@ -19,6 +20,7 @@ export function AppRoutes() {
           <Route path="devices" element={<DevicesPage />} />
           <Route path="devices/:id" element={<DeviceDetailPage />} />
           <Route path="bundles" element={<BundlesPage />} />
+          <Route path="bundles/:id" element={<BundleDetailPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

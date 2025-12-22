@@ -50,6 +50,11 @@
     <PackageVersion Include="Scalar.AspNetCore" Version="1.2.42" />
   </ItemGroup>
 
+  <ItemGroup Label="API Gateway">
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="9.1.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Observability">
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageVersion Include="OpenTelemetry" Version="1.10.0" />
