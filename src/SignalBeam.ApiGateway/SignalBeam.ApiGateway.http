@@ -1,0 +1,6 @@
+@SignalBeam.ApiGateway_HostAddress = http://localhost:5226
+
+GET {{SignalBeam.ApiGateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -3,6 +3,7 @@
  */
 
 import { apiRequest } from '../client'
+import { appendTenantId, withTenantId } from './tenant'
 import type {
   ContainerDetails,
   ContainerLog,
@@ -24,6 +25,8 @@ export const devicesApi = {
   async getDevices(filters?: DeviceFilters): Promise<PaginatedResponse<Device>> {
     const params = new URLSearchParams()
 
+    appendTenantId(params)
+
     if (filters?.page) params.append('pageNumber', filters.page.toString())
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
     if (filters?.status) params.append('status', filters.status)
@@ -42,9 +45,12 @@ export const devicesApi = {
    * Get device by ID
    */
   async getDevice(id: string): Promise<Device> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     const response = await apiRequest<BackendDeviceResponse>({
       method: 'GET',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${params.toString()}`,
     })
 
     return mapDevice(response)
@@ -57,12 +63,12 @@ export const devicesApi = {
     const response = await apiRequest<BackendDeviceResponse>({
       method: 'POST',
       url: `${BASE_PATH}`,
-      data: {
+      data: withTenantId({
         tenantId: data.tenantId,
         deviceId: data.deviceId,
         name: data.name ?? data.deviceId,
         metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
-      },
+      }),
     })
 
     return mapDevice(response)
@@ -75,7 +81,7 @@ export const devicesApi = {
     const response = await apiRequest<BackendDeviceResponse>({
       method: 'PUT',
       url: `${BASE_PATH}/${id}`,
-      data,
+      data: withTenantId(data),
     })
 
     return mapDevice(response)
@@ -85,9 +91,12 @@ export const devicesApi = {
    * Delete device
    */
   async deleteDevice(id: string): Promise<void> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<void>({
       method: 'DELETE',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${params.toString()}`,
     })
   },
 
@@ -95,9 +104,12 @@ export const devicesApi = {
    * Get device metrics (24h history)
    */
   async getDeviceMetrics(id: string): Promise<DeviceMetrics[]> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<DeviceMetrics[]>({
       method: 'GET',
-      url: `${BASE_PATH}/${id}/metrics`,
+      url: `${BASE_PATH}/${id}/metrics?${params.toString()}`,
     })
   },
 
@@ -105,9 +117,12 @@ export const devicesApi = {
    * Get device containers
    */
   async getDeviceContainers(id: string): Promise<ContainerDetails[]> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<ContainerDetails[]>({
       method: 'GET',
-      url: `${BASE_PATH}/${id}/containers`,
+      url: `${BASE_PATH}/${id}/containers?${params.toString()}`,
     })
   },
 
@@ -120,6 +135,7 @@ export const devicesApi = {
     tail?: number
   ): Promise<ContainerLog[]> {
     const params = new URLSearchParams()
+    appendTenantId(params)
     if (tail) params.append('tail', tail.toString())
 
     return apiRequest<ContainerLog[]>({
@@ -137,6 +153,7 @@ export const devicesApi = {
     pageSize: number = 20
   ): Promise<PaginatedResponse<DeviceActivity>> {
     const params = new URLSearchParams()
+    appendTenantId(params)
     params.append('page', page.toString())
     params.append('pageSize', pageSize.toString())
 

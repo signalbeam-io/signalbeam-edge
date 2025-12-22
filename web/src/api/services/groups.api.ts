@@ -3,6 +3,7 @@
  */
 
 import { apiRequest } from '../client'
+import { appendTenantId, withTenantId } from './tenant'
 import type {
   DeviceGroup,
   GroupFilters,
@@ -20,6 +21,8 @@ export const groupsApi = {
   async getGroups(filters?: GroupFilters): Promise<PaginatedResponse<DeviceGroup>> {
     const params = new URLSearchParams()
 
+    appendTenantId(params)
+
     if (filters?.page) params.append('page', filters.page.toString())
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
     if (filters?.search) params.append('search', filters.search)
@@ -34,9 +37,12 @@ export const groupsApi = {
    * Get group by ID
    */
   async getGroup(id: string): Promise<DeviceGroup> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<DeviceGroup>({
       method: 'GET',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${params.toString()}`,
     })
   },
 
@@ -47,7 +53,7 @@ export const groupsApi = {
     return apiRequest<DeviceGroup>({
       method: 'POST',
       url: BASE_PATH,
-      data,
+      data: withTenantId(data),
     })
   },
 
@@ -58,7 +64,7 @@ export const groupsApi = {
     return apiRequest<DeviceGroup>({
       method: 'PATCH',
       url: `${BASE_PATH}/${id}`,
-      data,
+      data: withTenantId(data),
     })
   },
 
@@ -66,9 +72,12 @@ export const groupsApi = {
    * Delete group
    */
   async deleteGroup(id: string): Promise<void> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<void>({
       method: 'DELETE',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${params.toString()}`,
     })
   },
 
@@ -79,7 +88,7 @@ export const groupsApi = {
     return apiRequest<DeviceGroup>({
       method: 'POST',
       url: `${BASE_PATH}/${id}/devices`,
-      data: { deviceIds },
+      data: withTenantId({ deviceIds }),
     })
   },
 
@@ -90,7 +99,7 @@ export const groupsApi = {
     return apiRequest<DeviceGroup>({
       method: 'DELETE',
       url: `${BASE_PATH}/${id}/devices`,
-      data: { deviceIds },
+      data: withTenantId({ deviceIds }),
     })
   },
 }

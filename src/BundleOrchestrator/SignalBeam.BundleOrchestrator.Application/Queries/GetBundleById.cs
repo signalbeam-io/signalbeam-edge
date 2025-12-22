@@ -15,6 +15,7 @@ public record GetBundleByIdQuery(string BundleId);
 public record BundleVersionSummaryDto(
     Guid VersionId,
     string Version,
+    IReadOnlyList<ContainerSpecDetailDto> Containers,
     int ContainerCount,
     string? ReleaseNotes,
     DateTimeOffset CreatedAt);
@@ -78,6 +79,13 @@ public class GetBundleByIdHandler
         var versionDtos = versions.Select(v => new BundleVersionSummaryDto(
             v.Id,
             v.Version.ToString(),
+            v.Containers.Select(c => new ContainerSpecDetailDto(
+                c.Name,
+                c.Image,
+                c.EnvironmentVariables,
+                c.PortMappings,
+                c.VolumeMounts,
+                c.AdditionalParameters)).ToList(),
             v.Containers.Count,
             v.ReleaseNotes,
             v.CreatedAt

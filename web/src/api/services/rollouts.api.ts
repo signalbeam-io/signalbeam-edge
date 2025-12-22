@@ -3,6 +3,7 @@
  */
 
 import { apiRequest } from '../client'
+import { appendTenantId, withTenantId } from './tenant'
 import type {
   Rollout,
   RolloutFilters,
@@ -20,6 +21,7 @@ export const rolloutsApi = {
   async getRollouts(filters?: RolloutFilters): Promise<PaginatedResponse<Rollout>> {
     const params = new URLSearchParams()
 
+    appendTenantId(params)
     if (filters?.page) params.append('page', filters.page.toString())
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
     if (filters?.bundleId) params.append('bundleId', filters.bundleId)
@@ -35,9 +37,12 @@ export const rolloutsApi = {
    * Get rollout by ID
    */
   async getRollout(id: string): Promise<Rollout> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<Rollout>({
       method: 'GET',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${params.toString()}`,
     })
   },
 
@@ -48,7 +53,7 @@ export const rolloutsApi = {
     return apiRequest<Rollout>({
       method: 'POST',
       url: BASE_PATH,
-      data,
+      data: withTenantId(data),
     })
   },
 
@@ -56,9 +61,12 @@ export const rolloutsApi = {
    * Cancel rollout
    */
   async cancelRollout(id: string): Promise<Rollout> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<Rollout>({
       method: 'POST',
-      url: `${BASE_PATH}/${id}/cancel`,
+      url: `${BASE_PATH}/${id}/cancel?${params.toString()}`,
     })
   },
 
@@ -66,9 +74,12 @@ export const rolloutsApi = {
    * Get device-level rollout status
    */
   async getDeviceRolloutStatus(rolloutId: string): Promise<DeviceRolloutStatus[]> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<DeviceRolloutStatus[]>({
       method: 'GET',
-      url: `${BASE_PATH}/${rolloutId}/devices`,
+      url: `${BASE_PATH}/${rolloutId}/devices?${params.toString()}`,
     })
   },
 
@@ -76,9 +87,12 @@ export const rolloutsApi = {
    * Retry failed devices in a rollout
    */
   async retryFailedDevices(rolloutId: string): Promise<Rollout> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
     return apiRequest<Rollout>({
       method: 'POST',
-      url: `${BASE_PATH}/${rolloutId}/retry`,
+      url: `${BASE_PATH}/${rolloutId}/retry?${params.toString()}`,
     })
   },
 }
