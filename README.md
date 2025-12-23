@@ -11,8 +11,6 @@ SignalBeam Edge is a platform for onboarding, monitoring, and updating fleets of
 - **Built for teams** managing ~5–200 devices without an IoT platform team
 - **Open, opinionated stack** that integrates with existing tooling
 
-See [docs/signalbeam-edge-business-plan.md](docs/signalbeam-edge-business-plan.md) for the full market rationale and MVP scope.
-
 ## 🏗️ Architecture at a Glance
 
 ### Core Components
@@ -37,7 +35,7 @@ See [docs/signalbeam-edge-business-plan.md](docs/signalbeam-edge-business-plan.m
 
 ### Prerequisites
 
-- **.NET 9 SDK** ([download](https://dotnet.microsoft.com/download/dotnet/9.0))
+- **.NET 9 SDK**
 - **Docker Desktop** (for infrastructure services)
 - **Node.js 20+** (for frontend)
 - **.NET Aspire workload**:
