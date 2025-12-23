@@ -4,7 +4,7 @@
 
 import type { ReactNode } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { Package, MoreVertical, Edit, GitBranch, Users } from 'lucide-react'
+import { Package, MoreVertical, Edit, GitBranch, Users, Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +16,38 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { AppBundle } from '@/api/types'
+import { useBundleAssignedDevices } from '@/hooks/api/use-bundles'
+
+interface DeviceCountCellProps {
+  bundle: AppBundle
+  onClick: (bundle: AppBundle) => void
+}
+
+function DeviceCountCell({ bundle, onClick }: DeviceCountCellProps) {
+  const { data: assignedDevices, isLoading } = useBundleAssignedDevices(bundle.id)
+
+  const deviceCount = assignedDevices?.length ?? 0
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick(bundle)
+      }}
+      className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
+      disabled={isLoading}
+    >
+      <Users className="h-3 w-3 text-muted-foreground" />
+      {isLoading ? (
+        <span className="text-muted-foreground">...</span>
+      ) : deviceCount > 0 ? (
+        <span className="font-medium underline decoration-dotted underline-offset-2">{deviceCount}</span>
+      ) : (
+        <span className="text-muted-foreground">0</span>
+      )}
+    </button>
+  )
+}
 
 export type BundleColumn = {
   key: string
@@ -29,6 +61,7 @@ interface BundleTableActionsProps {
   onViewDetails: (bundle: AppBundle) => void
   onCreateVersion: (bundle: AppBundle) => void
   onAssignBundle: (bundle: AppBundle) => void
+  onViewAssignedDevices: (bundle: AppBundle) => void
   onEdit: (bundle: AppBundle) => void
   onDelete: (bundle: AppBundle) => void
 }
@@ -38,6 +71,7 @@ function BundleTableActions({
   onViewDetails,
   onCreateVersion,
   onAssignBundle,
+  onViewAssignedDevices,
   onEdit,
   onDelete,
 }: BundleTableActionsProps) {
@@ -89,6 +123,15 @@ function BundleTableActions({
         <DropdownMenuItem
           onClick={(e) => {
             e.stopPropagation()
+            onViewAssignedDevices(bundle)
+          }}
+        >
+          <Eye className="mr-2 h-4 w-4" />
+          View assigned devices
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation()
             onEdit(bundle)
           }}
         >
@@ -117,6 +160,7 @@ export function createBundleColumns(actions: {
   onViewDetails: (bundle: AppBundle) => void
   onCreateVersion: (bundle: AppBundle) => void
   onAssignBundle: (bundle: AppBundle) => void
+  onViewAssignedDevices: (bundle: AppBundle) => void
   onEdit: (bundle: AppBundle) => void
   onDelete: (bundle: AppBundle) => void
 }): BundleColumn[] {
@@ -164,16 +208,9 @@ export function createBundleColumns(actions: {
       key: 'devices',
       label: 'Devices',
       sortable: false,
-      render: () => {
-        // TODO: This needs to be fetched from device assignments API
-        // For now, showing placeholder
-        return (
-          <div className="flex items-center gap-1 text-sm">
-            <Users className="h-3 w-3 text-muted-foreground" />
-            <span className="text-muted-foreground">-</span>
-          </div>
-        )
-      },
+      render: (bundle) => (
+        <DeviceCountCell bundle={bundle} onClick={actions.onViewAssignedDevices} />
+      ),
     },
     {
       key: 'containers',

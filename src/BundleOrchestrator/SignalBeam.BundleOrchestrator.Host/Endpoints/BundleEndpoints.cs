@@ -32,6 +32,11 @@ public static class BundleEndpoints
             .WithSummary("Get bundle by ID")
             .WithDescription("Retrieves detailed information about a specific bundle including all its versions.");
 
+        group.MapGet("/{bundleId}/assigned-devices", GetBundleAssignedDevices)
+            .WithName("GetBundleAssignedDevices")
+            .WithSummary("Get devices assigned to a bundle")
+            .WithDescription("Retrieves all devices that have this bundle assigned.");
+
         return app;
     }
 
@@ -76,6 +81,24 @@ public static class BundleEndpoints
         CancellationToken cancellationToken)
     {
         var query = new GetBundleByIdQuery(bundleId);
+        var result = await handler.Handle(query, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.NotFound(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> GetBundleAssignedDevices(
+        string bundleId,
+        GetBundleAssignedDevicesHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetBundleAssignedDevicesQuery(bundleId);
         var result = await handler.Handle(query, cancellationToken);
 
         return result.IsSuccess

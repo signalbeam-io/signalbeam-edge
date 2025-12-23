@@ -7,6 +7,7 @@ import { BundlesList } from '../components/bundles-list'
 import { CreateBundleDialog } from '../components/create-bundle-dialog'
 import { CreateVersionDialog } from '../components/create-version-dialog'
 import { AssignBundleDialog } from '../components/assign-bundle-dialog'
+import { AssignedDevicesDialog } from '../components/assigned-devices-dialog'
 import { useDeleteBundle } from '@/hooks/api/use-bundles'
 import { useToast } from '@/hooks/use-toast'
 import { AppBundle } from '@/api/types'
@@ -29,6 +30,7 @@ export function BundlesPage() {
   const [createBundleOpen, setCreateBundleOpen] = useState(false)
   const [createVersionOpen, setCreateVersionOpen] = useState(false)
   const [assignBundleOpen, setAssignBundleOpen] = useState(false)
+  const [assignedDevicesOpen, setAssignedDevicesOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // Selected bundle for dialogs
@@ -46,6 +48,11 @@ export function BundlesPage() {
   const handleAssignBundle = (bundle: AppBundle) => {
     setSelectedBundle(bundle)
     setAssignBundleOpen(true)
+  }
+
+  const handleViewAssignedDevices = (bundle: AppBundle) => {
+    setSelectedBundle(bundle)
+    setAssignedDevicesOpen(true)
   }
 
   const handleEditBundle = (bundle: AppBundle) => {
@@ -87,6 +94,7 @@ export function BundlesPage() {
         onCreateBundle={handleCreateBundle}
         onCreateVersion={handleCreateVersion}
         onAssignBundle={handleAssignBundle}
+        onViewAssignedDevices={handleViewAssignedDevices}
         onEditBundle={handleEditBundle}
         onDeleteBundle={handleDeleteBundle}
       />
@@ -105,6 +113,13 @@ export function BundlesPage() {
       <AssignBundleDialog
         open={assignBundleOpen}
         onOpenChange={setAssignBundleOpen}
+        bundle={selectedBundle}
+      />
+
+      {/* Assigned Devices Dialog */}
+      <AssignedDevicesDialog
+        open={assignedDevicesOpen}
+        onOpenChange={setAssignedDevicesOpen}
         bundle={selectedBundle}
       />
 

@@ -14,6 +14,13 @@ import type {
   CreateBundleVersionRequest,
 } from '../types'
 
+export interface AssignedDevice {
+  deviceId: string
+  bundleVersion: string
+  assignedAt: string
+  assignedBy: string | null
+}
+
 const BASE_PATH = '/api/bundles'
 
 interface BackendBundleSummary {
@@ -382,5 +389,30 @@ export const bundlesApi = {
       method: 'PUT',
       url: `${BASE_PATH}/${bundleId}/versions/${version}/activate?${params.toString()}`,
     })
+  },
+
+  /**
+   * Get devices assigned to a bundle
+   */
+  async getAssignedDevices(bundleId: string): Promise<AssignedDevice[]> {
+    interface BackendAssignedDeviceResponse {
+      bundleId: string
+      assignedDevices: {
+        deviceId: string
+        bundleVersion: string
+        assignedAt: string
+        assignedBy: string | null
+      }[]
+    }
+
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
+    const response = await apiRequest<BackendAssignedDeviceResponse>({
+      method: 'GET',
+      url: `${BASE_PATH}/${bundleId}/assigned-devices?${params.toString()}`,
+    })
+
+    return response.assignedDevices
   },
 }

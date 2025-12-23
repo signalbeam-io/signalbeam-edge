@@ -125,3 +125,15 @@ export function useSetActiveVersion() {
     },
   })
 }
+
+/**
+ * Get devices assigned to a bundle
+ */
+export function useBundleAssignedDevices(bundleId: string, enabled = true) {
+  return useQuery({
+    queryKey: [QUERY_KEY, bundleId, 'assigned-devices'],
+    queryFn: () => bundlesApi.getAssignedDevices(bundleId),
+    enabled,
+    staleTime: 30_000, // 30 seconds
+  })
+}

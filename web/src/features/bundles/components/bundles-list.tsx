@@ -27,6 +27,7 @@ interface BundlesListProps {
   onCreateBundle: () => void
   onCreateVersion: (bundle: AppBundle) => void
   onAssignBundle: (bundle: AppBundle) => void
+  onViewAssignedDevices: (bundle: AppBundle) => void
   onEditBundle: (bundle: AppBundle) => void
   onDeleteBundle: (bundle: AppBundle) => void
 }
@@ -35,6 +36,7 @@ export function BundlesList({
   onCreateBundle,
   onCreateVersion,
   onAssignBundle,
+  onViewAssignedDevices,
   onEditBundle,
   onDeleteBundle,
 }: BundlesListProps) {
@@ -95,10 +97,11 @@ export function BundlesList({
         onViewDetails: (bundle) => navigate(`/bundles/${bundle.id}`),
         onCreateVersion,
         onAssignBundle,
+        onViewAssignedDevices,
         onEdit: onEditBundle,
         onDelete: onDeleteBundle,
       }),
-    [navigate, onCreateVersion, onAssignBundle, onEditBundle, onDeleteBundle]
+    [navigate, onCreateVersion, onAssignBundle, onViewAssignedDevices, onEditBundle, onDeleteBundle]
   )
 
   const handleSort = (columnKey: string) => {
