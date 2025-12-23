@@ -65,6 +65,39 @@ public class RolloutStatusRepository : IRolloutStatusRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<(IReadOnlyList<Guid> RolloutIds, int TotalCount)> GetDistinctRolloutsAsync(
+        BundleId? bundleId = null,
+        int page = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.RolloutStatuses.AsQueryable();
+
+        // Filter by bundle ID if provided
+        if (bundleId is not null)
+        {
+            query = query.Where(r => r.BundleId == bundleId);
+        }
+
+        // Get distinct rollout IDs ordered by creation date (using StartedAt as proxy)
+        var distinctRolloutIds = await query
+            .GroupBy(r => r.RolloutId)
+            .Select(g => new { RolloutId = g.Key, StartedAt = g.Min(r => r.StartedAt) })
+            .OrderByDescending(r => r.StartedAt)
+            .ToListAsync(cancellationToken);
+
+        var totalCount = distinctRolloutIds.Count;
+
+        // Apply pagination
+        var paginatedRolloutIds = distinctRolloutIds
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(r => r.RolloutId)
+            .ToList();
+
+        return (paginatedRolloutIds, totalCount);
+    }
+
     public async Task AddAsync(RolloutStatus rolloutStatus, CancellationToken cancellationToken = default)
     {
         await _context.RolloutStatuses.AddAsync(rolloutStatus, cancellationToken);

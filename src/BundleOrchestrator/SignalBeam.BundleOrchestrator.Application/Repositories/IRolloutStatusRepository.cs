@@ -44,6 +44,15 @@ public interface IRolloutStatusRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets paginated list of distinct rollouts, optionally filtered by bundle ID.
+    /// </summary>
+    Task<(IReadOnlyList<Guid> RolloutIds, int TotalCount)> GetDistinctRolloutsAsync(
+        BundleId? bundleId = null,
+        int page = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds a new rollout status.
     /// </summary>
     Task AddAsync(RolloutStatus rolloutStatus, CancellationToken cancellationToken = default);
