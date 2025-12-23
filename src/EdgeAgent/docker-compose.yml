@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  signalbeam-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: signalbeam-agent
+    restart: unless-stopped
+
+    # Mount Docker socket for container management
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - signalbeam-data:/var/lib/signalbeam
+      - signalbeam-logs:/var/log/signalbeam
+
+    # Environment variables (override as needed)
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - Agent__CloudUrl=https://api.signalbeam.com
+      - Agent__HeartbeatIntervalSeconds=30
+      - Agent__ReconciliationIntervalSeconds=60
+
+    # Network mode
+    network_mode: bridge
+
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  signalbeam-data:
+  signalbeam-logs:

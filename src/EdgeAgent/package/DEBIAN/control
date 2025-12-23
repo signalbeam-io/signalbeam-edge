@@ -1,0 +1,21 @@
+Package: signalbeam-agent
+Version: 0.1.0
+Section: admin
+Priority: optional
+Architecture: ARCH_PLACEHOLDER
+Maintainer: SignalBeam <support@signalbeam.io>
+Depends: docker.io | docker-ce
+Recommends: curl
+Description: SignalBeam Edge Agent - Manage edge devices from the cloud
+ The SignalBeam Edge Agent is a lightweight daemon that runs on edge devices
+ (e.g., Raspberry Pi, mini-PCs) and communicates with the SignalBeam cloud
+ platform for fleet management, monitoring, and containerized application
+ deployment.
+ .
+ Features:
+  - Device registration and authentication
+  - Automatic heartbeat and health monitoring
+  - Container reconciliation and management
+  - Metrics collection (CPU, memory, disk)
+  - Automatic updates and rollouts
+Homepage: https://signalbeam.io

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -e
+
+SERVICE_NAME="signalbeam-agent"
+
+# Stop service if running
+if command -v systemctl >/dev/null 2>&1; then
+    if systemctl is-active --quiet ${SERVICE_NAME}; then
+        echo "Stopping ${SERVICE_NAME} service..."
+        systemctl stop ${SERVICE_NAME} || true
+    fi
+
+    if systemctl is-enabled --quiet ${SERVICE_NAME}; then
+        echo "Disabling ${SERVICE_NAME} service..."
+        systemctl disable ${SERVICE_NAME} || true
+    fi
+fi
+
+exit 0
