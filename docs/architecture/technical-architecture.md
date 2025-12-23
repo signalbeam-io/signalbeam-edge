@@ -18,63 +18,95 @@ SignalBeam Edge follows a **microservices architecture** with clear service boun
 
 ### High-Level Architecture
 
+#### C4 Context Diagram
+
+**System Context** - Shows how SignalBeam Edge fits into the wider environment and who uses it.
+
 ```mermaid
-graph TB
-    subgraph WebUI["Web UI (React)"]
-        UI[Frontend Application<br/>http://localhost:5173]
-    end
+C4Context
+    title System Context Diagram for SignalBeam Edge Platform
 
-    subgraph Backend["Backend Services"]
-        DM[DeviceManager<br/>Port 5001<br/><br/>• Devices<br/>• Groups<br/>• Tags]
-        BO[BundleOrchestrator<br/>Port 5002<br/><br/>• Bundles<br/>• Versions<br/>• Rollouts]
-        TP[TelemetryProcessor<br/>Port 5003<br/><br/>• Metrics<br/>• Heartbeat]
-    end
+    Person(fleetManager, "Fleet Manager", "Operations team managing edge device fleet")
+    Person(developer, "Developer", "Develops and packages applications for edge devices")
 
-    subgraph Infrastructure["Infrastructure Layer"]
-        DB[(PostgreSQL +<br/>TimescaleDB)]
-        Cache[(Valkey<br/>Redis-compatible)]
-        Blob[Azure Blob Storage<br/>Azurite local]
-    end
+    System(signalbeam, "SignalBeam Edge Platform", "Fleet management platform for edge devices - handles device registration, monitoring, and application deployment")
 
-    subgraph Messaging["Message Broker"]
-        NATS[NATS + JetStream<br/><br/>• Event Streaming<br/>• Pub/Sub]
-    end
+    System_Ext(edgeDevices, "Edge Devices", "Fleet of Raspberry Pis, mini-PCs running containerized applications")
+    System_Ext(containerRegistry, "Container Registry", "GitHub Container Registry, Docker Hub, or private registry")
+    System_Ext(identityProvider, "Identity Provider", "Microsoft Entra ID, Zitadel, or other OIDC provider")
 
-    subgraph Edge["Edge Devices"]
-        Agent[Edge Agent<br/><br/>• Heartbeat sender<br/>• Status reporter<br/>• Container reconciler<br/>• Docker/Podman]
-    end
+    Rel(fleetManager, signalbeam, "Manages devices and deploys bundles", "HTTPS")
+    Rel(developer, signalbeam, "Creates and versions application bundles", "HTTPS")
 
-    UI -->|HTTPS/REST| DM
-    UI -->|HTTPS/REST| BO
-    UI -->|HTTPS/REST| TP
+    Rel(signalbeam, edgeDevices, "Monitors health, orchestrates deployments", "HTTPS, NATS")
+    Rel(edgeDevices, signalbeam, "Sends heartbeats, reports status", "HTTPS, NATS")
 
-    DM -.->|Read/Write| DB
-    BO -.->|Read/Write| DB
-    TP -.->|Read/Write| DB
+    Rel(edgeDevices, containerRegistry, "Pulls container images", "HTTPS")
+    Rel(developer, containerRegistry, "Pushes container images", "HTTPS")
 
-    DM -.->|Cache| Cache
-    BO -.->|Cache| Cache
-    TP -.->|Cache| Cache
+    Rel(fleetManager, identityProvider, "Authenticates", "OIDC")
+    Rel(signalbeam, identityProvider, "Validates tokens", "OIDC")
 
-    BO -.->|Store Artifacts| Blob
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+```
 
-    DM -->|Publish Events| NATS
-    BO -->|Publish Events| NATS
-    TP -->|Subscribe Events| NATS
+#### C4 Container Diagram
 
-    Agent -->|HTTP/REST| DM
-    Agent -->|HTTP/REST| BO
-    Agent -->|Publish Events| NATS
+**Container Architecture** - Shows the high-level shape of the software architecture and how responsibilities are distributed across containers.
 
-    style UI fill:#e1f5ff
-    style DM fill:#c8e6c9
-    style BO fill:#c8e6c9
-    style TP fill:#c8e6c9
-    style DB fill:#fff9c4
-    style Cache fill:#fff9c4
-    style Blob fill:#fff9c4
-    style NATS fill:#ffe0b2
-    style Agent fill:#f8bbd0
+```mermaid
+C4Container
+    title Container Diagram for SignalBeam Edge Platform
+
+    Person(fleetManager, "Fleet Manager", "Manages edge devices and deploys application bundles")
+
+    System_Boundary(signalbeam, "SignalBeam Edge Platform") {
+        Container(webUI, "Web UI", "React, TypeScript", "Provides fleet management interface via web browser")
+
+        Container(deviceManager, "DeviceManager Service", ".NET 9, ASP.NET Core", "Manages device registration, grouping, and health monitoring")
+
+        Container(bundleOrchestrator, "BundleOrchestrator Service", ".NET 9, ASP.NET Core", "Manages application bundles, versions, and rollout orchestration")
+
+        Container(telemetryProcessor, "TelemetryProcessor Service", ".NET 9, ASP.NET Core", "Processes device metrics and telemetry data")
+
+        ContainerDb(database, "Database", "PostgreSQL + TimescaleDB", "Stores device state, bundles, rollout status, and time-series metrics")
+
+        ContainerDb(cache, "Cache", "Valkey (Redis)", "Caches frequently accessed data and session state")
+
+        Container(messageBroker, "Message Broker", "NATS + JetStream", "Handles async event streaming and pub/sub messaging")
+
+        ContainerDb(blobStorage, "Blob Storage", "Azure Blob / Azurite", "Stores bundle artifacts and container manifests")
+    }
+
+    System_Ext(edgeDevice, "Edge Device", "Raspberry Pi, mini-PC running Docker/Podman")
+    Container_Ext(edgeAgent, "Edge Agent", ".NET 9 Console App", "Runs on device, reconciles container state")
+
+    Rel(fleetManager, webUI, "Uses", "HTTPS")
+
+    Rel(webUI, deviceManager, "Manages devices", "REST/JSON, HTTPS")
+    Rel(webUI, bundleOrchestrator, "Manages bundles and rollouts", "REST/JSON, HTTPS")
+    Rel(webUI, telemetryProcessor, "Views metrics", "REST/JSON, HTTPS")
+
+    Rel(deviceManager, database, "Reads/Writes device data", "EF Core")
+    Rel(bundleOrchestrator, database, "Reads/Writes bundles and rollouts", "EF Core")
+    Rel(telemetryProcessor, database, "Writes metrics", "EF Core")
+
+    Rel(deviceManager, cache, "Caches device state", "Redis Protocol")
+    Rel(bundleOrchestrator, cache, "Caches bundle data", "Redis Protocol")
+    Rel(telemetryProcessor, cache, "Caches aggregated metrics", "Redis Protocol")
+
+    Rel(bundleOrchestrator, blobStorage, "Stores/retrieves bundle artifacts", "Azure SDK")
+
+    Rel(deviceManager, messageBroker, "Publishes device events", "NATS")
+    Rel(bundleOrchestrator, messageBroker, "Publishes rollout events", "NATS")
+    Rel(telemetryProcessor, messageBroker, "Subscribes to metrics", "NATS")
+
+    Rel(edgeAgent, deviceManager, "Registers, sends heartbeats", "REST/JSON, HTTPS")
+    Rel(edgeAgent, bundleOrchestrator, "Fetches desired state, reports status", "REST/JSON, HTTPS")
+    Rel(edgeAgent, messageBroker, "Publishes telemetry", "NATS")
+    Rel(edgeAgent, edgeDevice, "Manages containers", "Docker API")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="2")
 ```
 
 ## Architectural Patterns
