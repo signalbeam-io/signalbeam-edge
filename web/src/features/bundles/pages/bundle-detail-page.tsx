@@ -5,13 +5,22 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
-import { ArrowLeft, Package, GitBranch, CheckCircle2, Users, Edit } from 'lucide-react'
+import { ArrowLeft, Package, GitBranch, CheckCircle2, Users, Edit, Monitor, Calendar, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useBundle } from '@/hooks/api/use-bundles'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { useBundle, useBundleAssignedDevices } from '@/hooks/api/use-bundles'
+import { useDevices } from '@/hooks/api/use-devices'
 import { CreateVersionDialog } from '../components/create-version-dialog'
 import { AssignBundleDialog } from '../components/assign-bundle-dialog'
 import { BundleVersion } from '@/api/types'
@@ -20,6 +29,11 @@ export function BundleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: bundle, isLoading, isError } = useBundle(id || '', !!id)
+  const { data: assignedDevices, isLoading: assignedDevicesLoading } = useBundleAssignedDevices(
+    id || '',
+    !!id
+  )
+  const { data: devicesData } = useDevices({ pageSize: 1000 })
 
   const [createVersionOpen, setCreateVersionOpen] = useState(false)
   const [assignBundleOpen, setAssignBundleOpen] = useState(false)
@@ -50,6 +64,18 @@ export function BundleDetailPage() {
   }
 
   const activeVersion = bundle.versions?.find((v) => v.isActive)
+
+  // Join assigned devices with device details
+  const devicesWithDetails = assignedDevices?.map((assigned) => {
+    const device = devicesData?.data.find((d) => d.id === assigned.deviceId)
+    return {
+      ...assigned,
+      deviceName: device?.name || 'Unknown Device',
+      deviceStatus: device?.status || 'unknown',
+    }
+  })
+
+  const deviceCount = assignedDevices?.length ?? 0
 
   return (
     <div className="container mx-auto space-y-6 py-6">
@@ -115,8 +141,16 @@ export function BundleDetailPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-</div>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
+            {assignedDevicesLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{deviceCount}</div>
+                <p className="text-xs text-muted-foreground">
+                  {deviceCount === 1 ? 'device' : 'devices'} assigned
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -126,6 +160,14 @@ export function BundleDetailPage() {
         <TabsList>
           <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="containers">Containers</TabsTrigger>
+          <TabsTrigger value="devices">
+            Assigned Devices
+            {deviceCount > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {deviceCount}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="versions" className="space-y-4">
@@ -220,6 +262,89 @@ export function BundleDetailPage() {
                 <p className="text-sm text-muted-foreground py-8 text-center">
                   No container definitions available
                 </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="devices" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assigned Devices</CardTitle>
+              <CardDescription>Devices that have this bundle assigned</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {assignedDevicesLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : !devicesWithDetails || devicesWithDetails.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Monitor className="mb-4 h-12 w-12 text-muted-foreground" />
+                  <p className="text-lg font-medium">No devices assigned</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    This bundle hasn't been assigned to any devices yet
+                  </p>
+                  <Button onClick={() => setAssignBundleOpen(true)}>
+                    <Users className="mr-2 h-4 w-4" />
+                    Assign to Devices
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Device</TableHead>
+                        <TableHead>Version</TableHead>
+                        <TableHead>Assigned By</TableHead>
+                        <TableHead>Assigned</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {devicesWithDetails.map((device) => (
+                        <TableRow key={device.deviceId}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Monitor className="h-4 w-4 text-muted-foreground" />
+                              <div className="flex flex-col">
+                                <span className="font-medium">{device.deviceName}</span>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  {device.deviceId.slice(0, 8)}...
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="font-mono">
+                              v{device.bundleVersion}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {device.assignedBy ? (
+                              <div className="flex items-center gap-2">
+                                <User className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-sm">{device.assignedBy}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              <span>
+                                {formatDistanceToNow(new Date(device.assignedAt), { addSuffix: true })}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

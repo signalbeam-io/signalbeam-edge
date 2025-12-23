@@ -116,6 +116,7 @@ builder.Services.AddScoped<UpdateRolloutStatusHandler>();
 builder.Services.AddScoped<GetBundlesHandler>();
 builder.Services.AddScoped<GetBundleByIdHandler>();
 builder.Services.AddScoped<GetBundleVersionHandler>();
+builder.Services.AddScoped<GetBundleAssignedDevicesHandler>();
 builder.Services.AddScoped<GetDeviceDesiredStateHandler>();
 builder.Services.AddScoped<GetRolloutStatusHandler>();
 
