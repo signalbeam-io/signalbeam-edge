@@ -23,6 +23,7 @@ SignalBeam Edge follows a **microservices architecture** with clear service boun
 **System Context** - Shows how SignalBeam Edge fits into the wider environment and who uses it.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#fff','primaryTextColor':'#000','primaryBorderColor':'#000','lineColor':'#000','secondaryColor':'#f4f4f4','tertiaryColor':'#fff','background':'#ffffff','mainBkg':'#fff','secondBkg':'#f4f4f4','lineColor':'#333','border1':'#000','border2':'#000','note':'#fff','text':'#000','critical':'#000','done':'#000','activeText':'#000','labelTextColor':'#000','sectionBkgColor':'#fff','altSectionBkgColor':'#f4f4f4','sectionBkgColor2':'#fff','altBkgColor':'#f4f4f4','taskBorderColor':'#000','taskBkgColor':'#fff','activeTaskBorderColor':'#000','activeTaskBkgColor':'#fff','gridColor':'#000','doneTaskBkgColor':'#fff','doneTaskBorderColor':'#000','critBorderColor':'#000','critBkgColor':'#fff','todayLineColor':'#000','personBorder':'#000','personBkg':'#E8F5E9'}}}%%
 C4Context
     title System Context Diagram for SignalBeam Edge Platform
 
@@ -55,6 +56,7 @@ C4Context
 **Container Architecture** - Shows the high-level shape of the software architecture and how responsibilities are distributed across containers.
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#fff','primaryTextColor':'#000','primaryBorderColor':'#000','lineColor':'#000','secondaryColor':'#f4f4f4','tertiaryColor':'#fff','background':'#ffffff','mainBkg':'#fff','secondBkg':'#f4f4f4','lineColor':'#333','border1':'#000','border2':'#000','note':'#fff','text':'#000','critical':'#000','done':'#000','activeText':'#000','labelTextColor':'#000','sectionBkgColor':'#fff','altSectionBkgColor':'#f4f4f4','sectionBkgColor2':'#fff','altBkgColor':'#f4f4f4','taskBorderColor':'#000','taskBkgColor':'#fff','activeTaskBorderColor':'#000','activeTaskBkgColor':'#fff','gridColor':'#000','doneTaskBkgColor':'#fff','doneTaskBorderColor':'#000','critBorderColor':'#000','critBkgColor':'#fff','todayLineColor':'#000','personBorder':'#000','personBkg':'#E8F5E9'}}}%%
 C4Container
     title Container Diagram for SignalBeam Edge Platform
 
