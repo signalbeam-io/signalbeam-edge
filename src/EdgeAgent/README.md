@@ -167,47 +167,50 @@ Platform: Unix
 
 ## Running as a Service
 
-### Systemd (Linux)
+### Systemd (Linux) - Recommended
 
-Create a systemd service file:
+The SignalBeam Edge Agent includes a complete systemd service configuration with automated installation scripts.
 
-```bash
-sudo nano /etc/systemd/system/signalbeam-agent.service
-```
-
-Add the following content:
-
-```ini
-[Unit]
-Description=SignalBeam Edge Agent
-After=network.target docker.service
-Requires=docker.service
-
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/local/bin/signalbeam-agent run
-Restart=always
-RestartSec=10
-Environment=DOTNET_ENVIRONMENT=Production
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start the service:
+**Quick Install:**
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable signalbeam-agent
+# 1. Build the agent
+cd src/EdgeAgent/SignalBeam.EdgeAgent.Host
+dotnet publish -c Release -r linux-x64 --self-contained false
+
+# 2. Run installation script
+cd ../systemd
+sudo ./install.sh
+
+# 3. Register your device
+signalbeam-agent register \
+  --tenant-id <your-tenant-id> \
+  --device-id <device-id> \
+  --token <registration-token>
+
+# 4. Start the service
 sudo systemctl start signalbeam-agent
 
-# Check status
+# 5. Check status
 sudo systemctl status signalbeam-agent
 
-# View logs
+# 6. View logs
 sudo journalctl -u signalbeam-agent -f
 ```
+
+**Features:**
+- ✅ Automatic startup on boot
+- ✅ Automatic restart on failure
+- ✅ Runs as non-root user (`signalbeam`)
+- ✅ Security hardening enabled
+- ✅ systemd integration (`Type=notify`)
+- ✅ Resource limits configured
+
+**For detailed documentation, troubleshooting, and advanced configuration, see:**
+- [systemd/README.md](systemd/README.md) - Complete systemd documentation
+- [systemd/signalbeam-agent.service](systemd/signalbeam-agent.service) - Service unit file
+- [systemd/install.sh](systemd/install.sh) - Installation script
+- [systemd/uninstall.sh](systemd/uninstall.sh) - Uninstallation script
 
 ### Docker Container (Alternative)
 

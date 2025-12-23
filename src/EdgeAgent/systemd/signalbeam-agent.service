@@ -1,0 +1,42 @@
+[Unit]
+Description=SignalBeam Edge Agent - Manage edge devices from the cloud
+Documentation=https://github.com/signalbeam-io/signalbeam-edge
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/signalbeam-agent run
+Restart=always
+RestartSec=10
+User=signalbeam
+Group=signalbeam
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/signalbeam /var/log/signalbeam
+
+# Environment
+Environment=DOTNET_ENVIRONMENT=Production
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+WorkingDirectory=/var/lib/signalbeam
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=signalbeam-agent
+
+# Resource limits
+LimitNOFILE=65536
+TasksMax=4096
+
+# Startup behavior
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

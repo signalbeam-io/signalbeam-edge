@@ -22,6 +22,7 @@ public static class HostBuilder
 
         var host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
             .UseSerilog()
+            .UseSystemd() // Enable systemd integration for Type=notify support
             .ConfigureAppConfiguration((context, config) =>
             {
                 config.AddConfiguration(configuration);
