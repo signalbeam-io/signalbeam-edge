@@ -18,41 +18,63 @@ SignalBeam Edge follows a **microservices architecture** with clear service boun
 
 ### High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Web UI (React)                        │
-│              http://localhost:5173 (dev)                     │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ HTTPS/REST
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Backend Services                          │
-│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────┐│
-│  │ DeviceManager   │  │BundleOrchestrator│  │  Telemetry  ││
-│  │   (Port 5000)   │  │   (Port 5002)    │  │  Processor  ││
-│  │                 │  │                  │  │             ││
-│  │ • Devices       │  │ • Bundles        │  │ • Metrics   ││
-│  │ • Groups        │  │ • Versions       │  │ • Heartbeat ││
-│  │ • Tags          │  │ • Rollouts       │  │             ││
-│  └─────────────────┘  └──────────────────┘  └─────────────┘│
-└─────────────────────┬─────────────────────────────────┬─────┘
-                      │                                 │
-                      ▼                                 ▼
-┌─────────────────────────────────────┐  ┌──────────────────────┐
-│      Infrastructure Layer            │  │   Message Broker     │
-│                                      │  │                      │
-│  • PostgreSQL (+ TimescaleDB)       │  │  • NATS + JetStream  │
-│  • Valkey (Redis-compatible)        │  │  • Event Streaming   │
-│  • Azure Blob Storage (Azurite)     │  │  • Pub/Sub           │
-└─────────────────────────────────────┘  └──────────────────────┘
-                      ▲
-                      │ HTTP/REST + Message Queue
-                      │
-┌─────────────────────┴───────────────────────────────────────┐
-│                    Edge Agent (on device)                    │
-│  • Heartbeat sender    • Container reconciliation           │
-│  • Status reporter     • Docker/Podman interface            │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph WebUI["Web UI (React)"]
+        UI[Frontend Application<br/>http://localhost:5173]
+    end
+
+    subgraph Backend["Backend Services"]
+        DM[DeviceManager<br/>Port 5001<br/><br/>• Devices<br/>• Groups<br/>• Tags]
+        BO[BundleOrchestrator<br/>Port 5002<br/><br/>• Bundles<br/>• Versions<br/>• Rollouts]
+        TP[TelemetryProcessor<br/>Port 5003<br/><br/>• Metrics<br/>• Heartbeat]
+    end
+
+    subgraph Infrastructure["Infrastructure Layer"]
+        DB[(PostgreSQL +<br/>TimescaleDB)]
+        Cache[(Valkey<br/>Redis-compatible)]
+        Blob[Azure Blob Storage<br/>Azurite local]
+    end
+
+    subgraph Messaging["Message Broker"]
+        NATS[NATS + JetStream<br/><br/>• Event Streaming<br/>• Pub/Sub]
+    end
+
+    subgraph Edge["Edge Devices"]
+        Agent[Edge Agent<br/><br/>• Heartbeat sender<br/>• Status reporter<br/>• Container reconciler<br/>• Docker/Podman]
+    end
+
+    UI -->|HTTPS/REST| DM
+    UI -->|HTTPS/REST| BO
+    UI -->|HTTPS/REST| TP
+
+    DM -.->|Read/Write| DB
+    BO -.->|Read/Write| DB
+    TP -.->|Read/Write| DB
+
+    DM -.->|Cache| Cache
+    BO -.->|Cache| Cache
+    TP -.->|Cache| Cache
+
+    BO -.->|Store Artifacts| Blob
+
+    DM -->|Publish Events| NATS
+    BO -->|Publish Events| NATS
+    TP -->|Subscribe Events| NATS
+
+    Agent -->|HTTP/REST| DM
+    Agent -->|HTTP/REST| BO
+    Agent -->|Publish Events| NATS
+
+    style UI fill:#e1f5ff
+    style DM fill:#c8e6c9
+    style BO fill:#c8e6c9
+    style TP fill:#c8e6c9
+    style DB fill:#fff9c4
+    style Cache fill:#fff9c4
+    style Blob fill:#fff9c4
+    style NATS fill:#ffe0b2
+    style Agent fill:#f8bbd0
 ```
 
 ## Architectural Patterns
@@ -61,41 +83,48 @@ SignalBeam Edge follows a **microservices architecture** with clear service boun
 
 Each microservice follows the **Hexagonal Architecture** pattern:
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                    SignalBeam Service                     │
-│                                                           │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │              Host Layer (Web API)                  │  │
-│  │  • Minimal API Endpoints                           │  │
-│  │  • Middleware Pipeline                             │  │
-│  │  • Dependency Injection                            │  │
-│  └────────────────┬───────────────────────────────────┘  │
-│                   │                                       │
-│  ┌────────────────▼───────────────────────────────────┐  │
-│  │          Application Layer (CQRS)                  │  │
-│  │  • Command Handlers                                │  │
-│  │  • Query Handlers                                  │  │
-│  │  • Application Services                            │  │
-│  │  • DTOs & Validators                               │  │
-│  └────────────────┬───────────────────────────────────┘  │
-│                   │                                       │
-│  ┌────────────────▼───────────────────────────────────┐  │
-│  │          Domain Layer (Business Logic)             │  │
-│  │  • Entities & Aggregates                           │  │
-│  │  • Value Objects                                   │  │
-│  │  • Domain Events                                   │  │
-│  │  • Business Rules                                  │  │
-│  └────────────────┬───────────────────────────────────┘  │
-│                   │                                       │
-│  ┌────────────────▼───────────────────────────────────┐  │
-│  │       Infrastructure Layer (Adapters)              │  │
-│  │  • EF Core DbContext                               │  │
-│  │  • Repository Implementations                      │  │
-│  │  • External Service Clients                        │  │
-│  │  • Message Publishers                              │  │
-│  └────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Service["SignalBeam Microservice"]
+        subgraph Host["Host Layer (Web API)"]
+            Endpoints[Minimal API Endpoints]
+            Middleware[Middleware Pipeline]
+            DI[Dependency Injection]
+        end
+
+        subgraph Application["Application Layer (CQRS)"]
+            Commands[Command Handlers]
+            Queries[Query Handlers]
+            Services[Application Services]
+            DTOs[DTOs & Validators]
+        end
+
+        subgraph Domain["Domain Layer (Business Logic)"]
+            Entities[Entities & Aggregates]
+            ValueObjects[Value Objects]
+            Events[Domain Events]
+            Rules[Business Rules]
+        end
+
+        subgraph Infrastructure["Infrastructure Layer (Adapters)"]
+            EF[EF Core DbContext]
+            Repos[Repository Implementations]
+            Clients[External Service Clients]
+            Publishers[Message Publishers]
+        end
+
+        Host --> Application
+        Application --> Domain
+        Domain --> Infrastructure
+    end
+
+    External[External Systems] -.->|Adapters| Infrastructure
+    HTTP[HTTP Requests] -->|Entry Point| Host
+
+    style Host fill:#e1f5ff
+    style Application fill:#c8e6c9
+    style Domain fill:#fff9c4
+    style Infrastructure fill:#ffe0b2
 ```
 
 **Benefits**:
@@ -447,20 +476,41 @@ await foreach (var msg in subscription.Msgs.ReadAllAsync(ct))
 ```
 
 **NATS Subject Hierarchy**:
-```
-signalbeam.
-├── devices.
-│   ├── registered              # Device registration events
-│   ├── heartbeat.<deviceId>    # Heartbeat stream
-│   ├── status.<deviceId>       # Status changes
-│   └── events.<eventType>      # General device events
-├── bundles.
-│   ├── assigned                # Bundle assignment events
-│   ├── rollouts.<rolloutId>    # Rollout progress updates
-│   └── artifacts.uploaded      # Artifact notifications
-└── telemetry.
-    ├── metrics.<deviceId>      # Device metrics stream
-    └── logs.<deviceId>         # Log streaming (future)
+
+```mermaid
+graph TD
+    Root[signalbeam.*]
+
+    Root --> Devices[devices.*]
+    Root --> Bundles[bundles.*]
+    Root --> Telemetry[telemetry.*]
+
+    Devices --> DevReg[registered]
+    Devices --> DevHB[heartbeat.deviceId]
+    Devices --> DevStatus[status.deviceId]
+    Devices --> DevEvents[events.eventType]
+
+    Bundles --> BunAssigned[assigned]
+    Bundles --> BunRollouts[rollouts.rolloutId]
+    Bundles --> BunArtifacts[artifacts.uploaded]
+
+    Telemetry --> TelMetrics[metrics.deviceId]
+    Telemetry --> TelLogs[logs.deviceId]
+
+    DevReg -.->|JetStream| RegNote[Device registration events]
+    DevHB -.->|Core NATS| HBNote[Heartbeat stream ephemeral]
+    DevStatus -.->|JetStream| StatusNote[Status changes]
+
+    BunAssigned -.->|JetStream| AssignNote[Bundle assignments]
+    BunRollouts -.->|JetStream| RollNote[Rollout progress]
+
+    TelMetrics -.->|Core NATS| MetNote[High-frequency metrics]
+    TelLogs -.->|Core NATS| LogNote[Log streaming future]
+
+    style Root fill:#e1f5ff
+    style Devices fill:#c8e6c9
+    style Bundles fill:#fff9c4
+    style Telemetry fill:#ffe0b2
 ```
 
 ## Security Architecture
@@ -505,62 +555,129 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
 
 ### Local Development (.NET Aspire)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│             .NET Aspire AppHost                          │
-│  Orchestrates all services and infrastructure           │
-└─────────────┬───────────────────────────────────────────┘
-              │
-              ├─→ PostgreSQL (container)
-              ├─→ Valkey (container)
-              ├─→ NATS (container)
-              ├─→ Azurite (container)
-              │
-              ├─→ DeviceManager (dotnet run)
-              ├─→ BundleOrchestrator (dotnet run)
-              └─→ TelemetryProcessor (dotnet run)
+```mermaid
+graph TB
+    subgraph AspireHost[".NET Aspire AppHost"]
+        Dashboard[Aspire Dashboard<br/>http://localhost:15888<br/><br/>• Logs & Traces<br/>• Metrics<br/>• Service Discovery]
+    end
 
-Aspire Dashboard: http://localhost:15888
+    subgraph Infrastructure["Infrastructure Containers"]
+        PG[PostgreSQL<br/>+ TimescaleDB<br/>Port: 5432]
+        VK[Valkey<br/>Redis-compatible<br/>Port: 6379]
+        NATS[NATS + JetStream<br/>Port: 4222]
+        AZ[Azurite<br/>Azure Storage Emulator<br/>Port: 10000]
+    end
+
+    subgraph Services["Backend Services dotnet run"]
+        DM[DeviceManager<br/>Port: 5001]
+        BO[BundleOrchestrator<br/>Port: 5002]
+        TP[TelemetryProcessor<br/>Port: 5003]
+    end
+
+    subgraph Frontend["Frontend"]
+        UI[React Web UI<br/>Vite Dev Server<br/>Port: 5173]
+    end
+
+    AspireHost -->|Orchestrates| Infrastructure
+    AspireHost -->|Orchestrates| Services
+    AspireHost -->|Monitors| Dashboard
+
+    Services -->|Connect| Infrastructure
+    UI -->|HTTP/REST| Services
+
+    style Dashboard fill:#e1f5ff
+    style PG fill:#fff9c4
+    style VK fill:#fff9c4
+    style NATS fill:#ffe0b2
+    style AZ fill:#fff9c4
+    style DM fill:#c8e6c9
+    style BO fill:#c8e6c9
+    style TP fill:#c8e6c9
+    style UI fill:#f8bbd0
 ```
 
 ### Production Deployment (Kubernetes)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  Kubernetes Cluster (AKS)                │
-│                                                           │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │            Ingress (NGINX/App Gateway)            │   │
-│  │  • TLS termination                                │   │
-│  │  • Rate limiting                                  │   │
-│  │  • Load balancing                                 │   │
-│  └─────────────────┬────────────────────────────────┘   │
-│                    │                                     │
-│  ┌─────────────────▼────────────────────────────────┐   │
-│  │              Service Mesh (Cilium)                │   │
-│  │  • mTLS                                           │   │
-│  │  • Traffic management                             │   │
-│  │  • Observability                                  │   │
-│  └─────────────────┬────────────────────────────────┘   │
-│                    │                                     │
-│  ┌─────────────────▼────────────────────────────────┐   │
-│  │            Microservices (Pods)                   │   │
-│  │                                                    │   │
-│  │  DeviceManager      BundleOrchestrator            │   │
-│  │  (3 replicas)       (3 replicas)                  │   │
-│  │                                                    │   │
-│  │  TelemetryProcessor                               │   │
-│  │  (3 replicas)                                     │   │
-│  └───────────────────────────────────────────────────┘   │
-│                                                           │
-│  ┌───────────────────────────────────────────────────┐   │
-│  │        External Services (Managed)                 │   │
-│  │  • Azure Database for PostgreSQL                  │   │
-│  │  • Azure Cache for Redis (Valkey)                 │   │
-│  │  • Azure Blob Storage                             │   │
-│  │  • NATS (self-hosted cluster)                     │   │
-│  └───────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    Internet([Internet Traffic])
+
+    subgraph AKS["Azure Kubernetes Service (AKS)"]
+        subgraph Ingress["Ingress Layer"]
+            LB[NGINX Ingress<br/>or App Gateway<br/><br/>• TLS Termination<br/>• Rate Limiting<br/>• Load Balancing]
+        end
+
+        subgraph Mesh["Service Mesh - Cilium"]
+            SM[eBPF-based Networking<br/><br/>• mTLS<br/>• Traffic Management<br/>• Observability]
+        end
+
+        subgraph Pods["Microservices Pods"]
+            DM1[DeviceManager<br/>Replica 1]
+            DM2[DeviceManager<br/>Replica 2]
+            DM3[DeviceManager<br/>Replica 3]
+
+            BO1[BundleOrchestrator<br/>Replica 1]
+            BO2[BundleOrchestrator<br/>Replica 2]
+            BO3[BundleOrchestrator<br/>Replica 3]
+
+            TP1[TelemetryProcessor<br/>Replica 1]
+            TP2[TelemetryProcessor<br/>Replica 2]
+            TP3[TelemetryProcessor<br/>Replica 3]
+        end
+
+        Internet --> LB
+        LB --> SM
+        SM --> Pods
+    end
+
+    subgraph Azure["Azure Managed Services"]
+        PSQL[(Azure Database<br/>for PostgreSQL<br/>+ TimescaleDB)]
+        Redis[(Azure Cache<br/>for Redis<br/>or Valkey)]
+        Blob[Azure Blob<br/>Storage]
+    end
+
+    subgraph SelfHosted["Self-Hosted in AKS"]
+        NATSCluster[NATS Cluster<br/>3 nodes<br/>+ JetStream]
+    end
+
+    subgraph Observability["Observability Stack"]
+        Prom[Prometheus]
+        Grafana[Grafana]
+        Loki[Loki]
+        Tempo[Tempo]
+    end
+
+    Pods -.->|Read/Write| PSQL
+    Pods -.->|Cache| Redis
+    Pods -.->|Store Artifacts| Blob
+    Pods -->|Pub/Sub| NATSCluster
+
+    Pods -.->|Metrics| Prom
+    Pods -.->|Logs| Loki
+    Pods -.->|Traces| Tempo
+    Prom --> Grafana
+    Loki --> Grafana
+    Tempo --> Grafana
+
+    style LB fill:#e1f5ff
+    style SM fill:#c8e6c9
+    style DM1 fill:#c8e6c9
+    style DM2 fill:#c8e6c9
+    style DM3 fill:#c8e6c9
+    style BO1 fill:#c8e6c9
+    style BO2 fill:#c8e6c9
+    style BO3 fill:#c8e6c9
+    style TP1 fill:#c8e6c9
+    style TP2 fill:#c8e6c9
+    style TP3 fill:#c8e6c9
+    style PSQL fill:#fff9c4
+    style Redis fill:#fff9c4
+    style Blob fill:#fff9c4
+    style NATSCluster fill:#ffe0b2
+    style Prom fill:#f8bbd0
+    style Grafana fill:#f8bbd0
+    style Loki fill:#f8bbd0
+    style Tempo fill:#f8bbd0
 ```
 
 **Infrastructure as Code**:

@@ -60,47 +60,39 @@ Each device in a rollout has its own **rollout status** tracking:
 
 ### Rollout State Machine
 
-```
-    ┌─────────┐
-    │ Pending │
-    └────┬────┘
-         │
-         ▼
-   ┌───────────┐      ┌───────────┐
-   │ Updating  │─────▶│ Cancelled │
-   └─────┬─────┘      └───────────┘
-         │
-         ├─────────┐
-         │         │
-         ▼         ▼
-    ┌──────────┐ ┌────────┐
-    │Succeeded │ │ Failed │
-    └──────────┘ └────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Rollout Created
+    Pending --> Updating: Device Starts
+    Updating --> Succeeded: Deployment OK
+    Updating --> Failed: Error Occurred
+    Updating --> Cancelled: User Cancelled
+    Failed --> Pending: Retry
+    Succeeded --> [*]
+    Failed --> [*]
+    Cancelled --> [*]
 ```
 
 ## Architecture
 
 ### System Components
 
-```
-┌─────────────────┐         ┌──────────────────────┐
-│   Web UI        │────────▶│  BundleOrchestrator  │
-│  (React SPA)    │  REST   │     (Backend API)    │
-└─────────────────┘         └──────────┬───────────┘
-                                       │
-                                       │ EF Core
-                                       ▼
-                            ┌────────────────────┐
-                            │   PostgreSQL       │
-                            │  - RolloutStatus   │
-                            │  - DeviceState     │
-                            └────────────────────┘
-                                       ▲
-                                       │ Polling
-                            ┌──────────┴───────────┐
-                            │    Edge Agent        │
-                            │  (Device Reconciler) │
-                            └──────────────────────┘
+```mermaid
+graph TB
+    UI[Web UI<br/>React SPA]
+    API[BundleOrchestrator<br/>Backend API]
+    DB[(PostgreSQL<br/><br/>• RolloutStatus<br/>• DeviceState)]
+    Agent[Edge Agent<br/>Device Reconciler]
+
+    UI -->|REST API| API
+    API -->|EF Core<br/>Read/Write| DB
+    Agent -->|HTTP Polling<br/>Get Desired State| API
+    Agent -.->|Update Status| DB
+
+    style UI fill:#e1f5ff
+    style API fill:#c8e6c9
+    style DB fill:#fff9c4
+    style Agent fill:#f8bbd0
 ```
 
 ### Data Flow
@@ -133,41 +125,52 @@ Each device in a rollout has its own **rollout status** tracking:
 
 **Hexagonal Architecture Layers:**
 
-```
-┌─────────────────────────────────────────────────┐
-│  Host Layer (Endpoints)                         │
-│  - RolloutEndpoints.cs                          │
-│    • GET /api/rollouts                          │
-│    • POST /api/rollouts                         │
-│    • GET /api/rollouts/{id}                     │
-│    • GET /api/rollouts/{id}/devices             │
-│    • POST /api/rollouts/{id}/cancel             │
-└─────────────────┬───────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────┐
-│  Application Layer (CQRS Handlers)              │
-│  - CreateRolloutHandler                         │
-│  - GetRolloutsHandler                           │
-│  - GetRolloutByIdHandler                        │
-│  - GetRolloutDevicesHandler                     │
-│  - CancelRolloutHandler                         │
-└─────────────────┬───────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────┐
-│  Infrastructure Layer (Data Access)             │
-│  - RolloutStatusRepository                      │
-│    • GetDistinctRolloutsAsync()                 │
-│    • GetByRolloutIdAsync()                      │
-│    • CreateRolloutStatusAsync()                 │
-│    • UpdateRolloutStatusAsync()                 │
-│    • CancelRolloutAsync()                       │
-└─────────────────┬───────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────┐
-│  Database (PostgreSQL)                          │
-│  - rollout_statuses                             │
-│  - device_desired_states                        │
-└─────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Host["Host Layer - Endpoints"]
+        E1[GET /api/rollouts]
+        E2[POST /api/rollouts]
+        E3[GET /api/rollouts/:id]
+        E4[GET /api/rollouts/:id/devices]
+        E5[POST /api/rollouts/:id/cancel]
+    end
+
+    subgraph Application["Application Layer - CQRS Handlers"]
+        H1[CreateRolloutHandler]
+        H2[GetRolloutsHandler]
+        H3[GetRolloutByIdHandler]
+        H4[GetRolloutDevicesHandler]
+        H5[CancelRolloutHandler]
+    end
+
+    subgraph Infrastructure["Infrastructure Layer - Data Access"]
+        R[RolloutStatusRepository<br/><br/>• GetDistinctRolloutsAsync<br/>• GetByRolloutIdAsync<br/>• CreateRolloutStatusAsync<br/>• UpdateRolloutStatusAsync<br/>• CancelRolloutAsync]
+    end
+
+    subgraph Database["Database - PostgreSQL"]
+        T1[(rollout_statuses)]
+        T2[(device_desired_states)]
+    end
+
+    E2 --> H1
+    E1 --> H2
+    E3 --> H3
+    E4 --> H4
+    E5 --> H5
+
+    H1 --> R
+    H2 --> R
+    H3 --> R
+    H4 --> R
+    H5 --> R
+
+    R --> T1
+    R --> T2
+
+    style Host fill:#e1f5ff
+    style Application fill:#c8e6c9
+    style Infrastructure fill:#fff9c4
+    style Database fill:#ffe0b2
 ```
 
 ## Rollout States
@@ -474,18 +477,28 @@ CREATE INDEX idx_rollout_statuses_device_id ON rollout_statuses(device_id);
 
 **Backend Flow:**
 
-```
-User → UI → POST /api/rollouts
-           ↓
-       CreateRolloutHandler
-           ↓
-       For each target device:
-         - Create RolloutStatus (Pending)
-         - Update DeviceDesiredState
-           ↓
-       Save to database
-           ↓
-       Return rollout summary
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Web UI
+    participant API as BundleOrchestrator API
+    participant Handler as CreateRolloutHandler
+    participant DB as PostgreSQL
+
+    User->>UI: Click "Assign to Devices"
+    UI->>API: POST /api/rollouts
+    API->>Handler: Execute command
+
+    loop For each target device
+        Handler->>DB: Create RolloutStatus (Pending)
+        Handler->>DB: Update DeviceDesiredState
+    end
+
+    Handler->>DB: Commit transaction
+    DB-->>Handler: Success
+    Handler-->>API: Return rollout summary
+    API-->>UI: 201 Created + rollout data
+    UI->>User: Navigate to rollout status page
 ```
 
 ### Monitoring a Rollout
@@ -525,15 +538,25 @@ const { data: rollout, refetch } = useRollout(rolloutId, {
 
 **Backend Flow:**
 
-```
-User → UI → POST /api/rollouts/{id}/cancel
-           ↓
-       CancelRolloutHandler
-           ↓
-       Update all devices WHERE status IN ('pending', 'updating')
-         SET status = 'cancelled'
-           ↓
-       Return success
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Web UI
+    participant API as BundleOrchestrator API
+    participant Handler as CancelRolloutHandler
+    participant DB as PostgreSQL
+
+    User->>UI: Click "Cancel Rollout"
+    UI->>User: Confirm cancellation?
+    User->>UI: Confirm
+    UI->>API: POST /api/rollouts/{id}/cancel
+    API->>Handler: Execute command
+    Handler->>DB: UPDATE rollout_statuses<br/>SET status = 'cancelled'<br/>WHERE status IN ('pending', 'updating')
+    DB-->>Handler: Rows updated
+    Handler-->>API: Success
+    API-->>UI: 204 No Content
+    UI->>UI: Refresh rollout data
+    UI->>User: Show "Rollout cancelled" toast
 ```
 
 ### Device Reconciliation
@@ -552,7 +575,48 @@ User → UI → POST /api/rollouts/{id}/cancel
    - Report success/failure
 4. Agent continues heartbeats with current bundle version
 
-**Agent Reconciliation Loop:**
+**Agent Reconciliation Flow:**
+
+```mermaid
+sequenceDiagram
+    participant Agent as Edge Agent
+    participant API as BundleOrchestrator API
+    participant Docker as Docker Daemon
+    participant DB as PostgreSQL
+
+    loop Every 60 seconds
+        Agent->>API: GET /api/devices/{id}/desired-state
+        API->>DB: Fetch DeviceDesiredState
+        DB-->>API: Return desired bundle
+        API-->>Agent: Desired bundle configuration
+
+        alt Desired state differs from current state
+            Agent->>API: PUT /api/rollouts/{id}/status<br/>status: "updating"
+            API->>DB: Update RolloutStatus
+
+            Agent->>Docker: Pull container images
+            Docker-->>Agent: Images pulled
+
+            Agent->>Docker: Stop old containers
+            Docker-->>Agent: Containers stopped
+
+            Agent->>Docker: Start new containers
+            Docker-->>Agent: Containers started
+
+            alt Reconciliation succeeded
+                Agent->>API: PUT /api/rollouts/{id}/status<br/>status: "succeeded"
+                API->>DB: Update RolloutStatus
+            else Reconciliation failed
+                Agent->>API: PUT /api/rollouts/{id}/status<br/>status: "failed", error
+                API->>DB: Update RolloutStatus with error
+            end
+        end
+
+        Agent->>Agent: Sleep 60 seconds
+    end
+```
+
+**Agent Reconciliation Loop (C# code):**
 
 ```csharp
 while (true)
