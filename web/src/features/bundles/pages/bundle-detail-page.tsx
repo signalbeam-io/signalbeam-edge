@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
-import { ArrowLeft, Package, GitBranch, CheckCircle2, Users, Edit, Monitor, Calendar, User } from 'lucide-react'
+import { ArrowLeft, Package, GitBranch, CheckCircle2, Users, Edit, Monitor, Calendar, User, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -21,9 +21,11 @@ import {
 } from '@/components/ui/table'
 import { useBundle, useBundleAssignedDevices } from '@/hooks/api/use-bundles'
 import { useDevices } from '@/hooks/api/use-devices'
+import { useRollouts } from '@/hooks/api/use-rollouts'
 import { CreateVersionDialog } from '../components/create-version-dialog'
 import { AssignBundleDialog } from '../components/assign-bundle-dialog'
-import { BundleVersion } from '@/api/types'
+import { BundleVersion, RolloutStatus } from '@/api/types'
+import { Clock, Loader2, XCircle } from 'lucide-react'
 
 export function BundleDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -34,6 +36,7 @@ export function BundleDetailPage() {
     !!id
   )
   const { data: devicesData } = useDevices({ pageSize: 1000 })
+  const { data: rolloutsData, isError: rolloutsError } = useRollouts({ bundleId: id, pageSize: 10 })
 
   const [createVersionOpen, setCreateVersionOpen] = useState(false)
   const [assignBundleOpen, setAssignBundleOpen] = useState(false)
@@ -160,6 +163,16 @@ export function BundleDetailPage() {
         <TabsList>
           <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="containers">Containers</TabsTrigger>
+          {!rolloutsError && (
+            <TabsTrigger value="rollouts">
+              Rollouts
+              {rolloutsData && rolloutsData.data.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {rolloutsData.data.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="devices">
             Assigned Devices
             {deviceCount > 0 && (
@@ -266,6 +279,93 @@ export function BundleDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {!rolloutsError && (
+          <TabsContent value="rollouts" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Rollout History</CardTitle>
+                <CardDescription>Deployment rollouts for this bundle</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!rolloutsData || rolloutsData.data.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Activity className="mb-4 h-12 w-12 text-muted-foreground" />
+                  <p className="text-lg font-medium">No rollouts yet</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Assign this bundle to devices or groups to create a rollout
+                  </p>
+                  <Button onClick={() => setAssignBundleOpen(true)}>
+                    <Users className="mr-2 h-4 w-4" />
+                    Assign to Devices
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Version</TableHead>
+                        <TableHead>Target</TableHead>
+                        <TableHead>Progress</TableHead>
+                        <TableHead>Started</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rolloutsData.data.map((rollout) => (
+                        <TableRow key={rollout.id}>
+                          <TableCell>
+                            <RolloutStatusBadge status={rollout.status} />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="font-mono">
+                              v{rollout.version}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm">
+                                {rollout.progress.total} {rollout.targetType === 'group' ? 'groups' : 'devices'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-1 text-xs">
+                                <span className="text-green-600">{rollout.progress.succeeded} ✓</span>
+                                <span className="text-blue-600">{rollout.progress.inProgress} ⟳</span>
+                                <span className="text-red-600">{rollout.progress.failed} ✗</span>
+                                <span className="text-gray-600">{rollout.progress.pending} ○</span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm text-muted-foreground">
+                              {formatDistanceToNow(new Date(rollout.createdAt), { addSuffix: true })}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/rollouts/${rollout.id}`)}
+                            >
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        )}
 
         <TabsContent value="devices" className="space-y-4">
           <Card>
@@ -402,4 +502,46 @@ function VersionCard({ version }: { version: BundleVersion }) {
       )}
     </div>
   )
+}
+
+function RolloutStatusBadge({ status }: { status: RolloutStatus }) {
+  switch (status) {
+    case RolloutStatus.Pending:
+      return (
+        <Badge variant="outline" className="gap-1">
+          <Clock className="h-3 w-3" />
+          Pending
+        </Badge>
+      )
+    case RolloutStatus.InProgress:
+      return (
+        <Badge variant="outline" className="gap-1 border-blue-500 text-blue-600">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          In Progress
+        </Badge>
+      )
+    case RolloutStatus.Completed:
+      return (
+        <Badge variant="outline" className="gap-1 border-green-500 text-green-600">
+          <CheckCircle2 className="h-3 w-3" />
+          Completed
+        </Badge>
+      )
+    case RolloutStatus.Failed:
+      return (
+        <Badge variant="outline" className="gap-1 border-red-500 text-red-600">
+          <XCircle className="h-3 w-3" />
+          Failed
+        </Badge>
+      )
+    case RolloutStatus.Cancelled:
+      return (
+        <Badge variant="outline" className="gap-1">
+          <XCircle className="h-3 w-3" />
+          Cancelled
+        </Badge>
+      )
+    default:
+      return <Badge variant="outline">{status}</Badge>
+  }
 }

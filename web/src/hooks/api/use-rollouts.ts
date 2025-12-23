@@ -16,6 +16,14 @@ export function useRollouts(filters?: RolloutFilters) {
     queryKey: [QUERY_KEY, filters],
     queryFn: () => rolloutsApi.getRollouts(filters),
     staleTime: 20_000, // 20 seconds
+    retry: (failureCount, error: unknown) => {
+      // Don't retry if the endpoint doesn't exist (405 Method Not Allowed)
+      const apiError = error as { response?: { status?: number } }
+      if (apiError?.response?.status === 405) {
+        return false
+      }
+      return failureCount < 3
+    },
   })
 }
 

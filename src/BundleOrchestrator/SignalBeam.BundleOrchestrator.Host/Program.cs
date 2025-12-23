@@ -122,6 +122,7 @@ builder.Services.AddScoped<GetRolloutStatusHandler>();
 
 // Unified Rollout handlers
 builder.Services.AddScoped<CreateRolloutHandler>();
+builder.Services.AddScoped<GetRolloutsHandler>();
 builder.Services.AddScoped<GetRolloutByIdHandler>();
 builder.Services.AddScoped<GetRolloutDevicesHandler>();
 builder.Services.AddScoped<CancelRolloutHandler>();

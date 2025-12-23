@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate } from 'react-router-dom'
 import { Users, ChevronDown, ChevronRight } from 'lucide-react'
 import {
   Dialog,
@@ -17,7 +18,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -41,6 +41,7 @@ interface AssignBundleDialogProps {
 
 export function AssignBundleDialog({ open, onOpenChange, bundle }: AssignBundleDialogProps) {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const createRollout = useCreateRollout()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showGroups, setShowGroups] = useState(true)
@@ -73,33 +74,48 @@ export function AssignBundleDialog({ open, onOpenChange, bundle }: AssignBundleD
 
     setIsSubmitting(true)
     try {
+      let rolloutId: string | null = null
+
       // Create rollout for groups if any selected
       if (data.groupIds && data.groupIds.length > 0) {
-        await createRollout.mutateAsync({
+        const rollout = await createRollout.mutateAsync({
           bundleId: bundle.id,
           version: bundle.currentVersion,
           targetType: 'group',
           targetIds: data.groupIds,
         })
+        rolloutId = rollout.id
       }
 
       // Create rollout for devices if any selected
       if (data.deviceIds && data.deviceIds.length > 0) {
-        await createRollout.mutateAsync({
+        const rollout = await createRollout.mutateAsync({
           bundleId: bundle.id,
           version: bundle.currentVersion,
           targetType: 'device',
           targetIds: data.deviceIds,
         })
+        rolloutId = rollout.id
       }
 
       const totalTargets = (data.groupIds?.length || 0) + (data.deviceIds?.length || 0)
-      toast({
-        title: 'Bundle assigned',
-        description: `Bundle "${bundle.name}" v${bundle.currentVersion} has been assigned to ${totalTargets} target(s).`,
-      })
+
       form.reset()
       onOpenChange(false)
+
+      // Navigate to rollout status page if a rollout was created
+      if (rolloutId) {
+        toast({
+          title: 'Rollout created',
+          description: `Bundle "${bundle.name}" v${bundle.currentVersion} is being deployed to ${totalTargets} target(s).`,
+        })
+        navigate(`/rollouts/${rolloutId}`)
+      } else {
+        toast({
+          title: 'Bundle assigned',
+          description: `Bundle "${bundle.name}" v${bundle.currentVersion} has been assigned to ${totalTargets} target(s).`,
+        })
+      }
     } catch (error) {
       toast({
         title: 'Failed to assign bundle',

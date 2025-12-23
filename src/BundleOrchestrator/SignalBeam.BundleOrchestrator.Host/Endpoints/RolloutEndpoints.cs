@@ -17,6 +17,11 @@ public static class RolloutEndpoints
             .WithTags("Rollouts")
             .WithOpenApi();
 
+        group.MapGet("", GetRollouts)
+            .WithName("GetRollouts")
+            .WithSummary("Get paginated list of rollouts")
+            .WithDescription("Retrieves rollouts, optionally filtered by bundle ID.");
+
         group.MapPost("", CreateRollout)
             .WithName("CreateRollout")
             .WithSummary("Create a new rollout")
@@ -38,6 +43,23 @@ public static class RolloutEndpoints
             .WithDescription("Cancels all pending and in-progress devices in the rollout.");
 
         return app;
+    }
+
+    private static async Task<IResult> GetRollouts(
+        [AsParameters] GetRolloutsQuery query,
+        GetRolloutsHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(query, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
     }
 
     private static async Task<IResult> CreateRollout(
