@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -e
+
+USER="signalbeam"
+GROUP="signalbeam"
+STATE_DIR="/var/lib/signalbeam"
+LOG_DIR="/var/log/signalbeam"
+CONFIG_DIR="/etc/signalbeam"
+
+# Create user and group if they don't exist
+if ! id -u ${USER} >/dev/null 2>&1; then
+    echo "Creating system user '${USER}'..."
+    useradd --system --no-create-home --shell /bin/false ${USER}
+fi
+
+# Add user to docker group
+if getent group docker >/dev/null 2>&1; then
+    usermod -aG docker ${USER} || true
+fi
+
+# Create directories
+mkdir -p ${STATE_DIR}
+mkdir -p ${LOG_DIR}
+mkdir -p ${CONFIG_DIR}
+
+# Set ownership and permissions
+chown -R ${USER}:${GROUP} ${STATE_DIR}
+chown -R ${USER}:${GROUP} ${LOG_DIR}
+chown -R ${USER}:${GROUP} ${CONFIG_DIR}
+
+chmod 755 ${STATE_DIR}
+chmod 755 ${LOG_DIR}
+chmod 755 ${CONFIG_DIR}
+
+# Reload systemd
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl enable signalbeam-agent.service || true
+fi
+
+echo ""
+echo "SignalBeam Edge Agent installed successfully!"
+echo ""
+echo "Next steps:"
+echo "  1. Register your device:"
+echo "     signalbeam-agent register --tenant-id <your-tenant-id> --device-id <device-id> --token <token>"
+echo ""
+echo "  2. Start the service:"
+echo "     sudo systemctl start signalbeam-agent"
+echo ""
+echo "  3. Check status:"
+echo "     sudo systemctl status signalbeam-agent"
+echo ""
+
+exit 0

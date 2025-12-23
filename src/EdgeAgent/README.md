@@ -18,19 +18,61 @@ The SignalBeam Edge Agent is a lightweight .NET console application that runs on
 
 ## Installation
 
-### From Binary
+### Quick Install (Recommended)
 
-Download the latest release from the releases page and extract it to your preferred location.
+For Debian-based systems (Ubuntu, Debian, Raspberry Pi OS):
 
 ```bash
-# Extract the archive
-tar -xzf signalbeam-agent-linux-x64.tar.gz
+# One-line installation
+curl -fsSL https://install.signalbeam.io | sudo bash
+```
 
-# Make it executable
-chmod +x signalbeam-agent
+Or using wget:
 
-# Optionally, move to a system path
-sudo mv signalbeam-agent /usr/local/bin/
+```bash
+wget -qO- https://install.signalbeam.io | sudo bash
+```
+
+This will:
+- Detect your OS and architecture
+- Download the correct package
+- Install Docker if needed
+- Set up the systemd service
+- Provide registration instructions
+
+### Install .deb Package (Manual)
+
+Download the appropriate package for your platform from the [releases page](https://github.com/signalbeam-io/signalbeam-edge/releases):
+
+```bash
+# For x86_64 (Intel/AMD)
+wget https://github.com/signalbeam-io/signalbeam-edge/releases/download/v0.1.0/signalbeam-agent_0.1.0_amd64.deb
+sudo dpkg -i signalbeam-agent_0.1.0_amd64.deb
+
+# For ARM64 (Raspberry Pi 4, 5)
+wget https://github.com/signalbeam-io/signalbeam-edge/releases/download/v0.1.0/signalbeam-agent_0.1.0_arm64.deb
+sudo dpkg -i signalbeam-agent_0.1.0_arm64.deb
+
+# For ARMv7 (Raspberry Pi 3)
+wget https://github.com/signalbeam-io/signalbeam-edge/releases/download/v0.1.0/signalbeam-agent_0.1.0_armhf.deb
+sudo dpkg -i signalbeam-agent_0.1.0_armhf.deb
+```
+
+### Docker Container
+
+```bash
+# Using docker-compose
+cd src/EdgeAgent
+docker-compose up -d
+
+# Or using docker run
+docker pull ghcr.io/signalbeam-io/edge-agent:latest
+docker run -d \
+  --name signalbeam-agent \
+  --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v signalbeam-data:/var/lib/signalbeam \
+  ghcr.io/signalbeam-io/edge-agent:latest run
 ```
 
 ### From Source
@@ -46,6 +88,10 @@ dotnet build -c Release
 # Run the agent
 dotnet run -- --help
 ```
+
+**For detailed installation instructions, see:**
+- [Complete Installation Guide](package/INSTALL.md) - Platform-specific guides for Raspberry Pi, Ubuntu, Debian
+- [Building Packages](package/README.md) - Build .deb packages from source
 
 ## Usage
 

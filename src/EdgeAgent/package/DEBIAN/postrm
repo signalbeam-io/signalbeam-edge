@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+USER="signalbeam"
+STATE_DIR="/var/lib/signalbeam"
+LOG_DIR="/var/log/signalbeam"
+CONFIG_DIR="/etc/signalbeam"
+
+# Only remove on purge, not on upgrade
+if [ "$1" = "purge" ]; then
+    echo "Purging SignalBeam Edge Agent data..."
+
+    # Remove directories
+    rm -rf ${STATE_DIR}
+    rm -rf ${LOG_DIR}
+    rm -rf ${CONFIG_DIR}
+
+    # Remove user
+    if id -u ${USER} >/dev/null 2>&1; then
+        userdel ${USER} || true
+    fi
+
+    echo "SignalBeam Edge Agent data purged."
+fi
+
+# Reload systemd
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload || true
+    systemctl reset-failed || true
+fi
+
+exit 0
