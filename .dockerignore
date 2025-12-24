@@ -13,16 +13,17 @@
 **/node_modules/
 
 # Git
-**/.git/
-**/.gitignore
+.git/
+.gitignore
+.gitattributes
 
 # Docker
 **/.dockerignore
 **/Dockerfile*
 **/docker-compose*
 
-# Documentation
-**/*.md
+# Documentation (except EdgeAgent README)
+*.md
 !src/EdgeAgent/README.md
 
 # Package build artifacts
@@ -40,7 +41,7 @@ src/SignalBeam.ApiGateway/
 src/SignalBeam.ServiceDefaults/
 
 # Tests
-**/tests/
+tests/
 **/*.Tests/
 
 # Web frontend
@@ -52,3 +53,8 @@ deploy/
 
 # Scripts
 scripts/
+
+# Miscellaneous
+Tiltfile
+docker-compose.yml
+CLAUDE.EXTENDED.md

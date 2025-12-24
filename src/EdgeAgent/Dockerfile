@@ -2,19 +2,27 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Copy project files
-COPY SignalBeam.EdgeAgent.Application/SignalBeam.EdgeAgent.Application.csproj SignalBeam.EdgeAgent.Application/
-COPY SignalBeam.EdgeAgent.Infrastructure/SignalBeam.EdgeAgent.Infrastructure.csproj SignalBeam.EdgeAgent.Infrastructure/
-COPY SignalBeam.EdgeAgent.Host/SignalBeam.EdgeAgent.Host.csproj SignalBeam.EdgeAgent.Host/
+# Copy Directory.Build.props and Directory.Packages.props for central package management
+COPY Directory.Build.props Directory.Packages.props ./
+
+# Copy shared project files
+COPY src/Shared/SignalBeam.Domain/SignalBeam.Domain.csproj src/Shared/SignalBeam.Domain/
+COPY src/Shared/SignalBeam.Shared.Infrastructure/SignalBeam.Shared.Infrastructure.csproj src/Shared/SignalBeam.Shared.Infrastructure/
+
+# Copy EdgeAgent project files
+COPY src/EdgeAgent/SignalBeam.EdgeAgent.Application/SignalBeam.EdgeAgent.Application.csproj src/EdgeAgent/SignalBeam.EdgeAgent.Application/
+COPY src/EdgeAgent/SignalBeam.EdgeAgent.Infrastructure/SignalBeam.EdgeAgent.Infrastructure.csproj src/EdgeAgent/SignalBeam.EdgeAgent.Infrastructure/
+COPY src/EdgeAgent/SignalBeam.EdgeAgent.Host/SignalBeam.EdgeAgent.Host.csproj src/EdgeAgent/SignalBeam.EdgeAgent.Host/
 
 # Restore dependencies
-RUN dotnet restore SignalBeam.EdgeAgent.Host/SignalBeam.EdgeAgent.Host.csproj
+RUN dotnet restore src/EdgeAgent/SignalBeam.EdgeAgent.Host/SignalBeam.EdgeAgent.Host.csproj
 
 # Copy all source code
-COPY . .
+COPY src/Shared/ src/Shared/
+COPY src/EdgeAgent/ src/EdgeAgent/
 
 # Build and publish
-WORKDIR /src/SignalBeam.EdgeAgent.Host
+WORKDIR /src/src/EdgeAgent/SignalBeam.EdgeAgent.Host
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage

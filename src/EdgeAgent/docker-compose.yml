@@ -3,8 +3,8 @@ version: '3.8'
 services:
   signalbeam-agent:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: src/EdgeAgent/Dockerfile
     container_name: signalbeam-agent
     restart: unless-stopped
 
