@@ -1,5 +1,7 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
+using SignalBeam.BundleOrchestrator.Application.Models;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -17,10 +19,10 @@ public static class BundleEndpoints
             .WithTags("Bundles")
             .WithOpenApi();
 
-        group.MapPost("/", CreateBundle)
-            .WithName("CreateBundle")
-            .WithSummary("Create a new app bundle")
-            .WithDescription("Creates a new app bundle with the specified name and description.");
+        group.MapPost("/", UploadBundle)
+            .WithName("UploadBundle")
+            .WithSummary("Upload a new bundle")
+            .WithDescription("Uploads a bundle definition, stores it, and creates the initial bundle version.");
 
         group.MapGet("/", GetBundles)
             .WithName("GetBundles")
@@ -40,21 +42,45 @@ public static class BundleEndpoints
         return app;
     }
 
-    private static async Task<IResult> CreateBundle(
-        CreateBundleCommand command,
-        CreateBundleHandler handler,
+    private static async Task<IResult> UploadBundle(
+        BundleDefinition definition,
+        Guid? tenantId,
+        HttpContext context,
+        UploadBundleHandler handler,
         CancellationToken cancellationToken)
     {
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
+        {
+            return Results.BadRequest(new
+            {
+                error = "INVALID_TENANT_ID",
+                message = "Tenant ID is required."
+            });
+        }
+
+        var command = new UploadBundleCommand(resolvedTenantId, definition);
         var result = await handler.Handle(command, cancellationToken);
 
         return result.IsSuccess
-            ? Results.Created($"/api/bundles/{result.Value!.BundleId}", result.Value)
+            ? Results.Created($"/api/bundles/{result.Value!.BundleId}/versions/{result.Value.Version}", result.Value)
             : Results.BadRequest(new
             {
                 error = result.Error!.Code,
                 message = result.Error.Message,
                 type = result.Error.Type.ToString()
             });
+    }
+
+    private static bool TryResolveTenantId(Guid? tenantId, HttpContext context, out Guid resolvedTenantId)
+    {
+        if (tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            resolvedTenantId = tenantId.Value;
+            return true;
+        }
+
+        var tenantIdClaim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
+        return Guid.TryParse(tenantIdClaim, out resolvedTenantId);
     }
 
     private static async Task<IResult> GetBundles(

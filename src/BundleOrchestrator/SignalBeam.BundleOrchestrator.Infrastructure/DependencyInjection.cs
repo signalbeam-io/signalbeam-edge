@@ -8,6 +8,7 @@ using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.BundleOrchestrator.Infrastructure.Persistence;
 using SignalBeam.BundleOrchestrator.Infrastructure.Persistence.Repositories;
 using SignalBeam.BundleOrchestrator.Infrastructure.Storage;
+using SignalBeam.BundleOrchestrator.Application.Storage;
 using SignalBeam.Shared.Infrastructure.Messaging;
 using SignalBeam.Shared.Infrastructure.Authentication;
 

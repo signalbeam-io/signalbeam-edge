@@ -3,6 +3,8 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using Microsoft.Extensions.Logging;
+using SignalBeam.BundleOrchestrator.Application.Storage;
+using System.Security.Cryptography;
 
 namespace SignalBeam.BundleOrchestrator.Infrastructure.Storage;
 
@@ -27,11 +29,15 @@ public class BundleStorageService : IBundleStorageService
     }
 
     public async Task<string> UploadBundleManifestAsync(
+        string tenantId,
         string bundleId,
         string version,
         Stream content,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
         if (string.IsNullOrWhiteSpace(bundleId))
             throw new ArgumentException("Bundle ID cannot be empty", nameof(bundleId));
 
@@ -43,7 +49,7 @@ public class BundleStorageService : IBundleStorageService
 
         try
         {
-            var blobName = GetBlobName(bundleId, version);
+            var blobName = GetBlobName(tenantId, bundleId, version);
             var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
             await containerClient.CreateIfNotExistsAsync(
                 PublicAccessType.None,
@@ -59,6 +65,7 @@ public class BundleStorageService : IBundleStorageService
                 },
                 Metadata = new Dictionary<string, string>
                 {
+                    { "tenantId", tenantId },
                     { "bundleId", bundleId },
                     { "version", version },
                     { "uploadedAt", DateTimeOffset.UtcNow.ToString("O") }
@@ -86,11 +93,15 @@ public class BundleStorageService : IBundleStorageService
     }
 
     public async Task<string> GenerateBundleDownloadUrlAsync(
+        string tenantId,
         string bundleId,
         string version,
         TimeSpan validity,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
         if (string.IsNullOrWhiteSpace(bundleId))
             throw new ArgumentException("Bundle ID cannot be empty", nameof(bundleId));
 
@@ -99,7 +110,7 @@ public class BundleStorageService : IBundleStorageService
 
         try
         {
-            var blobName = GetBlobName(bundleId, version);
+            var blobName = GetBlobName(tenantId, bundleId, version);
             var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
             var blobClient = containerClient.GetBlobClient(blobName);
 
@@ -163,10 +174,14 @@ public class BundleStorageService : IBundleStorageService
     }
 
     public async Task<Stream> DownloadBundleManifestAsync(
+        string tenantId,
         string bundleId,
         string version,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
         if (string.IsNullOrWhiteSpace(bundleId))
             throw new ArgumentException("Bundle ID cannot be empty", nameof(bundleId));
 
@@ -175,7 +190,7 @@ public class BundleStorageService : IBundleStorageService
 
         try
         {
-            var blobName = GetBlobName(bundleId, version);
+            var blobName = GetBlobName(tenantId, bundleId, version);
             var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
             var blobClient = containerClient.GetBlobClient(blobName);
 
@@ -200,10 +215,14 @@ public class BundleStorageService : IBundleStorageService
     }
 
     public async Task<bool> DeleteBundleManifestAsync(
+        string tenantId,
         string bundleId,
         string version,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
         if (string.IsNullOrWhiteSpace(bundleId))
             throw new ArgumentException("Bundle ID cannot be empty", nameof(bundleId));
 
@@ -212,7 +231,7 @@ public class BundleStorageService : IBundleStorageService
 
         try
         {
-            var blobName = GetBlobName(bundleId, version);
+            var blobName = GetBlobName(tenantId, bundleId, version);
             var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
             var blobClient = containerClient.GetBlobClient(blobName);
 
@@ -240,10 +259,14 @@ public class BundleStorageService : IBundleStorageService
     }
 
     public async Task<bool> BundleManifestExistsAsync(
+        string tenantId,
         string bundleId,
         string version,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
         if (string.IsNullOrWhiteSpace(bundleId))
             throw new ArgumentException("Bundle ID cannot be empty", nameof(bundleId));
 
@@ -252,7 +275,7 @@ public class BundleStorageService : IBundleStorageService
 
         try
         {
-            var blobName = GetBlobName(bundleId, version);
+            var blobName = GetBlobName(tenantId, bundleId, version);
             var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
             var blobClient = containerClient.GetBlobClient(blobName);
 
@@ -269,12 +292,161 @@ public class BundleStorageService : IBundleStorageService
         }
     }
 
+    public async Task<BundleMetadata> GetBundleMetadataAsync(
+        string tenantId,
+        string bundleId,
+        string version,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
+        if (string.IsNullOrWhiteSpace(bundleId))
+            throw new ArgumentException("Bundle ID cannot be empty", nameof(bundleId));
+
+        if (string.IsNullOrWhiteSpace(version))
+            throw new ArgumentException("Version cannot be empty", nameof(version));
+
+        try
+        {
+            var blobName = GetBlobName(tenantId, bundleId, version);
+            var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+            var blobClient = containerClient.GetBlobClient(blobName);
+
+            var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+
+            // Get checksum from metadata or calculate it
+            var checksum = properties.Value.Metadata.TryGetValue("checksum", out var storedChecksum)
+                ? storedChecksum
+                : await CalculateChecksumAsync(blobClient, cancellationToken);
+
+            return new BundleMetadata(
+                blobClient.Uri.ToString(),
+                checksum,
+                properties.Value.ContentLength);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to get metadata for bundle {BundleId} version {Version}",
+                bundleId,
+                version);
+            throw;
+        }
+    }
+
+    public async Task<BundleMetadata> UploadBundleWithMetadataAsync(
+        string tenantId,
+        string bundleId,
+        string version,
+        Stream content,
+        string? checksumOverride = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
+        if (string.IsNullOrWhiteSpace(bundleId))
+            throw new ArgumentException("Bundle ID cannot be empty", nameof(bundleId));
+
+        if (string.IsNullOrWhiteSpace(version))
+            throw new ArgumentException("Version cannot be empty", nameof(version));
+
+        if (content == null)
+            throw new ArgumentNullException(nameof(content));
+
+        try
+        {
+            // Calculate checksum before uploading
+            using var memoryStream = new MemoryStream();
+            await content.CopyToAsync(memoryStream, cancellationToken);
+            memoryStream.Position = 0;
+
+            var checksum = string.IsNullOrWhiteSpace(checksumOverride)
+                ? CalculateChecksum(memoryStream)
+                : checksumOverride;
+            memoryStream.Position = 0;
+
+            var sizeBytes = memoryStream.Length;
+
+            var blobName = GetBlobName(tenantId, bundleId, version);
+            var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+            await containerClient.CreateIfNotExistsAsync(
+                PublicAccessType.None,
+                cancellationToken: cancellationToken);
+
+            var blobClient = containerClient.GetBlobClient(blobName);
+
+            var uploadOptions = new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = "application/json"
+                },
+                Metadata = new Dictionary<string, string>
+                {
+                    { "tenantId", tenantId },
+                    { "bundleId", bundleId },
+                    { "version", version },
+                    { "checksum", checksum },
+                    { "uploadedAt", DateTimeOffset.UtcNow.ToString("O") }
+                }
+            };
+
+            await blobClient.UploadAsync(memoryStream, uploadOptions, cancellationToken);
+
+            _logger.LogInformation(
+                "Uploaded bundle manifest {BundleId} version {Version} with checksum {Checksum} ({SizeBytes} bytes)",
+                bundleId,
+                version,
+                checksum,
+                sizeBytes);
+
+            return new BundleMetadata(
+                blobClient.Uri.ToString(),
+                checksum,
+                sizeBytes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to upload bundle manifest with metadata {BundleId} version {Version}",
+                bundleId,
+                version);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Calculates SHA256 checksum of a stream.
+    /// </summary>
+    private static string CalculateChecksum(Stream stream)
+    {
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(stream);
+        var hashString = Convert.ToHexString(hash).ToLowerInvariant();
+        return $"sha256:{hashString}";
+    }
+
+    /// <summary>
+    /// Calculates checksum by downloading the blob.
+    /// </summary>
+    private async Task<string> CalculateChecksumAsync(
+        BlobClient blobClient,
+        CancellationToken cancellationToken)
+    {
+        using var stream = await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
+        return CalculateChecksum(stream);
+    }
+
     /// <summary>
     /// Generates blob name from bundle ID and version.
-    /// Structure: bundles/{bundleId}/{version}/manifest.json
+    /// Structure: {tenantId}/{bundleId}/versions/{version}.json
     /// </summary>
-    private static string GetBlobName(string bundleId, string version)
+    internal static string GetBlobName(string tenantId, string bundleId, string version)
     {
-        return $"bundles/{bundleId}/{version}/manifest.json";
+        return $"{tenantId}/{bundleId}/versions/{version}.json";
     }
 }
