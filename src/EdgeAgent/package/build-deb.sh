@@ -66,8 +66,7 @@ for ARCH_PAIR in "${ARCHITECTURES[@]}"; do
         -r "${DOTNET_ARCH}" \
         --self-contained true \
         -p:PublishSingleFile=true \
-        -p:PublishTrimmed=true \
-        -p:TrimMode=link \
+        -p:EnableCompressionInSingleFile=true \
         -o "${PACKAGE_DIR}/usr/local/bin/" \
         > /dev/null
 

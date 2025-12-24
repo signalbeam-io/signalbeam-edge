@@ -210,18 +210,21 @@ sudo apt install qemu-user-static
 
 Or use GitHub Actions which has multi-arch support.
 
-### Package Size Too Large
+### Package Size
 
-The packages are self-contained .NET applications. To reduce size:
+The packages are self-contained .NET applications (no runtime required on target).
 
-1. Disable trimming warnings (already configured)
-2. Use framework-dependent deployment instead of self-contained
-3. Enable aggressive trimming (may break reflection)
+**Note:** Trimming is disabled to ensure compatibility with JSON serialization and reflection-based features used by the agent. This results in larger binaries but guarantees reliability.
 
 Current sizes (approximate):
-- amd64: ~70 MB
-- arm64: ~65 MB
-- armhf: ~60 MB
+- amd64: ~80-90 MB
+- arm64: ~75-85 MB
+- armhf: ~70-80 MB
+
+To reduce size, you can use framework-dependent deployment (requires .NET 9.0 runtime on target):
+```bash
+dotnet publish -c Release -r linux-x64 --self-contained false
+```
 
 ### Permission Issues
 
