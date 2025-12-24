@@ -61,8 +61,7 @@ jobs:
             -r ${{ matrix.arch }} \
             --self-contained true \
             -p:PublishSingleFile=true \
-            -p:PublishTrimmed=true \
-            -p:TrimMode=link \
+            -p:EnableCompressionInSingleFile=true \
             -o ./publish/${{ matrix.arch }}
 
       - name: Create package structure
