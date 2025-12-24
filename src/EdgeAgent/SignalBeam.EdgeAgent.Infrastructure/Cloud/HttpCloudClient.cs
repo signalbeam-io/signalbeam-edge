@@ -115,4 +115,30 @@ public class HttpCloudClient : ICloudClient
             throw;
         }
     }
+
+    public async Task ReportReconciliationStatusAsync(
+        ReconciliationStatus status,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Reporting reconciliation status for device {DeviceId}: {Status} (Bundle: {BundleId}:{BundleVersion})",
+                status.DeviceId, status.Status, status.BundleId, status.BundleVersion);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                $"/api/devices/{status.DeviceId}/reconciliation-status",
+                status,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            _logger.LogDebug("Reconciliation status reported successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to report reconciliation status");
+            throw;
+        }
+    }
 }
