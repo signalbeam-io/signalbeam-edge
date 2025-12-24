@@ -221,9 +221,9 @@ docker-compose down
 # Pull image (when published)
 docker pull ghcr.io/signalbeam-io/edge-agent:latest
 
-# Or build locally
-cd signalbeam-edge/src/EdgeAgent
-docker build -t signalbeam/edge-agent:latest .
+# Or build locally (from repository root)
+cd signalbeam-edge
+docker build -f src/EdgeAgent/Dockerfile -t signalbeam/edge-agent:latest .
 
 # Run container
 docker run -d \

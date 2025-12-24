@@ -61,11 +61,21 @@ sudo dpkg -i signalbeam-agent_0.1.0_armhf.deb
 ### Docker Container
 
 ```bash
-# Using docker-compose
+# Using docker-compose (from EdgeAgent directory)
 cd src/EdgeAgent
 docker-compose up -d
 
-# Or using docker run
+# Or build and run manually (from repository root)
+cd /path/to/signalbeam-edge
+docker build -f src/EdgeAgent/Dockerfile -t signalbeam/edge-agent:latest .
+docker run -d \
+  --name signalbeam-agent \
+  --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v signalbeam-data:/var/lib/signalbeam \
+  signalbeam/edge-agent:latest run
+
+# Or pull from GitHub Container Registry
 docker pull ghcr.io/signalbeam-io/edge-agent:latest
 docker run -d \
   --name signalbeam-agent \
