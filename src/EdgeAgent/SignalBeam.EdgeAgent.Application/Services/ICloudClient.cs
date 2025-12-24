@@ -17,6 +17,10 @@ public interface ICloudClient
     Task ReportCurrentStateAsync(
         DeviceCurrentState currentState,
         CancellationToken cancellationToken = default);
+
+    Task ReportReconciliationStatusAsync(
+        ReconciliationStatus status,
+        CancellationToken cancellationToken = default);
 }
 
 public record DeviceRegistrationRequest(
@@ -53,3 +57,17 @@ public record DeviceCurrentState(
     string? CurrentBundleId,
     string? CurrentBundleVersion,
     List<ContainerStatus> RunningContainers);
+
+public record ReconciliationStatus(
+    Guid DeviceId,
+    string Status,
+    string? BundleId,
+    string? BundleVersion,
+    DateTime Timestamp,
+    List<ReconciliationAction> Actions,
+    List<string> Errors);
+
+public record ReconciliationAction(
+    string Action,
+    string Container,
+    string Image);

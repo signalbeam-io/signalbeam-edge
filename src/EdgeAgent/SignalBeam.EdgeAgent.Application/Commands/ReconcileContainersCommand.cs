@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SignalBeam.EdgeAgent.Application.Services;
 using SignalBeam.Shared.Infrastructure.Results;
 
@@ -10,10 +11,14 @@ public record ReconcileContainersCommand(
 public class ReconcileContainersCommandHandler
 {
     private readonly IContainerManager _containerManager;
+    private readonly ILogger<ReconcileContainersCommandHandler> _logger;
 
-    public ReconcileContainersCommandHandler(IContainerManager containerManager)
+    public ReconcileContainersCommandHandler(
+        IContainerManager containerManager,
+        ILogger<ReconcileContainersCommandHandler> logger)
     {
         _containerManager = containerManager;
+        _logger = logger;
     }
 
     public async Task<Result<ReconciliationResult>> Handle(
@@ -22,26 +27,41 @@ public class ReconcileContainersCommandHandler
     {
         try
         {
+            _logger.LogInformation("Starting container reconciliation for device {DeviceId}", command.DeviceId);
+
             var runningContainers = await _containerManager.GetRunningContainersAsync(cancellationToken);
 
             if (command.DesiredState == null || command.DesiredState.Containers.Count == 0)
             {
+                _logger.LogInformation("No desired state - stopping all {Count} running containers", runningContainers.Count);
+
                 // No desired state - stop all containers
-                await StopAllContainersAsync(runningContainers, cancellationToken);
+                var (actions, errors) = await StopAllContainersAsync(runningContainers, cancellationToken);
                 return Result<ReconciliationResult>.Success(
-                    new ReconciliationResult(0, runningContainers.Count, 0));
+                    new ReconciliationResult(0, runningContainers.Count, errors.Count, actions, errors));
             }
 
             var desiredContainers = command.DesiredState.Containers;
+            _logger.LogInformation(
+                "Reconciling {DesiredCount} desired containers with {RunningCount} running containers",
+                desiredContainers.Count, runningContainers.Count);
+
             var reconciliationResult = await ReconcileAsync(
                 runningContainers,
                 desiredContainers,
                 cancellationToken);
 
+            _logger.LogInformation(
+                "Reconciliation complete: {Started} started, {Stopped} stopped, {Failed} failed",
+                reconciliationResult.ContainersStarted,
+                reconciliationResult.ContainersStopped,
+                reconciliationResult.ContainersFailed);
+
             return Result<ReconciliationResult>.Success(reconciliationResult);
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to reconcile containers for device {DeviceId}", command.DeviceId);
             return Result.Failure<ReconciliationResult>(
                 Error.Failure("Reconciliation.Failed", $"Failed to reconcile containers: {ex.Message}"));
         }
@@ -55,6 +75,8 @@ public class ReconcileContainersCommandHandler
         int started = 0;
         int stopped = 0;
         int failed = 0;
+        var actions = new List<ReconciliationAction>();
+        var errors = new List<string>();
 
         // Build a map of desired containers by name
         var desiredMap = desiredContainers.ToDictionary(c => c.Name);
@@ -67,12 +89,16 @@ public class ReconcileContainersCommandHandler
             {
                 try
                 {
+                    _logger.LogInformation("Stopping unwanted container: {Name} ({Image})", running.Name, running.Image);
                     await _containerManager.StopContainerAsync(running.Id, cancellationToken);
                     stopped++;
+                    actions.Add(new ReconciliationAction("stopped", running.Name, running.Image));
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex, "Failed to stop container: {Name}", running.Name);
                     failed++;
+                    errors.Add($"Failed to stop container {running.Name}: {ex.Message}");
                 }
             }
         }
@@ -84,16 +110,21 @@ public class ReconcileContainersCommandHandler
             {
                 try
                 {
+                    _logger.LogInformation("Starting new container: {Name} ({Image})", desired.Name, desired.Image);
+
                     // Pull image first
                     await _containerManager.PullImageAsync(desired.Image, null, cancellationToken);
 
                     // Start container
                     await _containerManager.StartContainerAsync(desired, cancellationToken);
                     started++;
+                    actions.Add(new ReconciliationAction("started", desired.Name, desired.Image));
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex, "Failed to start container: {Name}", desired.Name);
                     failed++;
+                    errors.Add($"Failed to start container {desired.Name}: {ex.Message}");
                 }
             }
             else
@@ -104,6 +135,10 @@ public class ReconcileContainersCommandHandler
                 {
                     try
                     {
+                        _logger.LogInformation(
+                            "Updating container {Name}: {OldImage} -> {NewImage}",
+                            desired.Name, running.Image, desired.Image);
+
                         // Stop old container
                         await _containerManager.StopContainerAsync(running.Id, cancellationToken);
 
@@ -115,37 +150,59 @@ public class ReconcileContainersCommandHandler
 
                         stopped++;
                         started++;
+                        actions.Add(new ReconciliationAction("updated", desired.Name, desired.Image));
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        _logger.LogError(ex, "Failed to update container: {Name}", desired.Name);
                         failed++;
+                        errors.Add($"Failed to update container {desired.Name}: {ex.Message}");
                     }
+                }
+                else
+                {
+                    _logger.LogDebug("Container {Name} is already running with correct image: {Image}", desired.Name, desired.Image);
                 }
             }
         }
 
-        return new ReconciliationResult(started, stopped, failed);
+        return new ReconciliationResult(started, stopped, failed, actions, errors);
     }
 
-    private async Task StopAllContainersAsync(
+    private async Task<(List<ReconciliationAction> Actions, List<string> Errors)> StopAllContainersAsync(
         List<ContainerStatus> runningContainers,
         CancellationToken cancellationToken)
     {
+        var actions = new List<ReconciliationAction>();
+        var errors = new List<string>();
+
         foreach (var container in runningContainers)
         {
             try
             {
+                _logger.LogInformation("Stopping container: {Name} ({Image})", container.Name, container.Image);
                 await _containerManager.StopContainerAsync(container.Id, cancellationToken);
+                actions.Add(new ReconciliationAction("stopped", container.Name, container.Image));
             }
-            catch
+            catch (Exception ex)
             {
-                // Log but continue
+                _logger.LogError(ex, "Failed to stop container: {Name}", container.Name);
+                errors.Add($"Failed to stop container {container.Name}: {ex.Message}");
             }
         }
+
+        return (actions, errors);
     }
 }
 
 public record ReconciliationResult(
     int ContainersStarted,
     int ContainersStopped,
-    int ContainersFailed);
+    int ContainersFailed,
+    List<ReconciliationAction> Actions,
+    List<string> Errors);
+
+public record ReconciliationAction(
+    string Action,
+    string Container,
+    string Image);
