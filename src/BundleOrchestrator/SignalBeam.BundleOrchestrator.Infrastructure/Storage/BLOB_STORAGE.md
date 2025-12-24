@@ -10,25 +10,22 @@ The BundleOrchestrator uses Azure Blob Storage to store bundle manifests and art
 
 **Blob Naming Convention:**
 ```
-bundles/{bundleId}/{version}/manifest.json
+{tenantId}/{bundleId}/versions/{version}.json
 ```
 
 ### Example Structure
 ```
 bundle-manifests/
-├── bundles/
+├── 550e8400-e29b-41d4-a716-446655440000/
 │   ├── warehouse-monitor/
-│   │   ├── 1.0.0/
-│   │   │   └── manifest.json
-│   │   ├── 1.1.0/
-│   │   │   └── manifest.json
-│   │   └── 2.0.0/
-│   │       └── manifest.json
+│   │   └── versions/
+│   │       ├── 1.0.0.json
+│   │       ├── 1.1.0.json
+│   │       └── 2.0.0.json
 │   ├── temp-sensor/
-│   │   ├── 1.0.0/
-│   │   │   └── manifest.json
-│   │   └── 1.1.0/
-│   │       └── manifest.json
+│   │   └── versions/
+│   │       ├── 1.0.0.json
+│   │       └── 1.1.0.json
 ```
 
 ## Bundle Manifest Format
@@ -95,17 +92,19 @@ The `BundleStorageService.GenerateBundleDownloadUrlAsync` method generates time-
 ```csharp
 // Generate a download URL valid for 1 hour
 var downloadUrl = await bundleStorageService.GenerateBundleDownloadUrlAsync(
+    tenantId: "550e8400-e29b-41d4-a716-446655440000",
     bundleId: "warehouse-monitor",
     version: "1.2.0",
     validity: TimeSpan.FromHours(1));
 
 // Edge agent can now download the manifest using this URL
-// https://signalbeam.blob.core.windows.net/bundle-manifests/bundles/warehouse-monitor/1.2.0/manifest.json?sv=2021-08-06&se=2025-12-18T12%3A00%3A00Z&sr=b&sp=r&sig=...
+// https://signalbeam.blob.core.windows.net/bundle-manifests/550e8400-e29b-41d4-a716-446655440000/warehouse-monitor/versions/1.2.0.json?sv=2021-08-06&se=2025-12-18T12%3A00%3A00Z&sr=b&sp=r&sig=...
 ```
 
 ## Blob Metadata
 
 Each uploaded manifest includes metadata for tracking:
+- `tenantId`: The tenant identifier
 - `bundleId`: The bundle identifier
 - `version`: The bundle version
 - `uploadedAt`: ISO 8601 timestamp of upload

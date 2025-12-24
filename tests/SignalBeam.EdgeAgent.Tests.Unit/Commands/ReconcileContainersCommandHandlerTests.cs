@@ -1,5 +1,6 @@
 using SignalBeam.EdgeAgent.Application.Commands;
 using SignalBeam.EdgeAgent.Application.Services;
+using Microsoft.Extensions.Logging;
 
 namespace SignalBeam.EdgeAgent.Tests.Unit.Commands;
 
@@ -11,7 +12,8 @@ public class ReconcileContainersCommandHandlerTests
     public ReconcileContainersCommandHandlerTests()
     {
         _containerManager = Substitute.For<IContainerManager>();
-        _handler = new ReconcileContainersCommandHandler(_containerManager);
+        var logger = Substitute.For<ILogger<ReconcileContainersCommandHandler>>();
+        _handler = new ReconcileContainersCommandHandler(_containerManager, logger);
     }
 
     [Fact]

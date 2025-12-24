@@ -109,6 +109,8 @@ builder.Services.AddCors(options =>
 // Register CQRS handlers manually (we're using manual endpoints, not Wolverine HTTP)
 builder.Services.AddScoped<CreateBundleHandler>();
 builder.Services.AddScoped<CreateBundleVersionHandler>();
+builder.Services.AddScoped<UploadBundleHandler>();
+builder.Services.AddScoped<UploadBundleVersionHandler>();
 builder.Services.AddScoped<AssignBundleToDeviceHandler>();
 builder.Services.AddScoped<AssignBundleToGroupHandler>();
 builder.Services.AddScoped<UpdateRolloutStatusHandler>();
@@ -116,6 +118,8 @@ builder.Services.AddScoped<UpdateRolloutStatusHandler>();
 builder.Services.AddScoped<GetBundlesHandler>();
 builder.Services.AddScoped<GetBundleByIdHandler>();
 builder.Services.AddScoped<GetBundleVersionHandler>();
+builder.Services.AddScoped<GetBundleDefinitionHandler>();
+builder.Services.AddScoped<GetLatestBundleDefinitionHandler>();
 builder.Services.AddScoped<GetBundleAssignedDevicesHandler>();
 builder.Services.AddScoped<GetDeviceDesiredStateHandler>();
 builder.Services.AddScoped<GetRolloutStatusHandler>();

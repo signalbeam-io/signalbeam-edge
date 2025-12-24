@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SignalBeam.Domain.Entities;
+using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
 using System.Text.Json;
 
@@ -57,6 +58,27 @@ public class AppBundleVersionConfiguration : IEntityTypeConfiguration<AppBundleV
             .HasColumnName("release_notes")
             .HasColumnType("text");
 
+        // BlobStorageUri
+        builder.Property(v => v.BlobStorageUri)
+            .HasColumnName("blob_storage_uri")
+            .HasColumnType("text");
+
+        // Checksum
+        builder.Property(v => v.Checksum)
+            .HasColumnName("checksum")
+            .HasMaxLength(80);
+
+        // SizeBytes
+        builder.Property(v => v.SizeBytes)
+            .HasColumnName("size_bytes");
+
+        // Status
+        builder.Property(v => v.Status)
+            .HasConversion<string>()
+            .HasColumnName("status")
+            .HasMaxLength(50)
+            .IsRequired();
+
         // Indexes for performance
         builder.HasIndex(v => v.BundleId)
             .HasDatabaseName("ix_app_bundle_versions_bundle_id");
@@ -67,5 +89,8 @@ public class AppBundleVersionConfiguration : IEntityTypeConfiguration<AppBundleV
 
         builder.HasIndex(v => v.CreatedAt)
             .HasDatabaseName("ix_app_bundle_versions_created_at");
+
+        builder.HasIndex(v => v.Status)
+            .HasDatabaseName("ix_app_bundle_versions_status");
     }
 }
