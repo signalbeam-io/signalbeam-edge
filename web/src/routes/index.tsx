@@ -6,6 +6,8 @@ import { DeviceDetailPage } from '@/features/devices/pages/device-detail-page'
 import { BundlesPage } from '@/features/bundles/pages/bundles-page'
 import { BundleDetailPage } from '@/features/bundles/pages/bundle-detail-page'
 import { RolloutStatusPage } from '@/features/bundles/pages/rollout-status-page'
+import { PhasedRolloutsListPage } from '@/features/bundles/pages/phased-rollouts-list-page'
+import { PhasedRolloutDetailPage } from '@/features/bundles/pages/phased-rollout-detail-page'
 import { NotFoundPage } from '@/features/not-found/pages/not-found-page'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { ProtectedRoute } from './protected-route'
@@ -23,6 +25,8 @@ export function AppRoutes() {
           <Route path="bundles" element={<BundlesPage />} />
           <Route path="bundles/:id" element={<BundleDetailPage />} />
           <Route path="rollouts/:rolloutId" element={<RolloutStatusPage />} />
+          <Route path="phased-rollouts" element={<PhasedRolloutsListPage />} />
+          <Route path="phased-rollouts/:id" element={<PhasedRolloutDetailPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

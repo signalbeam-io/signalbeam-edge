@@ -20,6 +20,11 @@ public class BundleDbContext : DbContext
     public DbSet<DeviceDesiredState> DeviceDesiredStates => Set<DeviceDesiredState>();
     public DbSet<RolloutStatus> RolloutStatuses => Set<RolloutStatus>();
 
+    // Rollout management tables
+    public DbSet<Rollout> Rollouts => Set<Rollout>();
+    public DbSet<RolloutPhase> RolloutPhases => Set<RolloutPhase>();
+    public DbSet<RolloutDeviceAssignment> RolloutDeviceAssignments => Set<RolloutDeviceAssignment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
