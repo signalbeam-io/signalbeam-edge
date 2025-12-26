@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IDeviceDesiredStateRepository, DeviceDesiredStateRepository>();
         services.AddScoped<IRolloutStatusRepository, RolloutStatusRepository>();
         services.AddScoped<IDeviceGroupRepository, DeviceGroupRepository>();
+        services.AddScoped<IRolloutRepository, RolloutRepository>();
 
         // Azure Blob Storage for bundle artifacts
         ConfigureBlobStorage(services, configuration);

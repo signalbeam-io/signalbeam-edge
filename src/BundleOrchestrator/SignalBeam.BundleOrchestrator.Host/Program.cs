@@ -1,6 +1,8 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.BundleOrchestrator.Application.Services;
 using SignalBeam.BundleOrchestrator.Application.Validators;
+using SignalBeam.BundleOrchestrator.Host.BackgroundServices;
 using SignalBeam.BundleOrchestrator.Host.Endpoints;
 using SignalBeam.BundleOrchestrator.Infrastructure;
 using FluentValidation;
@@ -131,6 +133,28 @@ builder.Services.AddScoped<GetRolloutByIdHandler>();
 builder.Services.AddScoped<GetRolloutDevicesHandler>();
 builder.Services.AddScoped<CancelRolloutHandler>();
 
+// Phased Rollout handlers
+builder.Services.AddScoped<CreatePhasedRolloutHandler>();
+builder.Services.AddScoped<StartRolloutHandler>();
+builder.Services.AddScoped<PauseRolloutHandler>();
+builder.Services.AddScoped<ResumeRolloutHandler>();
+builder.Services.AddScoped<RollbackRolloutHandler>();
+builder.Services.AddScoped<AdvancePhaseHandler>();
+builder.Services.AddScoped<GetPhasedRolloutDetailsHandler>();
+builder.Services.AddScoped<ListPhasedRolloutsHandler>();
+builder.Services.AddScoped<GetActiveRolloutsHandler>();
+builder.Services.AddScoped<GetBundleRolloutHistoryHandler>();
+
+// Rollout orchestration services
+builder.Services.AddScoped<RolloutOrchestrationService>();
+
+// Configure rollout orchestrator options
+builder.Services.Configure<RolloutOrchestratorOptions>(
+    builder.Configuration.GetSection(RolloutOrchestratorOptions.SectionName));
+
+// Add background services
+builder.Services.AddHostedService<RolloutOrchestratorWorker>();
+
 // Add OpenAPI and Scalar
 builder.Services.AddOpenApi(options =>
 {
@@ -213,6 +237,7 @@ app.MapBundleVersionEndpoints();
 app.MapBundleAssignmentEndpoints();
 app.MapRolloutStatusEndpoints();
 app.MapRolloutEndpoints(); // Unified Rollout API
+app.MapPhasedRolloutEndpoints(); // Phased Rollout Management API
 
 app.Run();
 

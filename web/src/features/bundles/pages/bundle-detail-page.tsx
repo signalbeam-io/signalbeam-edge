@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
-import { ArrowLeft, Package, GitBranch, CheckCircle2, Users, Edit, Monitor, Calendar, User, Activity } from 'lucide-react'
+import { ArrowLeft, Package, GitBranch, CheckCircle2, Users, Edit, Monitor, Calendar, User, Activity, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +24,7 @@ import { useDevices } from '@/hooks/api/use-devices'
 import { useRollouts } from '@/hooks/api/use-rollouts'
 import { CreateVersionDialog } from '../components/create-version-dialog'
 import { AssignBundleDialog } from '../components/assign-bundle-dialog'
+import { CreatePhasedRolloutDialog } from '../components/create-phased-rollout-dialog'
 import { BundleVersion, RolloutStatus } from '@/api/types'
 import { Clock, Loader2, XCircle } from 'lucide-react'
 
@@ -40,6 +41,7 @@ export function BundleDetailPage() {
 
   const [createVersionOpen, setCreateVersionOpen] = useState(false)
   const [assignBundleOpen, setAssignBundleOpen] = useState(false)
+  const [createPhasedRolloutOpen, setCreatePhasedRolloutOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -100,6 +102,10 @@ export function BundleDetailPage() {
           <Button variant="outline" onClick={() => setAssignBundleOpen(true)}>
             <Users className="mr-2 h-4 w-4" />
             Assign to Devices
+          </Button>
+          <Button variant="outline" onClick={() => setCreatePhasedRolloutOpen(true)}>
+            <Rocket className="mr-2 h-4 w-4" />
+            Create Phased Rollout
           </Button>
           <Button onClick={() => setCreateVersionOpen(true)}>
             <GitBranch className="mr-2 h-4 w-4" />
@@ -460,6 +466,11 @@ export function BundleDetailPage() {
       <AssignBundleDialog
         open={assignBundleOpen}
         onOpenChange={setAssignBundleOpen}
+        bundle={bundle}
+      />
+      <CreatePhasedRolloutDialog
+        open={createPhasedRolloutOpen}
+        onOpenChange={setCreatePhasedRolloutOpen}
         bundle={bundle}
       />
     </div>
