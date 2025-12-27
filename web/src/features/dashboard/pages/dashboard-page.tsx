@@ -1,24 +1,24 @@
+import { FleetSummary } from '../components/fleet-summary'
+import { ActiveRollouts } from '../components/active-rollouts'
+import { RecentActivity } from '../components/recent-activity'
+
 export function DashboardPage() {
   return (
-    <div>
-      <h1 className="mb-6 text-3xl font-bold">Dashboard</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Devices</h3>
-          <p className="mt-2 text-3xl font-bold">0</p>
-        </div>
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground">Online Devices</h3>
-          <p className="mt-2 text-3xl font-bold">0</p>
-        </div>
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground">Active Bundles</h3>
-          <p className="mt-2 text-3xl font-bold">0</p>
-        </div>
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground">Pending Updates</h3>
-          <p className="mt-2 text-3xl font-bold">0</p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Overview of your SignalBeam Edge fleet
+        </p>
+      </div>
+
+      {/* Fleet Statistics */}
+      <FleetSummary />
+
+      {/* Active Rollouts and Recent Activity */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <ActiveRollouts />
+        <RecentActivity />
       </div>
     </div>
   )
