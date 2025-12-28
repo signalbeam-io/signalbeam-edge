@@ -112,6 +112,41 @@ Per-device API key for authentication.
 - `Revoke()` - Revoke the API key
 - `IsExpired()` - Check if key is expired
 
+#### DeviceCertificate
+X.509 certificate for mTLS (mutual TLS) device authentication.
+
+**Identity:** `Id` (Guid)
+
+**Properties:**
+- `DeviceId` - Device this certificate belongs to
+- `CertificatePem` - Full certificate in PEM format
+- `SerialNumber` - Unique certificate serial number (20 bytes)
+- `Fingerprint` - SHA-256 fingerprint for quick lookup
+- `Subject` - Certificate subject DN (e.g., "CN=device-{id}, O=SignalBeam")
+- `Type` - Certificate type (RootCA, IntermediateCA, Device)
+- `IssuedAt` - When certificate was issued
+- `ExpiresAt` - When certificate expires
+- `RevokedAt` - Revocation timestamp (null = not revoked)
+
+**Behaviors:**
+- `Create()` - Factory method to create certificate
+- `Revoke()` - Revoke the certificate
+- `IsEligibleForRenewal(currentTime, renewalThresholdDays)` - Check if eligible for renewal (< 30 days to expiry)
+- `Renew()` - Static method that creates new certificate and revokes old one atomically
+
+**Business Rules:**
+- Certificates are valid for 90 days by default
+- Certificates can be renewed within 30 days of expiration
+- Renewal creates new certificate and automatically revokes old one
+- Serial numbers are cryptographically secure random values
+- Fingerprints are SHA-256 hashes of certificate for database lookups
+- Revocation is immediate (checked on every authentication)
+
+**Domain Events:**
+- `DeviceCertificateIssuedEvent` - Certificate issued for device
+- `DeviceCertificateRenewedEvent` - Certificate renewed (old revoked, new issued)
+- `DeviceCertificateRevokedEvent` - Certificate revoked by admin
+
 #### DeviceRegistrationToken
 Single-use token for device registration.
 
@@ -215,6 +250,16 @@ Docker container specification.
 - `Failed` - Bundle deployment failed
 - `RolledBack` - Bundle deployment was rolled back
 
+#### CertificateType
+- `RootCA` (1) - Self-signed Root Certificate Authority certificate
+- `IntermediateCA` (2) - Intermediate CA certificate (future use)
+- `Device` (3) - Device client certificate for mTLS authentication
+
+#### AuthenticationMethod
+- `ApiKey` (1) - Device authenticated using API key
+- `Certificate` (2) - Device authenticated using mTLS certificate
+- `ApiKeyAndCertificate` (3) - Device presented both (certificate takes precedence)
+
 ## Domain Events
 
 Domain events capture important state changes in the system:
@@ -227,6 +272,9 @@ Domain events capture important state changes in the system:
 | `BundleAssignedEvent` | Bundle assigned to device | DeviceId, BundleId, AssignedAt |
 | `BundleUpdateCompletedEvent` | Bundle update succeeded | DeviceId, BundleId, CompletedAt |
 | `BundleUpdateFailedEvent` | Bundle update failed | DeviceId, BundleId, FailedAt |
+| `DeviceCertificateIssuedEvent` | mTLS certificate issued for device | DeviceId, SerialNumber, Fingerprint, IssuedAt, ExpiresAt |
+| `DeviceCertificateRenewedEvent` | Certificate renewed (old revoked) | DeviceId, OldSerialNumber, NewSerialNumber, NewFingerprint, RenewedAt, ExpiresAt |
+| `DeviceCertificateRevokedEvent` | Certificate revoked by admin | DeviceId, SerialNumber, RevokedAt, Reason |
 
 All events inherit from `DomainEvent` base class with:
 - `EventId` - Unique event identifier
