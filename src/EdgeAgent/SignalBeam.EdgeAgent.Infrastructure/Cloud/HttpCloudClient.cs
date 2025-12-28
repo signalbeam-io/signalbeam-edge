@@ -24,7 +24,7 @@ public class HttpCloudClient : ICloudClient
         {
             _logger.LogInformation("Registering device {DeviceId} with tenant {TenantId}", request.DeviceId, request.TenantId);
 
-            var response = await _httpClient.PostAsJsonAsync("/api/devices/register", request, cancellationToken);
+            var response = await _httpClient.PostAsJsonAsync("/api/devices", request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(cancellationToken);
@@ -34,13 +34,42 @@ public class HttpCloudClient : ICloudClient
                 throw new InvalidOperationException("Failed to deserialize registration response");
             }
 
-            _logger.LogInformation("Device registered successfully with ID: {DeviceId}", result.DeviceId);
+            _logger.LogInformation("Device registered successfully with ID: {DeviceId}, Status: {Status}", result.DeviceId, result.Status);
 
             return result;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to register device");
+            throw;
+        }
+    }
+
+    public async Task<RegistrationStatusResponse> CheckRegistrationStatusAsync(
+        Guid deviceId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Checking registration status for device {DeviceId}", deviceId);
+
+            var response = await _httpClient.GetAsync($"/api/devices/{deviceId}/registration-status", cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<RegistrationStatusResponse>(cancellationToken);
+
+            if (result == null)
+            {
+                throw new InvalidOperationException("Failed to deserialize registration status response");
+            }
+
+            _logger.LogDebug("Registration status for device {DeviceId}: {Status}", deviceId, result.Status);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check registration status for device {DeviceId}", deviceId);
             throw;
         }
     }

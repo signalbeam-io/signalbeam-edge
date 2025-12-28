@@ -1,5 +1,6 @@
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
+using SignalBeam.DeviceManager.Infrastructure.Queries;
 using SignalBeam.Domain.Enums;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
@@ -23,10 +24,20 @@ public static class DeviceEndpoints
             .WithSummary("Register a new device")
             .WithDescription("Registers a new device in the system with the specified tenant and metadata.");
 
+        group.MapGet("/{deviceId:guid}/registration-status", GetRegistrationStatus)
+            .WithName("GetRegistrationStatus")
+            .WithSummary("Get device registration status")
+            .WithDescription("Retrieves the current registration status and API key (if approved) for a device.");
+
         group.MapGet("/", GetDevices)
             .WithName("GetDevices")
             .WithSummary("Get devices with filters")
             .WithDescription("Retrieves a paginated list of devices with optional filters.");
+
+        group.MapGet("/by-status/{status}", GetDevicesByRegistrationStatus)
+            .WithName("GetDevicesByRegistrationStatus")
+            .WithSummary("Get devices by registration status")
+            .WithDescription("Retrieves devices filtered by registration status (Pending, Approved, Rejected).");
 
         group.MapGet("/{deviceId:guid}", GetDeviceById)
             .WithName("GetDeviceById")
@@ -82,6 +93,47 @@ public static class DeviceEndpoints
             .WithName("GetDeviceActivityLog")
             .WithSummary("Get device activity log")
             .WithDescription("Retrieves the activity log for a specific device.");
+
+        // Device registration approval and API key management
+        group.MapPost("/{deviceId:guid}/approve", ApproveDeviceRegistration)
+            .WithName("ApproveDeviceRegistration")
+            .WithSummary("Approve device registration")
+            .WithDescription("Approves a pending device registration and generates an API key.");
+
+        group.MapPost("/{deviceId:guid}/reject", RejectDeviceRegistration)
+            .WithName("RejectDeviceRegistration")
+            .WithSummary("Reject device registration")
+            .WithDescription("Rejects a pending device registration.");
+
+        group.MapPost("/{deviceId:guid}/api-keys", GenerateDeviceApiKey)
+            .WithName("GenerateDeviceApiKey")
+            .WithSummary("Generate device API key")
+            .WithDescription("Generates a new API key for a device (for key rotation).");
+
+        group.MapDelete("/api-keys/{apiKeyId:guid}", RevokeDeviceApiKey)
+            .WithName("RevokeDeviceApiKey")
+            .WithSummary("Revoke device API key")
+            .WithDescription("Revokes an existing device API key.");
+
+        // Registration token management
+        var tokenGroup = app.MapGroup("/api/registration-tokens")
+            .WithTags("Registration Tokens")
+            .WithOpenApi();
+
+        tokenGroup.MapPost("/", GenerateRegistrationToken)
+            .WithName("GenerateRegistrationToken")
+            .WithSummary("Generate registration token")
+            .WithDescription("Generates a new registration token for device registration (admin only).");
+
+        // Authentication logs
+        var authLogsGroup = app.MapGroup("/api/authentication-logs")
+            .WithTags("Authentication Logs")
+            .WithOpenApi();
+
+        authLogsGroup.MapGet("/", GetAuthenticationLogs)
+            .WithName("GetAuthenticationLogs")
+            .WithSummary("Get authentication logs")
+            .WithDescription("Retrieves authentication logs with optional filtering by device, date range, and success status.");
 
         return app;
     }
@@ -315,6 +367,196 @@ public static class DeviceEndpoints
         GetDeviceMetricsHandler handler,
         CancellationToken cancellationToken)
     {
+        var result = await handler.Handle(query, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> ApproveDeviceRegistration(
+        Guid deviceId,
+        ApproveDeviceRegistrationHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var command = new ApproveDeviceRegistrationCommand(deviceId);
+        var result = await handler.Handle(command, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(new
+            {
+                deviceId = result.Value!.DeviceId,
+                apiKey = result.Value.ApiKey,
+                expiresAt = result.Value.ExpiresAt,
+                message = "Device registration approved. Save the API key - it will not be shown again."
+            })
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> RejectDeviceRegistration(
+        Guid deviceId,
+        RejectDeviceRegistrationCommand command,
+        RejectDeviceRegistrationHandler handler,
+        CancellationToken cancellationToken)
+    {
+        // Override deviceId from route
+        var updatedCommand = command with { DeviceId = deviceId };
+        var result = await handler.Handle(updatedCommand, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> GenerateDeviceApiKey(
+        Guid deviceId,
+        GenerateDeviceApiKeyCommand command,
+        GenerateDeviceApiKeyHandler handler,
+        CancellationToken cancellationToken)
+    {
+        // Override deviceId from route
+        var updatedCommand = command with { DeviceId = deviceId };
+        var result = await handler.Handle(updatedCommand, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(new
+            {
+                deviceId = result.Value!.DeviceId,
+                apiKey = result.Value.ApiKey,
+                keyPrefix = result.Value.KeyPrefix,
+                createdAt = result.Value.CreatedAt,
+                expiresAt = result.Value.ExpiresAt,
+                message = "API key generated successfully. Save the key - it will not be shown again."
+            })
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> RevokeDeviceApiKey(
+        Guid apiKeyId,
+        RevokeDeviceApiKeyHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var command = new RevokeDeviceApiKeyCommand(apiKeyId);
+        var result = await handler.Handle(command, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> GetRegistrationStatus(
+        Guid deviceId,
+        GetRegistrationStatusHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetRegistrationStatusQuery(deviceId);
+        var result = await handler.Handle(query, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.NotFound(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> GenerateRegistrationToken(
+        GenerateRegistrationTokenCommand command,
+        GenerateRegistrationTokenHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(command, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> GetDevicesByRegistrationStatus(
+        string status,
+        Guid tenantId,
+        GetDevicesByRegistrationStatusHandler handler,
+        int pageNumber = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.TryParse<DeviceRegistrationStatus>(status, ignoreCase: true, out var registrationStatus))
+        {
+            return Results.BadRequest(new
+            {
+                error = "InvalidStatus",
+                message = $"Invalid registration status: {status}. Valid values: Pending, Approved, Rejected"
+            });
+        }
+
+        var query = new GetDevicesByRegistrationStatusQuery(
+            tenantId,
+            registrationStatus,
+            pageNumber,
+            pageSize);
+
+        var result = await handler.Handle(query, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> GetAuthenticationLogs(
+        GetAuthenticationLogsHandler handler,
+        Guid? deviceId = null,
+        DateTimeOffset? startDate = null,
+        DateTimeOffset? endDate = null,
+        bool? successOnly = null,
+        int pageNumber = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetAuthenticationLogsQuery(
+            deviceId,
+            startDate,
+            endDate,
+            successOnly,
+            pageNumber,
+            pageSize);
+
         var result = await handler.Handle(query, cancellationToken);
 
         return result.IsSuccess

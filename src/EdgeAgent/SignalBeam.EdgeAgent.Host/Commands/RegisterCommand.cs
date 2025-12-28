@@ -56,9 +56,10 @@ public static class RegisterCommand
     private static async Task<int> ExecuteAsync(Guid tenantId, string deviceId, string token, string cloudUrl)
     {
         var serviceProvider = HostBuilder.BuildServiceProvider();
-        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger<Program>();
         var cloudClient = serviceProvider.GetRequiredService<ICloudClient>();
-        var stateManager = serviceProvider.GetRequiredService<DeviceStateManager>();
+        var credentialsStore = serviceProvider.GetRequiredService<IDeviceCredentialsStore>();
 
         try
         {
@@ -74,7 +75,8 @@ public static class RegisterCommand
                 hostname,
                 platform);
 
-            var handler = new RegisterDeviceCommandHandler(cloudClient);
+            var handlerLogger = loggerFactory.CreateLogger<RegisterDeviceCommandHandler>();
+            var handler = new RegisterDeviceCommandHandler(cloudClient, credentialsStore, handlerLogger);
             var result = await handler.Handle(command, CancellationToken.None);
 
             if (!result.IsSuccess || result.Value == null)
@@ -86,16 +88,25 @@ public static class RegisterCommand
 
             var response = result.Value;
 
-            logger.LogInformation("Device registered successfully with ID: {DeviceId}", response.DeviceId);
-
-            // Save registration state
-            stateManager.SetRegistrationState(response.DeviceId, response.ApiKey, response.CloudEndpoint);
+            logger.LogInformation("Device registered successfully with ID: {DeviceId}, Status: {Status}", response.DeviceId, response.Status);
 
             Console.WriteLine("✅ Device registered successfully!");
             Console.WriteLine($"   Device ID: {response.DeviceId}");
-            Console.WriteLine($"   Cloud Endpoint: {response.CloudEndpoint}");
+            Console.WriteLine($"   Device Name: {response.Name}");
+            Console.WriteLine($"   Registration Status: {response.Status}");
             Console.WriteLine();
-            Console.WriteLine("You can now run the agent with: signalbeam-agent run");
+
+            if (response.Status == "Pending")
+            {
+                Console.WriteLine("⏳ Registration is pending approval by an administrator.");
+                Console.WriteLine("   Once approved, the agent will automatically receive its API key.");
+                Console.WriteLine("   You can check status with: signalbeam-agent status");
+            }
+            else if (response.Status == "Approved" && response.ApiKey != null)
+            {
+                Console.WriteLine("✅ Registration approved! API key has been saved.");
+                Console.WriteLine("   You can now run the agent with: signalbeam-agent run");
+            }
 
             return 0;
         }

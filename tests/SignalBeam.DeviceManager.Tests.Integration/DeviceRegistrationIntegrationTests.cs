@@ -6,6 +6,7 @@ using SignalBeam.DeviceManager.Infrastructure.Persistence.Repositories;
 using SignalBeam.DeviceManager.Tests.Integration.Infrastructure;
 using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.Shared.Infrastructure.Authentication;
 
 namespace SignalBeam.DeviceManager.Tests.Integration;
 
@@ -24,7 +25,9 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         // Arrange
         using var context = _fixture.CreateDbContext();
         var repository = new DeviceRepository(context);
-        var registerHandler = new RegisterDeviceHandler(repository);
+        var tokenRepository = new DeviceRegistrationTokenRepository(context);
+        var tokenService = new RegistrationTokenService();
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
         var queryHandler = new GetDeviceByIdHandler(repository);
 
         var tenantId = Guid.NewGuid();
@@ -64,7 +67,9 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         // Arrange
         using var context = _fixture.CreateDbContext();
         var repository = new DeviceRepository(context);
-        var registerHandler = new RegisterDeviceHandler(repository);
+        var tokenRepository = new DeviceRegistrationTokenRepository(context);
+        var tokenService = new RegistrationTokenService();
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
         var heartbeatHandler = new RecordHeartbeatHandler(repository);
 
         var deviceId = Guid.NewGuid();
@@ -103,7 +108,9 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         // Arrange
         using var context = _fixture.CreateDbContext();
         var repository = new DeviceRepository(context);
-        var registerHandler = new RegisterDeviceHandler(repository);
+        var tokenRepository = new DeviceRegistrationTokenRepository(context);
+        var tokenService = new RegistrationTokenService();
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
         var updateHandler = new UpdateDeviceHandler(repository);
 
         var deviceId = Guid.NewGuid();
@@ -143,7 +150,9 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         // Arrange
         using var context = _fixture.CreateDbContext();
         var repository = new DeviceRepository(context);
-        var registerHandler = new RegisterDeviceHandler(repository);
+        var tokenRepository = new DeviceRegistrationTokenRepository(context);
+        var tokenService = new RegistrationTokenService();
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
         var tagHandler = new AddDeviceTagHandler(repository);
 
         var deviceId = Guid.NewGuid();

@@ -4,11 +4,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.Core;
 using SignalBeam.DeviceManager.Application.Repositories;
+using SignalBeam.DeviceManager.Infrastructure.Authentication;
+using SignalBeam.DeviceManager.Infrastructure.BackgroundServices;
 using SignalBeam.DeviceManager.Infrastructure.Caching;
 using SignalBeam.DeviceManager.Infrastructure.Persistence;
 using SignalBeam.DeviceManager.Infrastructure.Persistence.Repositories;
 using SignalBeam.DeviceManager.Infrastructure.Storage;
 using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Http;
 using SignalBeam.Shared.Infrastructure.Messaging;
 using StackExchange.Redis;
 
@@ -43,9 +46,20 @@ public static class DependencyInjection
         services.AddScoped<IDeviceActivityLogQueryRepository, DeviceActivityLogRepository>();
         services.AddScoped<IDeviceGroupRepository, DeviceGroupRepository>();
         services.AddScoped<IDeviceHeartbeatRepository, DeviceHeartbeatRepository>();
+        services.AddScoped<IDeviceApiKeyRepository, DeviceApiKeyRepository>();
+        services.AddScoped<IDeviceAuthenticationLogRepository, DeviceAuthenticationLogRepository>();
+        services.AddScoped<IDeviceRegistrationTokenRepository, DeviceRegistrationTokenRepository>();
+        // TODO: Add DeviceCertificateRepository when implementing certificate-based authentication
+
+        // Register HTTP context services
+        services.AddHttpContextAccessor();
+        services.AddScoped<IHttpContextInfoProvider, HttpContextInfoProvider>();
 
         // Register authentication services
         services.AddSingleton<IApiKeyValidator, ApiKeyValidator>();
+        services.AddSingleton<IDeviceApiKeyService, DeviceApiKeyService>();
+        services.AddSingleton<IRegistrationTokenService, RegistrationTokenService>();
+        services.AddScoped<IDeviceApiKeyValidator, DeviceApiKeyValidator>();
 
         // NATS message publisher
         var natsUrl = configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222";
@@ -77,6 +91,20 @@ public static class DependencyInjection
             services.AddSingleton<IConnectionMultiplexer>(sp =>
                 ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddSingleton<ICacheService, ValkeyCacheService>();
+        }
+
+        // Background services
+        services.Configure<ApiKeyExpirationCheckOptions>(
+            configuration.GetSection(ApiKeyExpirationCheckOptions.SectionName));
+
+        // Register API key expiration check service if enabled
+        var expirationCheckOptions = configuration
+            .GetSection(ApiKeyExpirationCheckOptions.SectionName)
+            .Get<ApiKeyExpirationCheckOptions>() ?? new ApiKeyExpirationCheckOptions();
+
+        if (expirationCheckOptions.Enabled)
+        {
+            services.AddHostedService<ApiKeyExpirationCheckService>();
         }
 
         return services;
