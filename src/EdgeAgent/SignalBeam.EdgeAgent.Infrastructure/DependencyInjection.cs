@@ -4,6 +4,7 @@ using SignalBeam.EdgeAgent.Application.Services;
 using SignalBeam.EdgeAgent.Infrastructure.Cloud;
 using SignalBeam.EdgeAgent.Infrastructure.Container;
 using SignalBeam.EdgeAgent.Infrastructure.Metrics;
+using SignalBeam.EdgeAgent.Infrastructure.Storage;
 
 namespace SignalBeam.EdgeAgent.Infrastructure;
 
@@ -17,14 +18,21 @@ public static class DependencyInjection
         // Register metrics collector
         services.AddSingleton<IMetricsCollector, SystemMetricsCollector>();
 
-        // Register HTTP cloud client
+        // Register device credentials store
+        services.AddSingleton<IDeviceCredentialsStore, FileDeviceCredentialsStore>();
+
+        // Register API key handler
+        services.AddTransient<DeviceApiKeyHandler>();
+
+        // Register HTTP cloud client with API key handler
         services.AddHttpClient<ICloudClient, HttpCloudClient>((serviceProvider, client) =>
         {
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
             var cloudUrl = configuration["Agent:CloudUrl"] ?? "https://api.signalbeam.com";
             client.BaseAddress = new Uri(cloudUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<DeviceApiKeyHandler>();
 
         return services;
     }

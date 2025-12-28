@@ -2,18 +2,23 @@ using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Repositories;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.Shared.Infrastructure.Authentication;
 
 namespace SignalBeam.DeviceManager.Tests.Unit.Commands;
 
 public class RegisterDeviceHandlerTests
 {
     private readonly IDeviceRepository _deviceRepository;
+    private readonly IDeviceRegistrationTokenRepository _tokenRepository;
+    private readonly IRegistrationTokenService _tokenService;
     private readonly RegisterDeviceHandler _handler;
 
     public RegisterDeviceHandlerTests()
     {
         _deviceRepository = Substitute.For<IDeviceRepository>();
-        _handler = new RegisterDeviceHandler(_deviceRepository);
+        _tokenRepository = Substitute.For<IDeviceRegistrationTokenRepository>();
+        _tokenService = Substitute.For<IRegistrationTokenService>();
+        _handler = new RegisterDeviceHandler(_deviceRepository, _tokenRepository, _tokenService);
     }
 
     [Fact]

@@ -29,9 +29,14 @@
     <PackageReference Include="Serilog.Sinks.Seq" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.Identity.Web" />
+    <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="NATS.Client.Core" />
     <PackageReference Include="NATS.Client.JetStream" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SignalBeam.Domain\SignalBeam.Domain.csproj" />
   </ItemGroup>
 
 </Project>

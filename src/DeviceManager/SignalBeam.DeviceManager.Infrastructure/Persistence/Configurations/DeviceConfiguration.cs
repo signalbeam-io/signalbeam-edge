@@ -45,6 +45,14 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .HasMaxLength(50)
             .IsRequired();
 
+        // RegistrationStatus
+        builder.Property(d => d.RegistrationStatus)
+            .HasColumnName("registration_status")
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .HasDefaultValue(Domain.Enums.DeviceRegistrationStatus.Pending)
+            .IsRequired();
+
         // Timestamps
         builder.Property(d => d.LastSeenAt)
             .HasColumnName("last_seen_at");

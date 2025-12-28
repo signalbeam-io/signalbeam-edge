@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SignalBeam.EdgeAgent.Application.Commands;
 using SignalBeam.EdgeAgent.Application.Services;
 
@@ -6,12 +7,16 @@ namespace SignalBeam.EdgeAgent.Tests.Unit.Commands;
 public class RegisterDeviceCommandHandlerTests
 {
     private readonly ICloudClient _cloudClient;
+    private readonly IDeviceCredentialsStore _credentialsStore;
+    private readonly ILogger<RegisterDeviceCommandHandler> _logger;
     private readonly RegisterDeviceCommandHandler _handler;
 
     public RegisterDeviceCommandHandlerTests()
     {
         _cloudClient = Substitute.For<ICloudClient>();
-        _handler = new RegisterDeviceCommandHandler(_cloudClient);
+        _credentialsStore = Substitute.For<IDeviceCredentialsStore>();
+        _logger = Substitute.For<ILogger<RegisterDeviceCommandHandler>>();
+        _handler = new RegisterDeviceCommandHandler(_cloudClient, _credentialsStore, _logger);
     }
 
     [Fact]
@@ -27,8 +32,9 @@ public class RegisterDeviceCommandHandlerTests
 
         var expectedResponse = new DeviceRegistrationResponse(
             Guid.NewGuid(),
-            "api-key-xyz",
-            "https://cloud.example.com");
+            "test-device",
+            "Pending",
+            DateTimeOffset.UtcNow);
 
         _cloudClient.RegisterDeviceAsync(
                 Arg.Any<DeviceRegistrationRequest>(),

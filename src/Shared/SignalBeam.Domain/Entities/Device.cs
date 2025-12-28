@@ -62,6 +62,11 @@ public class Device : AggregateRoot<DeviceId>
     /// </summary>
     public DeviceGroupId? DeviceGroupId { get; private set; }
 
+    /// <summary>
+    /// Registration approval status (Pending, Approved, Rejected).
+    /// </summary>
+    public DeviceRegistrationStatus RegistrationStatus { get; private set; }
+
     // EF Core constructor
     private Device() : base()
     {
@@ -71,12 +76,14 @@ public class Device : AggregateRoot<DeviceId>
         DeviceId id,
         TenantId tenantId,
         string name,
-        DateTimeOffset registeredAt) : base(id)
+        DateTimeOffset registeredAt,
+        DeviceRegistrationStatus registrationStatus = DeviceRegistrationStatus.Pending) : base(id)
     {
         TenantId = tenantId;
         Name = name;
         Status = DeviceStatus.Registered;
         RegisteredAt = registeredAt;
+        RegistrationStatus = registrationStatus;
     }
 
     /// <summary>
@@ -224,5 +231,35 @@ public class Device : AggregateRoot<DeviceId>
     public void UpdateMetadata(string? metadata)
     {
         Metadata = metadata;
+    }
+
+    /// <summary>
+    /// Approves the device registration.
+    /// </summary>
+    public void ApproveRegistration(DateTimeOffset approvedAt)
+    {
+        if (RegistrationStatus == DeviceRegistrationStatus.Approved)
+            throw new InvalidOperationException("Device registration is already approved.");
+
+        if (RegistrationStatus == DeviceRegistrationStatus.Rejected)
+            throw new InvalidOperationException("Cannot approve a rejected device registration.");
+
+        RegistrationStatus = DeviceRegistrationStatus.Approved;
+        RaiseDomainEvent(new DeviceRegistrationApprovedEvent(Id, approvedAt));
+    }
+
+    /// <summary>
+    /// Rejects the device registration.
+    /// </summary>
+    public void RejectRegistration(DateTimeOffset rejectedAt, string? reason = null)
+    {
+        if (RegistrationStatus == DeviceRegistrationStatus.Rejected)
+            throw new InvalidOperationException("Device registration is already rejected.");
+
+        if (RegistrationStatus == DeviceRegistrationStatus.Approved)
+            throw new InvalidOperationException("Cannot reject an approved device registration.");
+
+        RegistrationStatus = DeviceRegistrationStatus.Rejected;
+        RaiseDomainEvent(new DeviceRegistrationRejectedEvent(Id, rejectedAt, reason));
     }
 }

@@ -39,4 +39,9 @@ public static class AuthenticationConstants
     /// Device authentication scheme name (for edge devices).
     /// </summary>
     public const string DeviceScheme = "Device";
+
+    /// <summary>
+    /// Device API key authentication scheme name.
+    /// </summary>
+    public const string DeviceApiKeyScheme = "DeviceApiKey";
 }

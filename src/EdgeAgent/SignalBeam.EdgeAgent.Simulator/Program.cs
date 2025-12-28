@@ -12,6 +12,9 @@ public class Program
         PropertyNameCaseInsensitive = true
     };
 
+    private static DeviceCredentials? _deviceCredentials;
+    private static readonly SemaphoreSlim _credentialsLock = new(1, 1);
+
     public static async Task<int> Main(string[] args)
     {
         var rootCommand = new RootCommand("SignalBeam Edge Agent Simulator");
@@ -28,7 +31,27 @@ public class Program
 
         var apiKeyOption = new Option<string?>("--api-key")
         {
-            Description = "API key to send in X-Api-Key header."
+            Description = "API key to send in X-Api-Key header (legacy mode - uses shared tenant key)."
+        };
+
+        var useDeviceAuthOption = new Option<bool>("--use-device-auth", () => false)
+        {
+            Description = "Use device-specific authentication (requires approval workflow)."
+        };
+
+        var credentialsPathOption = new Option<string?>("--credentials-path")
+        {
+            Description = "Path to store device credentials (default: ./sim-credentials-{deviceId}.json)."
+        };
+
+        var waitForApprovalOption = new Option<bool>("--wait-for-approval", () => false)
+        {
+            Description = "Wait for device approval before starting simulation."
+        };
+
+        var approvalCheckIntervalOption = new Option<int>("--approval-check-interval", () => 10)
+        {
+            Description = "Interval in seconds to check for approval (when waiting)."
         };
 
         var tenantIdOption = new Option<Guid?>("--tenant-id")
@@ -79,6 +102,10 @@ public class Program
         rootCommand.AddOption(deviceManagerUrlOption);
         rootCommand.AddOption(bundleOrchestratorUrlOption);
         rootCommand.AddOption(apiKeyOption);
+        rootCommand.AddOption(useDeviceAuthOption);
+        rootCommand.AddOption(credentialsPathOption);
+        rootCommand.AddOption(waitForApprovalOption);
+        rootCommand.AddOption(approvalCheckIntervalOption);
         rootCommand.AddOption(tenantIdOption);
         rootCommand.AddOption(deviceIdOption);
         rootCommand.AddOption(deviceNameOption);
@@ -94,6 +121,10 @@ public class Program
             var deviceManagerUrl = context.ParseResult.GetValueForOption(deviceManagerUrlOption);
             var bundleOrchestratorUrl = context.ParseResult.GetValueForOption(bundleOrchestratorUrlOption);
             var apiKey = context.ParseResult.GetValueForOption(apiKeyOption);
+            var useDeviceAuth = context.ParseResult.GetValueForOption(useDeviceAuthOption);
+            var credentialsPath = context.ParseResult.GetValueForOption(credentialsPathOption);
+            var waitForApproval = context.ParseResult.GetValueForOption(waitForApprovalOption);
+            var approvalCheckInterval = context.ParseResult.GetValueForOption(approvalCheckIntervalOption);
             var tenantId = context.ParseResult.GetValueForOption(tenantIdOption);
             var deviceId = context.ParseResult.GetValueForOption(deviceIdOption);
             var deviceName = context.ParseResult.GetValueForOption(deviceNameOption);
@@ -109,24 +140,52 @@ public class Program
                 "SIM_DEVICE_MANAGER_URL",
                 "--device-manager-url");
 
-            var resolvedApiKey = ResolveRequiredOption(
-                apiKey,
-                "SIM_API_KEY",
-                "--api-key");
-
             var resolvedTenantId = ResolveTenantId(tenantId, "SIM_TENANT_ID", "--tenant-id");
             var effectiveDeviceId = deviceId ?? Guid.NewGuid();
             var effectiveDeviceName = string.IsNullOrWhiteSpace(deviceName)
                 ? $"sim-{effectiveDeviceId.ToString()[..8]}"
                 : deviceName;
 
-            using var deviceClient = CreateClient(resolvedDeviceManagerUrl, resolvedApiKey);
+            // Determine authentication mode
+            HttpClient deviceClient;
+            HttpClient? bundleClient;
+
             var resolvedBundleUrl = ResolveOptionalOption(
                 bundleOrchestratorUrl,
                 "SIM_BUNDLE_ORCHESTRATOR_URL");
-            using var bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
-                ? null
-                : CreateClient(resolvedBundleUrl, resolvedApiKey);
+
+            if (useDeviceAuth)
+            {
+                Console.WriteLine("Using device-specific authentication mode.");
+                var effectiveCredentialsPath = credentialsPath ?? $"./sim-credentials-{effectiveDeviceId}.json";
+
+                await InitializeDeviceCredentialsAsync(
+                    resolvedDeviceManagerUrl,
+                    resolvedTenantId,
+                    effectiveDeviceId,
+                    effectiveDeviceName,
+                    metadata,
+                    effectiveCredentialsPath,
+                    waitForApproval,
+                    approvalCheckInterval);
+
+                deviceClient = CreateClientWithDeviceAuth(resolvedDeviceManagerUrl);
+                bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
+                    ? null
+                    : CreateClientWithDeviceAuth(resolvedBundleUrl);
+            }
+            else
+            {
+                Console.WriteLine("Using legacy shared API key mode.");
+                var resolvedApiKey = ResolveRequiredOption(
+                    apiKey,
+                    "SIM_API_KEY",
+                    "--api-key");
+                deviceClient = CreateClient(resolvedDeviceManagerUrl, resolvedApiKey);
+                bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
+                    ? null
+                    : CreateClient(resolvedBundleUrl, resolvedApiKey);
+            }
 
             Console.WriteLine($"Simulator starting for device {effectiveDeviceId} ({effectiveDeviceName}).");
             Console.WriteLine($"DeviceManager: {resolvedDeviceManagerUrl}");
@@ -443,4 +502,221 @@ public class Program
 
         throw new ArgumentException($"Missing required option {optionName} or environment variable {envName}.");
     }
+
+    private static async Task InitializeDeviceCredentialsAsync(
+        string deviceManagerUrl,
+        Guid tenantId,
+        Guid deviceId,
+        string deviceName,
+        string? metadata,
+        string credentialsPath,
+        bool waitForApproval,
+        int approvalCheckInterval)
+    {
+        await _credentialsLock.WaitAsync();
+        try
+        {
+            // Try to load existing credentials
+            if (File.Exists(credentialsPath))
+            {
+                var json = await File.ReadAllTextAsync(credentialsPath);
+                _deviceCredentials = JsonSerializer.Deserialize<DeviceCredentials>(json, JsonOptions);
+
+                if (_deviceCredentials?.DeviceId == deviceId)
+                {
+                    Console.WriteLine($"Loaded existing credentials from {credentialsPath}.");
+
+                    // If already approved with API key, we're done
+                    if (_deviceCredentials.RegistrationStatus == "Approved" && !string.IsNullOrEmpty(_deviceCredentials.ApiKey))
+                    {
+                        Console.WriteLine("Device already approved with API key.");
+                        return;
+                    }
+
+                    // If pending, check current status
+                    if (_deviceCredentials.RegistrationStatus == "Pending")
+                    {
+                        Console.WriteLine("Device registration is pending. Checking current status...");
+                        await CheckAndUpdateRegistrationStatusAsync(deviceManagerUrl, credentialsPath);
+
+                        if (_deviceCredentials.RegistrationStatus == "Approved" && !string.IsNullOrEmpty(_deviceCredentials.ApiKey))
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Register device
+            Console.WriteLine($"Registering device {deviceId} ({deviceName})...");
+            using var registerClient = new HttpClient { BaseAddress = new Uri(deviceManagerUrl.TrimEnd('/')) };
+
+            var registerRequest = new RegisterDeviceRequest(tenantId, deviceId, deviceName, metadata);
+            var response = await registerClient.PostAsJsonAsync("/api/devices", registerRequest);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                if (!content.Contains("DEVICE_ALREADY_EXISTS", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"Device registration failed: {response.StatusCode} {content}");
+                }
+                Console.WriteLine("Device already registered.");
+            }
+
+            // Get registration status
+            var statusResponse = await registerClient.GetAsync($"/api/devices/{deviceId}/registration-status");
+            if (!statusResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"Failed to get registration status: {statusResponse.StatusCode}");
+            }
+
+            var statusData = await statusResponse.Content.ReadFromJsonAsync<GetRegistrationStatusResponse>(JsonOptions);
+
+            _deviceCredentials = new DeviceCredentials
+            {
+                DeviceId = deviceId,
+                TenantId = tenantId,
+                ApiKey = statusData?.ApiKey,
+                ApiKeyExpiresAt = statusData?.ApiKeyExpiresAt,
+                RegistrationStatus = statusData?.Status ?? "Pending"
+            };
+
+            await SaveCredentialsAsync(credentialsPath);
+            Console.WriteLine($"Device registration status: {_deviceCredentials.RegistrationStatus}");
+
+            // Wait for approval if requested
+            if (waitForApproval && _deviceCredentials.RegistrationStatus == "Pending")
+            {
+                Console.WriteLine($"Waiting for device approval (checking every {approvalCheckInterval} seconds)...");
+                Console.WriteLine("Press Ctrl+C to cancel.");
+
+                using var cts = new CancellationTokenSource();
+                Console.CancelKeyPress += (_, e) =>
+                {
+                    e.Cancel = true;
+                    cts.Cancel();
+                };
+
+                while (!cts.Token.IsCancellationRequested && _deviceCredentials.RegistrationStatus == "Pending")
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(approvalCheckInterval), cts.Token);
+                    await CheckAndUpdateRegistrationStatusAsync(deviceManagerUrl, credentialsPath);
+                }
+
+                if (_deviceCredentials.RegistrationStatus == "Approved")
+                {
+                    Console.WriteLine("✅ Device approved! API key received.");
+                }
+                else if (_deviceCredentials.RegistrationStatus == "Rejected")
+                {
+                    throw new InvalidOperationException("Device registration was rejected.");
+                }
+            }
+        }
+        finally
+        {
+            _credentialsLock.Release();
+        }
+    }
+
+    private static async Task CheckAndUpdateRegistrationStatusAsync(string deviceManagerUrl, string credentialsPath)
+    {
+        if (_deviceCredentials == null)
+        {
+            return;
+        }
+
+        using var client = new HttpClient { BaseAddress = new Uri(deviceManagerUrl.TrimEnd('/')) };
+        var response = await client.GetAsync($"/api/devices/{_deviceCredentials.DeviceId}/registration-status");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            Console.WriteLine($"Failed to check registration status: {response.StatusCode}");
+            return;
+        }
+
+        var statusData = await response.Content.ReadFromJsonAsync<GetRegistrationStatusResponse>(JsonOptions);
+        if (statusData == null)
+        {
+            return;
+        }
+
+        var statusChanged = _deviceCredentials.RegistrationStatus != statusData.Status;
+        var apiKeyReceived = !string.IsNullOrEmpty(statusData.ApiKey) && statusData.ApiKey != _deviceCredentials.ApiKey;
+
+        _deviceCredentials.RegistrationStatus = statusData.Status;
+
+        if (apiKeyReceived)
+        {
+            _deviceCredentials.ApiKey = statusData.ApiKey;
+            _deviceCredentials.ApiKeyExpiresAt = statusData.ApiKeyExpiresAt;
+        }
+
+        if (statusChanged || apiKeyReceived)
+        {
+            await SaveCredentialsAsync(credentialsPath);
+            Console.WriteLine($"Registration status updated: {_deviceCredentials.RegistrationStatus}");
+        }
+    }
+
+    private static async Task SaveCredentialsAsync(string credentialsPath)
+    {
+        if (_deviceCredentials == null)
+        {
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(_deviceCredentials, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(credentialsPath, json);
+
+        // Set file permissions (Unix only)
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(credentialsPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+
+        Console.WriteLine($"Credentials saved to {credentialsPath}");
+    }
+
+    private static HttpClient CreateClientWithDeviceAuth(string baseUrl)
+    {
+        if (_deviceCredentials == null || string.IsNullOrEmpty(_deviceCredentials.ApiKey))
+        {
+            throw new InvalidOperationException("Device credentials not initialized or API key not available.");
+        }
+
+        var client = new HttpClient
+        {
+            BaseAddress = new Uri(baseUrl.TrimEnd('/'))
+        };
+
+        client.DefaultRequestHeaders.Add("X-API-Key", _deviceCredentials.ApiKey);
+
+        // Check if API key is expiring soon
+        if (_deviceCredentials.ApiKeyExpiresAt.HasValue)
+        {
+            var daysUntilExpiration = (_deviceCredentials.ApiKeyExpiresAt.Value - DateTimeOffset.UtcNow).TotalDays;
+            if (daysUntilExpiration < 7)
+            {
+                Console.WriteLine($"⚠️ API key expires in {daysUntilExpiration:F1} days. Consider rotating the key.");
+            }
+        }
+
+        return client;
+    }
+
+    private record DeviceCredentials
+    {
+        public Guid DeviceId { get; set; }
+        public Guid TenantId { get; set; }
+        public string? ApiKey { get; set; }
+        public DateTimeOffset? ApiKeyExpiresAt { get; set; }
+        public string RegistrationStatus { get; set; } = "Pending";
+    }
+
+    private record GetRegistrationStatusResponse(
+        string Status,
+        string? ApiKey = null,
+        DateTimeOffset? ApiKeyExpiresAt = null);
 }

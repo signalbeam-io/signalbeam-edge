@@ -6,6 +6,10 @@ public interface ICloudClient
         DeviceRegistrationRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<RegistrationStatusResponse> CheckRegistrationStatusAsync(
+        Guid deviceId,
+        CancellationToken cancellationToken = default);
+
     Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default);
@@ -32,8 +36,16 @@ public record DeviceRegistrationRequest(
 
 public record DeviceRegistrationResponse(
     Guid DeviceId,
-    string ApiKey,
-    string CloudEndpoint);
+    string Name,
+    string Status,
+    DateTimeOffset RegisteredAt,
+    string? ApiKey = null,  // Only provided after approval
+    DateTimeOffset? ApiKeyExpiresAt = null);
+
+public record RegistrationStatusResponse(
+    string Status,
+    string? ApiKey = null,
+    DateTimeOffset? ApiKeyExpiresAt = null);
 
 public record DeviceHeartbeat(
     Guid DeviceId,
