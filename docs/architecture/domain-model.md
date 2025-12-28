@@ -21,6 +21,7 @@ The **Device** aggregate represents an edge device (e.g., Raspberry Pi, mini-PC)
 - `TenantId` - Multi-tenancy identifier
 - `Name` - Human-readable device name
 - `Status` - Current status (Registered, Online, Offline, Updating, Error)
+- `RegistrationStatus` - Registration approval status (Pending, Approved, Rejected)
 - `LastSeenAt` - Last heartbeat timestamp
 - `RegisteredAt` - Registration timestamp
 - `Metadata` - JSON metadata (hardware info, location, etc.)
@@ -88,6 +89,69 @@ The **AppBundle** aggregate represents a deployable application package.
 - `UpdateDescription()` - Update description
 - `UpdateLatestVersion()` - Set latest version
 
+### Entities (Non-Aggregate Roots)
+
+#### DeviceApiKey
+Per-device API key for authentication.
+
+**Identity:** `Id` (Guid)
+
+**Properties:**
+- `DeviceId` - Device this key belongs to
+- `KeyHash` - BCrypt hash of API key
+- `KeyPrefix` - First 8 characters for identification
+- `ExpiresAt` - Expiration timestamp (null = never expires)
+- `RevokedAt` - Revocation timestamp (null = not revoked)
+- `LastUsedAt` - Last authentication timestamp
+- `CreatedAt` - Creation timestamp
+- `CreatedBy` - Who created the key
+
+**Behaviors:**
+- `Create()` - Factory method to create API key
+- `RecordUsage()` - Update last used timestamp
+- `Revoke()` - Revoke the API key
+- `IsExpired()` - Check if key is expired
+
+#### DeviceRegistrationToken
+Single-use token for device registration.
+
+**Identity:** `Id` (Guid)
+
+**Properties:**
+- `TenantId` - Tenant identifier
+- `TokenHash` - BCrypt hash of registration token
+- `TokenPrefix` - Token prefix for identification
+- `ExpiresAt` - Token expiration
+- `IsUsed` - Single-use flag
+- `UsedAt` - When token was used
+- `UsedByDeviceId` - Which device used it
+- `CreatedAt` - Creation timestamp
+- `CreatedBy` - Who created the token
+- `Description` - Token description
+
+**Behaviors:**
+- `Create()` - Factory method to create token
+- `MarkAsUsed()` - Mark token as used by device
+- `IsValid` - Check if token is valid (not used and not expired)
+
+#### DeviceAuthenticationLog
+Audit log for authentication attempts.
+
+**Identity:** `Id` (Guid)
+
+**Properties:**
+- `DeviceId` - Device that attempted authentication (null for failed attempts)
+- `IpAddress` - Client IP address (proxy-aware)
+- `UserAgent` - Client User-Agent header
+- `Success` - Authentication result
+- `FailureReason` - Why authentication failed (if failed)
+- `Timestamp` - When attempt occurred
+- `ApiKeyPrefix` - API key prefix used
+
+**Behaviors:**
+- `LogSuccess()` - Factory method for successful authentication
+- `LogFailure()` - Factory method for failed authentication
+
 ### Value Objects
 
 #### Strongly-Typed Identifiers
@@ -138,6 +202,11 @@ Docker container specification.
 - `Offline` - Device hasn't sent heartbeat within threshold
 - `Updating` - Device is updating its bundle
 - `Error` - Device encountered an error
+
+#### DeviceRegistrationStatus
+- `Pending` - Device registered but awaiting admin approval
+- `Approved` - Device approved and can authenticate
+- `Rejected` - Device registration rejected
 
 #### BundleDeploymentStatus
 - `Pending` - Bundle assigned but not received by device
@@ -349,6 +418,16 @@ The domain model includes comprehensive unit tests:
 - 100% coverage of public API
 - All tests pass with 0 errors
 
+## Recent Additions
+
+### Device Authentication & Security (GitHub Issue #214)
+- **DeviceApiKey** - Per-device API keys with BCrypt hashing
+- **DeviceRegistrationToken** - Single-use tokens for device onboarding
+- **DeviceAuthenticationLog** - Audit trail for authentication attempts
+- **DeviceRegistrationStatus** - Approval workflow (Pending/Approved/Rejected)
+
+See [Device Authentication](../features/device-authentication.md) for detailed documentation.
+
 ## Future Enhancements
 
 Potential additions to the domain model:
@@ -360,6 +439,7 @@ Potential additions to the domain model:
 5. **DeviceDesiredState** - Desired vs. reported state tracking
 6. **Rollout** - Aggregate for managing phased rollouts
 7. **Tenant** - Explicit tenant aggregate with settings
+8. **DeviceCertificate** - X.509 certificates for mTLS authentication
 
 ## Related Documentation
 

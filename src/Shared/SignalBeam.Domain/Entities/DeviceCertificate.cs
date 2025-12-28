@@ -1,4 +1,5 @@
 using SignalBeam.Domain.Abstractions;
+using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
 
 namespace SignalBeam.Domain.Entities;
@@ -27,6 +28,16 @@ public class DeviceCertificate : Entity<Guid>
     /// SHA-256 fingerprint of the certificate.
     /// </summary>
     public string Fingerprint { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Subject of the certificate (e.g., CN=device-{deviceId}).
+    /// </summary>
+    public string Subject { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Certificate type (Device, RootCA, IntermediateCA).
+    /// </summary>
+    public CertificateType Type { get; private set; }
 
     /// <summary>
     /// When the certificate was issued.
@@ -58,6 +69,8 @@ public class DeviceCertificate : Entity<Guid>
         string certificate,
         string serialNumber,
         string fingerprint,
+        string subject,
+        CertificateType type,
         DateTimeOffset issuedAt,
         DateTimeOffset expiresAt) : base(Guid.NewGuid())
     {
@@ -65,6 +78,8 @@ public class DeviceCertificate : Entity<Guid>
         Certificate = certificate;
         SerialNumber = serialNumber;
         Fingerprint = fingerprint;
+        Subject = subject;
+        Type = type;
         IssuedAt = issuedAt;
         ExpiresAt = expiresAt;
     }
@@ -78,7 +93,9 @@ public class DeviceCertificate : Entity<Guid>
         string serialNumber,
         string fingerprint,
         DateTimeOffset issuedAt,
-        DateTimeOffset expiresAt)
+        DateTimeOffset expiresAt,
+        string? subject = null,
+        CertificateType type = CertificateType.Device)
     {
         if (string.IsNullOrWhiteSpace(certificate))
             throw new ArgumentException("Certificate cannot be empty.", nameof(certificate));
@@ -92,7 +109,9 @@ public class DeviceCertificate : Entity<Guid>
         if (expiresAt <= issuedAt)
             throw new ArgumentException("Certificate expiration must be after issuance.", nameof(expiresAt));
 
-        return new DeviceCertificate(deviceId, certificate, serialNumber, fingerprint, issuedAt, expiresAt);
+        var certSubject = subject ?? $"CN=device-{deviceId.Value}";
+
+        return new DeviceCertificate(deviceId, certificate, serialNumber, fingerprint, certSubject, type, issuedAt, expiresAt);
     }
 
     /// <summary>
@@ -112,5 +131,52 @@ public class DeviceCertificate : Entity<Guid>
     public bool IsExpired(DateTimeOffset currentTime)
     {
         return ExpiresAt <= currentTime;
+    }
+
+    /// <summary>
+    /// Checks if certificate is eligible for renewal (less than renewalThresholdDays until expiration).
+    /// </summary>
+    public bool IsEligibleForRenewal(DateTimeOffset currentTime, int renewalThresholdDays = 30)
+    {
+        if (RevokedAt != null)
+            return false; // Cannot renew revoked certificate
+
+        var daysUntilExpiration = (ExpiresAt - currentTime).TotalDays;
+        return daysUntilExpiration <= renewalThresholdDays && daysUntilExpiration > 0;
+    }
+
+    /// <summary>
+    /// Renews the certificate by creating a new instance with extended validity.
+    /// The old certificate is revoked automatically.
+    /// </summary>
+    public static DeviceCertificate Renew(
+        DeviceCertificate oldCertificate,
+        string newCertificatePem,
+        string newSerialNumber,
+        string newFingerprint,
+        DateTimeOffset issuedAt,
+        DateTimeOffset expiresAt)
+    {
+        if (oldCertificate == null)
+            throw new ArgumentNullException(nameof(oldCertificate));
+
+        if (oldCertificate.RevokedAt != null)
+            throw new InvalidOperationException("Cannot renew a revoked certificate.");
+
+        // Create new certificate with same device ID and subject
+        var renewed = Create(
+            oldCertificate.DeviceId,
+            newCertificatePem,
+            newSerialNumber,
+            newFingerprint,
+            issuedAt,
+            expiresAt,
+            oldCertificate.Subject,
+            oldCertificate.Type);
+
+        // Revoke old certificate
+        oldCertificate.Revoke(issuedAt);
+
+        return renewed;
     }
 }
