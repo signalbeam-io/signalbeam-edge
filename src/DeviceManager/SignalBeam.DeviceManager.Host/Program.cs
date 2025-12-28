@@ -122,6 +122,20 @@ builder.Services.AddScoped<GetDeviceActivityLogHandler>();
 builder.Services.AddScoped<GetDeviceMetricsHandler>();
 builder.Services.AddScoped<GetDeviceGroupsHandler>();
 
+// Register certificate-related services
+builder.Services.AddScoped<SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.ICertificateGenerator,
+    SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.X509CertificateGenerator>();
+builder.Services.AddSingleton<SignalBeam.DeviceManager.Application.Services.ICertificateAuthorityService,
+    SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.CertificateAuthorityService>();
+builder.Services.AddScoped<SignalBeam.Shared.Infrastructure.Authentication.IDeviceCertificateValidator,
+    SignalBeam.DeviceManager.Infrastructure.Authentication.DeviceCertificateValidator>();
+
+// Register certificate command and query handlers
+builder.Services.AddScoped<IssueCertificateHandler>();
+builder.Services.AddScoped<RenewCertificateHandler>();
+builder.Services.AddScoped<RevokeCertificateHandler>();
+builder.Services.AddScoped<GetDeviceCertificatesHandler>();
+
 // Add OpenAPI and Scalar
 builder.Services.AddOpenApi(options =>
 {
@@ -142,6 +156,19 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
+// Configure Kestrel for client certificate authentication (mTLS)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ConfigureHttpsDefaults(httpsOptions =>
+    {
+        // Allow but don't require client certificates
+        // Validation happens in DeviceAuthenticationMiddleware
+        httpsOptions.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.AllowCertificate;
+        httpsOptions.AllowAnyClientCertificate();
+        httpsOptions.CheckCertificateRevocation = false; // We handle revocation in DB
+    });
+});
+
 var app = builder.Build();
 
 // Apply database migrations automatically
@@ -156,11 +183,17 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("Applying database migrations...");
         context.Database.Migrate();
         logger.LogInformation("Database migrations applied successfully.");
+
+        // Initialize Certificate Authority
+        logger.LogInformation("Initializing Certificate Authority...");
+        var caService = services.GetRequiredService<SignalBeam.DeviceManager.Application.Services.ICertificateAuthorityService>();
+        await caService.InitializeAsync();
+        logger.LogInformation("Certificate Authority initialized successfully.");
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
+        logger.LogError(ex, "An error occurred during startup initialization.");
         throw;
     }
 }
@@ -188,8 +221,8 @@ if (app.Environment.IsDevelopment())
     app.UseCors("WebDev");
 }
 
-// Add API key authentication middleware (for edge devices)
-app.UseApiKeyAuthentication();
+// Add unified device authentication middleware (supports both mTLS and API keys)
+app.UseDeviceAuthentication();
 
 // Add standard authentication and authorization
 app.UseAuthentication();
@@ -204,6 +237,7 @@ app.MapDefaultEndpoints();
 // Map API endpoints
 app.MapDeviceEndpoints();
 app.MapGroupEndpoints();
+app.MapCertificateEndpoints();
 
 app.Run();
 

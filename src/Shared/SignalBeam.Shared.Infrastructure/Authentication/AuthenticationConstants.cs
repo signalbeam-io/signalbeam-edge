@@ -44,4 +44,9 @@ public static class AuthenticationConstants
     /// Device API key authentication scheme name.
     /// </summary>
     public const string DeviceApiKeyScheme = "DeviceApiKey";
+
+    /// <summary>
+    /// Certificate (mTLS) authentication scheme name.
+    /// </summary>
+    public const string CertificateScheme = "Certificate";
 }

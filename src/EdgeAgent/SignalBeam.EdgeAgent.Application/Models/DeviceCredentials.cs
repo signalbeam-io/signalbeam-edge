@@ -39,4 +39,31 @@ public class DeviceCredentials
     /// Device name.
     /// </summary>
     public string? DeviceName { get; set; }
+
+    // mTLS Certificate Fields
+
+    /// <summary>
+    /// Path to client certificate PEM file (for mTLS authentication).
+    /// </summary>
+    public string? ClientCertificatePath { get; set; }
+
+    /// <summary>
+    /// Path to client private key PEM file (for mTLS authentication).
+    /// </summary>
+    public string? ClientPrivateKeyPath { get; set; }
+
+    /// <summary>
+    /// Path to CA certificate PEM file (for server validation).
+    /// </summary>
+    public string? CaCertificatePath { get; set; }
+
+    /// <summary>
+    /// Certificate serial number (for renewal tracking).
+    /// </summary>
+    public string? CertificateSerialNumber { get; set; }
+
+    /// <summary>
+    /// When the client certificate expires (null = no certificate).
+    /// </summary>
+    public DateTimeOffset? CertificateExpiresAt { get; set; }
 }

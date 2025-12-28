@@ -24,7 +24,7 @@ public static class DependencyInjection
         // Register API key handler
         services.AddTransient<DeviceApiKeyHandler>();
 
-        // Register HTTP cloud client with API key handler
+        // Register HTTP cloud client with mTLS and API key support
         services.AddHttpClient<ICloudClient, HttpCloudClient>((serviceProvider, client) =>
         {
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
@@ -32,7 +32,61 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(cloudUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
         })
-        .AddHttpMessageHandler<DeviceApiKeyHandler>();
+        .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+        {
+            var handler = new HttpClientHandler();
+            var credentialsStore = serviceProvider.GetRequiredService<IDeviceCredentialsStore>();
+
+            // Load credentials synchronously (blocking during startup is acceptable)
+            var credentials = credentialsStore.LoadCredentialsAsync().GetAwaiter().GetResult();
+
+            // Configure client certificate if available
+            if (credentials?.ClientCertificatePath != null &&
+                credentials.ClientPrivateKeyPath != null &&
+                File.Exists(credentials.ClientCertificatePath) &&
+                File.Exists(credentials.ClientPrivateKeyPath))
+            {
+                try
+                {
+                    var certPem = File.ReadAllText(credentials.ClientCertificatePath);
+                    var keyPem = File.ReadAllText(credentials.ClientPrivateKeyPath);
+                    var clientCert = System.Security.Cryptography.X509Certificates.X509Certificate2
+                        .CreateFromPem(certPem, keyPem);
+
+                    handler.ClientCertificates.Add(clientCert);
+                }
+                catch (Exception ex)
+                {
+                    // Log warning but continue - will fall back to API key auth
+                    Console.WriteLine($"Warning: Failed to load client certificate: {ex.Message}");
+                }
+            }
+
+            // Configure CA certificate for server validation (optional)
+            if (credentials?.CaCertificatePath != null && File.Exists(credentials.CaCertificatePath))
+            {
+                try
+                {
+                    var caCertPem = File.ReadAllText(credentials.CaCertificatePath);
+                    var caCert = System.Security.Cryptography.X509Certificates.X509Certificate2
+                        .CreateFromPem(caCertPem);
+
+                    handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
+                    {
+                        // Add CA cert to chain for validation
+                        chain?.ChainPolicy.ExtraStore.Add(caCert);
+                        return errors == System.Net.Security.SslPolicyErrors.None;
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Warning: Failed to load CA certificate: {ex.Message}");
+                }
+            }
+
+            return handler;
+        })
+        .AddHttpMessageHandler<DeviceApiKeyHandler>(); // Keep API key as fallback
 
         return services;
     }
