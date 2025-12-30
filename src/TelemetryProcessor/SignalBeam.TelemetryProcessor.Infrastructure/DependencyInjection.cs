@@ -64,6 +64,11 @@ public static class DependencyInjection
         services.AddScoped<IDeviceHeartbeatRepository, DeviceHeartbeatRepository>();
         services.AddScoped<IMetricsAggregateRepository, MetricsAggregateRepository>();
 
+        // Register metrics and alerting repositories
+        services.AddScoped<IDeviceHealthScoreRepository, DeviceHealthScoreRepository>();
+        services.AddScoped<IAlertRepository, AlertRepository>();
+        services.AddScoped<IAlertNotificationRepository, AlertNotificationRepository>();
+
         // Register NATS connection
         var natsUrl = configuration.GetSection(Messaging.Options.NatsOptions.SectionName)["Url"]
             ?? configuration.GetConnectionString("nats") // Try Aspire connection string
@@ -105,6 +110,42 @@ public static class DependencyInjection
 
         // Register message publisher for publishing events
         services.AddSingleton<IMessagePublisher, NatsMessagePublisher>();
+
+        // Register application services
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.IDeviceHealthCalculator,
+            SignalBeam.TelemetryProcessor.Application.Services.DeviceHealthCalculator>();
+
+        // Configure alerting options
+        services.Configure<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.AlertingOptions>(
+            configuration.GetSection(SignalBeam.TelemetryProcessor.Application.Services.AlertRules.AlertingOptions.SectionName));
+
+        // Register alert rules
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.IAlertRule,
+            SignalBeam.TelemetryProcessor.Application.Services.AlertRules.DeviceOfflineRule>();
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.IAlertRule,
+            SignalBeam.TelemetryProcessor.Application.Services.AlertRules.DeviceUnhealthyRule>();
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.IAlertRule,
+            SignalBeam.TelemetryProcessor.Application.Services.AlertRules.HighErrorRateRule>();
+
+        // Configure notification options
+        services.Configure<SignalBeam.TelemetryProcessor.Application.Services.Notifications.NotificationOptions>(
+            configuration.GetSection(SignalBeam.TelemetryProcessor.Application.Services.Notifications.NotificationOptions.SectionName));
+
+        // Register HttpClient for notification channels (Slack, Teams, etc.)
+        services.AddHttpClient<SignalBeam.TelemetryProcessor.Infrastructure.Notifications.SlackNotificationChannel>();
+        services.AddHttpClient<SignalBeam.TelemetryProcessor.Infrastructure.Notifications.TeamsNotificationChannel>();
+
+        // Register notification channels
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.Notifications.INotificationChannel,
+            SignalBeam.TelemetryProcessor.Infrastructure.Notifications.EmailNotificationChannel>();
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.Notifications.INotificationChannel,
+            SignalBeam.TelemetryProcessor.Infrastructure.Notifications.SlackNotificationChannel>();
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.Notifications.INotificationChannel,
+            SignalBeam.TelemetryProcessor.Infrastructure.Notifications.TeamsNotificationChannel>();
+
+        // Register notification service
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.Notifications.IAlertNotificationService,
+            SignalBeam.TelemetryProcessor.Infrastructure.Notifications.AlertNotificationService>();
 
         // Register message handlers from Application layer
         services.AddScoped<DeviceHeartbeatMessageHandler>();

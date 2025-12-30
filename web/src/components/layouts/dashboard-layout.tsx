@@ -9,6 +9,7 @@ const navigation = [
   { name: 'Devices', href: '/devices' },
   { name: 'Bundles', href: '/bundles' },
   { name: 'Phased Rollouts', href: '/phased-rollouts' },
+  { name: 'Alerts', href: '/alerts' },
 ]
 
 export function DashboardLayout() {

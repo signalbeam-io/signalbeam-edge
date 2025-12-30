@@ -18,6 +18,11 @@ public class TelemetryDbContext : DbContext
     // TimescaleDB hypertables (time-series data)
     public DbSet<DeviceHeartbeat> DeviceHeartbeats => Set<DeviceHeartbeat>();
     public DbSet<DeviceMetrics> DeviceMetrics => Set<DeviceMetrics>();
+    public DbSet<DeviceHealthScore> DeviceHealthScores => Set<DeviceHealthScore>();
+
+    // Alerting system
+    public DbSet<Alert> Alerts => Set<Alert>();
+    public DbSet<AlertNotification> AlertNotifications => Set<AlertNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

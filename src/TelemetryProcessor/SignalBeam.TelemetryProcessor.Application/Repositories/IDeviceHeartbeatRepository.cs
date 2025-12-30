@@ -35,6 +35,13 @@ public interface IDeviceHeartbeatRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets unique device IDs that have sent heartbeats since the specified time.
+    /// </summary>
+    Task<IReadOnlyList<DeviceId>> GetActiveDeviceIdsAsync(
+        DateTimeOffset since,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Saves changes to the database.
     /// </summary>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
