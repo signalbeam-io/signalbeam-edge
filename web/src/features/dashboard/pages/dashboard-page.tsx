@@ -1,4 +1,5 @@
 import { FleetSummary } from '../components/fleet-summary'
+import { AlertSummary } from '../components/alert-summary'
 import { ActiveRollouts } from '../components/active-rollouts'
 import { RecentActivity } from '../components/recent-activity'
 
@@ -14,6 +15,9 @@ export function DashboardPage() {
 
       {/* Fleet Statistics */}
       <FleetSummary />
+
+      {/* Alert Statistics */}
+      <AlertSummary />
 
       {/* Active Rollouts and Recent Activity */}
       <div className="grid gap-6 md:grid-cols-2">

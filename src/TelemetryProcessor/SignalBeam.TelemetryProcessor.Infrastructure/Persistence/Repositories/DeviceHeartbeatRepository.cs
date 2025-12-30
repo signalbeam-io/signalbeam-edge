@@ -100,6 +100,22 @@ public class DeviceHeartbeatRepository : IDeviceHeartbeatRepository
     }
 
     /// <summary>
+    /// Gets unique device IDs that have sent heartbeats since the specified time.
+    /// </summary>
+    public async Task<IReadOnlyList<DeviceId>> GetActiveDeviceIdsAsync(
+        DateTimeOffset since,
+        CancellationToken cancellationToken = default)
+    {
+        var deviceGuids = await _context.DeviceHeartbeats
+            .Where(h => h.Timestamp >= since)
+            .Select(h => h.DeviceId.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return deviceGuids.Select(guid => new DeviceId(guid)).ToList();
+    }
+
+    /// <summary>
     /// Gets the latest heartbeats for multiple devices.
     /// Optimized for dashboard queries showing device status.
     /// </summary>
