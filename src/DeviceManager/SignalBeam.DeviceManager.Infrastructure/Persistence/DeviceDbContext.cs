@@ -17,6 +17,7 @@ public class DeviceDbContext : DbContext
     // Regular tables
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceGroup> DeviceGroups => Set<DeviceGroup>();
+    public DbSet<DeviceGroupMembership> DeviceGroupMemberships => Set<DeviceGroupMembership>();
     public DbSet<DeviceActivityLog> DeviceActivityLogs => Set<DeviceActivityLog>();
     public DbSet<DeviceApiKey> DeviceApiKeys => Set<DeviceApiKey>();
     public DbSet<DeviceAuthenticationLog> DeviceAuthenticationLogs => Set<DeviceAuthenticationLog>();

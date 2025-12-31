@@ -159,7 +159,11 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
 
         // Register device
         await registerHandler.Handle(
-            new RegisterDeviceCommand(Guid.NewGuid(), deviceId, "Tag Test Device"),
+            new RegisterDeviceCommand(
+                TenantId: Guid.NewGuid(),
+                Name: "Tag Test Device",
+                Metadata: null,
+                DeviceId: deviceId),
             CancellationToken.None);
 
         // Act - Add tags

@@ -2,6 +2,7 @@ using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Infrastructure.Queries;
 using SignalBeam.Domain.Enums;
+using Microsoft.AspNetCore.Mvc;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
 
@@ -140,7 +141,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> RegisterDevice(
         RegisterDeviceCommand command,
-        RegisterDeviceHandler handler,
+        [FromServices] RegisterDeviceHandler handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(command, cancellationToken);
@@ -157,7 +158,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GetDevices(
         [AsParameters] GetDevicesQuery query,
-        GetDevicesHandler handler,
+        [FromServices] GetDevicesHandler handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(query, cancellationToken);
@@ -174,7 +175,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GetDeviceById(
         Guid deviceId,
-        GetDeviceByIdHandler handler,
+        [FromServices] GetDeviceByIdHandler handler,
         CancellationToken cancellationToken)
     {
         var query = new GetDeviceByIdQuery(deviceId);
@@ -193,7 +194,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> UpdateDevice(
         Guid deviceId,
         UpdateDeviceCommand command,
-        UpdateDeviceHandler handler,
+        [FromServices] UpdateDeviceHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -213,7 +214,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> AddDeviceTag(
         Guid deviceId,
         AddDeviceTagCommand command,
-        AddDeviceTagHandler handler,
+        [FromServices] AddDeviceTagHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -233,7 +234,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> RecordHeartbeat(
         Guid deviceId,
         RecordHeartbeatCommand command,
-        RecordHeartbeatHandler handler,
+        [FromServices] RecordHeartbeatHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -253,7 +254,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> AssignDeviceToGroup(
         Guid deviceId,
         AssignDeviceToGroupCommand command,
-        AssignDeviceToGroupHandler handler,
+        [FromServices] AssignDeviceToGroupHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -273,7 +274,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> ReportDeviceState(
         Guid deviceId,
         ReportDeviceStateCommand command,
-        ReportDeviceStateHandler handler,
+        [FromServices] ReportDeviceStateHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -292,7 +293,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GetDeviceHealth(
         Guid deviceId,
-        GetDeviceHealthHandler handler,
+        [FromServices] GetDeviceHealthHandler handler,
         CancellationToken cancellationToken)
     {
         var query = new GetDeviceHealthQuery(deviceId);
@@ -310,7 +311,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GetDevicesByGroup(
         [AsParameters] GetDevicesByGroupQuery query,
-        GetDevicesByGroupHandler handler,
+        [FromServices] GetDevicesByGroupHandler handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(query, cancellationToken);
@@ -328,7 +329,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> UpdateDeviceMetrics(
         Guid deviceId,
         UpdateDeviceMetricsCommand command,
-        UpdateDeviceMetricsHandler handler,
+        [FromServices] UpdateDeviceMetricsHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -347,7 +348,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GetDeviceActivityLog(
         [AsParameters] GetDeviceActivityLogQuery query,
-        GetDeviceActivityLogHandler handler,
+        [FromServices] GetDeviceActivityLogHandler handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(query, cancellationToken);
@@ -364,7 +365,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GetDeviceMetrics(
         [AsParameters] GetDeviceMetricsQuery query,
-        GetDeviceMetricsHandler handler,
+        [FromServices] GetDeviceMetricsHandler handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(query, cancellationToken);
@@ -381,7 +382,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> ApproveDeviceRegistration(
         Guid deviceId,
-        ApproveDeviceRegistrationHandler handler,
+        [FromServices] ApproveDeviceRegistrationHandler handler,
         CancellationToken cancellationToken)
     {
         var command = new ApproveDeviceRegistrationCommand(deviceId);
@@ -406,7 +407,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> RejectDeviceRegistration(
         Guid deviceId,
         RejectDeviceRegistrationCommand command,
-        RejectDeviceRegistrationHandler handler,
+        [FromServices] RejectDeviceRegistrationHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -426,7 +427,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> GenerateDeviceApiKey(
         Guid deviceId,
         GenerateDeviceApiKeyCommand command,
-        GenerateDeviceApiKeyHandler handler,
+        [FromServices] GenerateDeviceApiKeyHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
@@ -453,7 +454,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> RevokeDeviceApiKey(
         Guid apiKeyId,
-        RevokeDeviceApiKeyHandler handler,
+        [FromServices] RevokeDeviceApiKeyHandler handler,
         CancellationToken cancellationToken)
     {
         var command = new RevokeDeviceApiKeyCommand(apiKeyId);
@@ -471,7 +472,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GetRegistrationStatus(
         Guid deviceId,
-        GetRegistrationStatusHandler handler,
+        [FromServices] GetRegistrationStatusHandler handler,
         CancellationToken cancellationToken)
     {
         var query = new GetRegistrationStatusQuery(deviceId);
@@ -489,7 +490,7 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> GenerateRegistrationToken(
         GenerateRegistrationTokenCommand command,
-        GenerateRegistrationTokenHandler handler,
+        [FromServices] GenerateRegistrationTokenHandler handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(command, cancellationToken);
@@ -507,7 +508,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> GetDevicesByRegistrationStatus(
         string status,
         Guid tenantId,
-        GetDevicesByRegistrationStatusHandler handler,
+        [FromServices] GetDevicesByRegistrationStatusHandler handler,
         int pageNumber = 1,
         int pageSize = 50,
         CancellationToken cancellationToken = default)
@@ -540,7 +541,7 @@ public static class DeviceEndpoints
     }
 
     private static async Task<IResult> GetAuthenticationLogs(
-        GetAuthenticationLogsHandler handler,
+        [FromServices] GetAuthenticationLogsHandler handler,
         Guid? deviceId = null,
         DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null,

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SignalBeam.Domain.Entities;
+using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
 
 namespace SignalBeam.DeviceManager.Infrastructure.Persistence.Configurations;
@@ -37,7 +38,19 @@ public class DeviceGroupConfiguration : IEntityTypeConfiguration<DeviceGroup>
             .HasColumnName("description")
             .HasMaxLength(500);
 
-        // Store the private _tagCriteria backing field
+        // GroupType enum stored as string
+        builder.Property(g => g.Type)
+            .HasColumnName("type")
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        // Tag query for dynamic groups
+        builder.Property(g => g.TagQuery)
+            .HasColumnName("tag_query")
+            .HasMaxLength(1000);
+
+        // Store the private _tagCriteria backing field (DEPRECATED - kept for backward compatibility)
         builder.Property<List<string>>("_tagCriteria")
             .HasColumnName("tag_criteria")
             .HasColumnType("jsonb")

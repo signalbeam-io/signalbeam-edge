@@ -26,6 +26,22 @@ public record DeviceResponse(
     Guid? DeviceGroupId);
 
 /// <summary>
+/// Type alias for backward compatibility.
+/// </summary>
+public record GetDeviceByIdResponse(
+    Guid Id,
+    Guid TenantId,
+    string Name,
+    string Status,
+    DateTimeOffset? LastSeenAt,
+    DateTimeOffset RegisteredAt,
+    string? Metadata,
+    IReadOnlyCollection<string> Tags,
+    Guid? AssignedBundleId,
+    string? BundleDeploymentStatus,
+    Guid? DeviceGroupId) : DeviceResponse(Id, TenantId, Name, Status, LastSeenAt, RegisteredAt, Metadata, Tags, AssignedBundleId, BundleDeploymentStatus, DeviceGroupId);
+
+/// <summary>
 /// Handler for GetDeviceByIdQuery.
 /// Uses Wolverine's IMessageHandler pattern.
 /// </summary>

@@ -113,6 +113,12 @@ builder.Services.AddScoped<AssignDeviceToGroupHandler>();
 builder.Services.AddScoped<ReportDeviceStateHandler>();
 builder.Services.AddScoped<UpdateDeviceMetricsHandler>();
 builder.Services.AddScoped<CreateDeviceGroupHandler>();
+builder.Services.AddScoped<UpdateDeviceGroupHandler>();
+builder.Services.AddScoped<AddDeviceToGroupHandler>();
+builder.Services.AddScoped<RemoveDeviceFromGroupHandler>();
+builder.Services.AddScoped<RemoveDeviceTagHandler>();
+builder.Services.AddScoped<BulkAddDeviceTagsHandler>();
+builder.Services.AddScoped<BulkRemoveDeviceTagsHandler>();
 
 builder.Services.AddScoped<GetDevicesHandler>();
 builder.Services.AddScoped<GetDeviceByIdHandler>();
@@ -121,6 +127,9 @@ builder.Services.AddScoped<GetDevicesByGroupHandler>();
 builder.Services.AddScoped<GetDeviceActivityLogHandler>();
 builder.Services.AddScoped<GetDeviceMetricsHandler>();
 builder.Services.AddScoped<GetDeviceGroupsHandler>();
+builder.Services.AddScoped<GetDevicesByTagQueryHandler>();
+builder.Services.AddScoped<GetAllTagsHandler>();
+builder.Services.AddScoped<GetGroupMembershipsHandler>();
 
 // Register certificate-related services
 builder.Services.AddScoped<SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.ICertificateGenerator,
@@ -171,30 +180,36 @@ builder.WebHost.ConfigureKestrel(options =>
 
 var app = builder.Build();
 
-// Apply database migrations automatically
-using (var scope = app.Services.CreateScope())
+// Apply database migrations automatically (skip in Testing environment)
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var services = scope.ServiceProvider;
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        var context = services.GetRequiredService<SignalBeam.DeviceManager.Infrastructure.Persistence.DeviceDbContext>();
-        var logger = services.GetRequiredService<ILogger<Program>>();
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<SignalBeam.DeviceManager.Infrastructure.Persistence.DeviceDbContext>();
+            var logger = services.GetRequiredService<ILogger<Program>>();
 
-        logger.LogInformation("Applying database migrations...");
-        context.Database.Migrate();
-        logger.LogInformation("Database migrations applied successfully.");
+            logger.LogInformation("Applying database migrations...");
+            context.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully.");
 
-        // Initialize Certificate Authority
-        logger.LogInformation("Initializing Certificate Authority...");
-        var caService = services.GetRequiredService<SignalBeam.DeviceManager.Application.Services.ICertificateAuthorityService>();
-        await caService.InitializeAsync();
-        logger.LogInformation("Certificate Authority initialized successfully.");
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred during startup initialization.");
-        throw;
+            // Initialize Certificate Authority (only in production environments)
+            if (app.Environment.IsProduction() || app.Environment.IsDevelopment())
+            {
+                logger.LogInformation("Initializing Certificate Authority...");
+                var caService = services.GetRequiredService<SignalBeam.DeviceManager.Application.Services.ICertificateAuthorityService>();
+                await caService.InitializeAsync();
+                logger.LogInformation("Certificate Authority initialized successfully.");
+            }
+        }
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "An error occurred during startup initialization.");
+            throw;
+        }
     }
 }
 
@@ -237,6 +252,7 @@ app.MapDefaultEndpoints();
 // Map API endpoints
 app.MapDeviceEndpoints();
 app.MapGroupEndpoints();
+app.MapTagEndpoints();
 app.MapCertificateEndpoints();
 
 app.Run();
