@@ -45,11 +45,20 @@ public static class DependencyInjection
         services.AddScoped<IDeviceActivityLogRepository, DeviceActivityLogRepository>();
         services.AddScoped<IDeviceActivityLogQueryRepository, DeviceActivityLogRepository>();
         services.AddScoped<IDeviceGroupRepository, DeviceGroupRepository>();
+        services.AddScoped<IDeviceGroupMembershipRepository, DeviceGroupMembershipRepository>();
         services.AddScoped<IDeviceHeartbeatRepository, DeviceHeartbeatRepository>();
         services.AddScoped<IDeviceApiKeyRepository, DeviceApiKeyRepository>();
         services.AddScoped<IDeviceAuthenticationLogRepository, DeviceAuthenticationLogRepository>();
         services.AddScoped<IDeviceRegistrationTokenRepository, DeviceRegistrationTokenRepository>();
         // TODO: Add DeviceCertificateRepository when implementing certificate-based authentication
+
+        // Register application services
+        services.AddScoped<SignalBeam.DeviceManager.Application.Services.IDynamicGroupMembershipManager,
+            SignalBeam.DeviceManager.Application.Services.DynamicGroupMembershipManager>();
+
+        // Register caching services
+        services.AddMemoryCache();
+        services.AddSingleton<TagQueryCache>();
 
         // Register HTTP context services
         services.AddHttpContextAccessor();
@@ -105,6 +114,19 @@ public static class DependencyInjection
         if (expirationCheckOptions.Enabled)
         {
             services.AddHostedService<ApiKeyExpirationCheckService>();
+        }
+
+        // Register dynamic group update service if enabled
+        services.Configure<DynamicGroupUpdateOptions>(
+            configuration.GetSection(DynamicGroupUpdateOptions.SectionName));
+
+        var dynamicGroupUpdateOptions = configuration
+            .GetSection(DynamicGroupUpdateOptions.SectionName)
+            .Get<DynamicGroupUpdateOptions>() ?? new DynamicGroupUpdateOptions();
+
+        if (dynamicGroupUpdateOptions.Enabled)
+        {
+            services.AddHostedService<DynamicGroupUpdateService>();
         }
 
         return services;

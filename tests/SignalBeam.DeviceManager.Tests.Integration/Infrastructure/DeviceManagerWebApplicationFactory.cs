@@ -56,10 +56,13 @@ public class DeviceManagerWebApplicationFactory : WebApplicationFactory<Program>
     {
         await _postgresContainer.StartAsync();
 
-        // Apply migrations
+        // Ensure clean database state by dropping all tables and reapplying migrations
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DeviceDbContext>();
-        await context.Database.MigrateAsync();
+
+        // Ensure clean database state
+        await context.Database.EnsureDeletedAsync();
+        await context.Database.EnsureCreatedAsync();
     }
 
     public new async Task DisposeAsync()
