@@ -2,6 +2,7 @@
  * Device filters component
  */
 
+import { useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
@@ -14,12 +15,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DeviceStatus } from '@/api/types'
+import { TagQuerySearch } from './tags/tag-query-search'
+import { Separator } from '@/components/ui/separator'
 
 export interface DeviceFiltersState {
   search: string
   status?: DeviceStatus | undefined
   tags: string[]
   groupIds: string[]
+  tagQuery?: string
 }
 
 export interface DeviceFiltersProps {
@@ -35,6 +39,8 @@ export function DeviceFilters({
   availableTags = [],
   availableGroups = [],
 }: DeviceFiltersProps) {
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+
   const handleSearchChange = (value: string) => {
     onFiltersChange({ ...filters, search: value })
   }
@@ -60,20 +66,30 @@ export function DeviceFilters({
     onFiltersChange({ ...filters, groupIds: newGroups })
   }
 
+  const handleTagQueryChange = (query: string) => {
+    onFiltersChange({ ...filters, tagQuery: query })
+  }
+
+  const handleTagQuerySearch = () => {
+    // Query is already set, just close advanced search if needed
+    // The fleet overview will automatically re-fetch when tagQuery changes
+  }
+
   const handleClearFilters = () => {
     onFiltersChange({
       search: '',
-      status: undefined,
       tags: [],
       groupIds: [],
     })
+    setShowAdvancedSearch(false)
   }
 
   const hasActiveFilters =
     filters.search ||
     filters.status ||
     filters.tags.length > 0 ||
-    filters.groupIds.length > 0
+    filters.groupIds.length > 0 ||
+    !!filters.tagQuery
 
   return (
     <div className="space-y-4">
@@ -118,7 +134,30 @@ export function DeviceFilters({
             Clear filters
           </Button>
         )}
+
+        {/* Toggle Advanced Search */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+          className="w-full md:w-auto"
+        >
+          {showAdvancedSearch ? 'Simple Search' : 'Advanced Tag Query'}
+        </Button>
       </div>
+
+      {/* Advanced Tag Query Search */}
+      {showAdvancedSearch && (
+        <>
+          <Separator />
+          <TagQuerySearch
+            value={filters.tagQuery || ''}
+            onChange={handleTagQueryChange}
+            onSearch={handleTagQuerySearch}
+            placeholder="Enter tag query (e.g., environment=production AND location=warehouse-*)"
+          />
+        </>
+      )}
 
       {/* Tag filters */}
       {availableTags.length > 0 && (

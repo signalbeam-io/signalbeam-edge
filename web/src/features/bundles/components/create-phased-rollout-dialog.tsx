@@ -117,7 +117,7 @@ export function CreatePhasedRolloutDialog({
         bundleId: bundle.id,
         targetVersion: bundle.currentVersion,
         name: data.name,
-        description: data.description || undefined,
+        ...(data.description && { description: data.description }),
         failureThreshold: data.failureThreshold,
         phases: data.phases,
       })

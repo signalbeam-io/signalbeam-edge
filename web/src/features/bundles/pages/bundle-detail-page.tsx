@@ -37,7 +37,10 @@ export function BundleDetailPage() {
     !!id
   )
   const { data: devicesData } = useDevices({ pageSize: 1000 })
-  const { data: rolloutsData, isError: rolloutsError } = useRollouts({ bundleId: id, pageSize: 10 })
+  const { data: rolloutsData, isError: rolloutsError } = useRollouts({
+    ...(id && { bundleId: id }),
+    pageSize: 10
+  })
 
   const [createVersionOpen, setCreateVersionOpen] = useState(false)
   const [assignBundleOpen, setAssignBundleOpen] = useState(false)

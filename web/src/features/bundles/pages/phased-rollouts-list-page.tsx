@@ -27,7 +27,7 @@ export function PhasedRolloutsListPage() {
   const { data, isLoading } = usePhasedRollouts({ page, pageSize })
 
   const rollouts = data?.data || []
-  const totalPages = data ? Math.ceil(data.totalCount / data.pageSize) : 0
+  const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0
 
   return (
     <div className="container mx-auto py-8 space-y-6">
@@ -44,7 +44,7 @@ export function PhasedRolloutsListPage() {
         <CardHeader>
           <CardTitle>All Rollouts</CardTitle>
           <CardDescription>
-            {data?.totalCount || 0} rollout(s) total
+            {data?.total || 0} rollout(s) total
           </CardDescription>
         </CardHeader>
         <CardContent>

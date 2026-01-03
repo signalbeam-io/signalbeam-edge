@@ -7,6 +7,7 @@ import { appendTenantId, withTenantId } from './tenant'
 import type {
   DeviceGroup,
   GroupFilters,
+  GroupMembershipsResponse,
   PaginatedResponse,
   CreateGroupRequest,
   UpdateGroupRequest,
@@ -100,6 +101,45 @@ export const groupsApi = {
       method: 'DELETE',
       url: `${BASE_PATH}/${id}/devices`,
       data: withTenantId({ deviceIds }),
+    })
+  },
+
+  /**
+   * Get group memberships (both static and dynamic)
+   */
+  async getGroupMemberships(id: string): Promise<GroupMembershipsResponse> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
+    return apiRequest<GroupMembershipsResponse>({
+      method: 'GET',
+      url: `${BASE_PATH}/${id}/memberships?${params.toString()}`,
+    })
+  },
+
+  /**
+   * Add device to static group
+   */
+  async addDeviceToGroup(groupId: string, deviceId: string): Promise<void> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
+    return apiRequest<void>({
+      method: 'POST',
+      url: `${BASE_PATH}/${groupId}/devices/${deviceId}?${params.toString()}`,
+    })
+  },
+
+  /**
+   * Remove device from static group
+   */
+  async removeDeviceFromGroup(groupId: string, deviceId: string): Promise<void> {
+    const params = new URLSearchParams()
+    appendTenantId(params)
+
+    return apiRequest<void>({
+      method: 'DELETE',
+      url: `${BASE_PATH}/${groupId}/devices/${deviceId}?${params.toString()}`,
     })
   },
 }

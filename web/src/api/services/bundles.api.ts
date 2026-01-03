@@ -8,6 +8,9 @@ import type {
   AppBundle,
   BundleFilters,
   BundleVersion,
+  ContainerDefinition,
+  PortMapping,
+  VolumeMapping,
   PaginatedResponse,
   CreateBundleRequest,
   UpdateBundleRequest,
@@ -105,16 +108,19 @@ function mapBundleVersion(
   }
 }
 
-function mapContainerSpec(container: BackendContainerSpecDetail) {
+function mapContainerSpec(container: BackendContainerSpecDetail): ContainerDefinition {
   const { image, tag } = splitImageTag(container.image)
+  const environment = parseJsonRecord(container.environmentVariables)
+  const ports = parsePortMappings(container.portMappings)
+  const volumes = parseVolumeMounts(container.volumeMounts)
 
   return {
     name: container.name,
     image,
     tag,
-    environment: parseJsonRecord(container.environmentVariables),
-    ports: parsePortMappings(container.portMappings),
-    volumes: parseVolumeMounts(container.volumeMounts),
+    ...(environment && { environment }),
+    ...(ports && { ports }),
+    ...(volumes && { volumes }),
   }
 }
 
@@ -131,7 +137,7 @@ function parseJsonRecord(value: string | null): Record<string, string> | undefin
   return undefined
 }
 
-function parsePortMappings(value: string | null) {
+function parsePortMappings(value: string | null): PortMapping[] | undefined {
   if (!value) return undefined
   try {
     const parsed = JSON.parse(value)
@@ -153,7 +159,7 @@ function parsePortMappings(value: string | null) {
           }
           return null
         })
-        .filter(Boolean)
+        .filter((p): p is PortMapping => p !== null)
     }
   } catch {
     return undefined
@@ -163,6 +169,7 @@ function parsePortMappings(value: string | null) {
 
 function parsePortMappingString(value: string) {
   const [mapping, proto] = value.split('/')
+  if (!mapping) return null
   const [hostRaw, containerRaw] = mapping.split(':')
   const host = Number(hostRaw)
   const container = Number(containerRaw)
@@ -176,7 +183,7 @@ function parsePortMappingString(value: string) {
   }
 }
 
-function parseVolumeMounts(value: string | null) {
+function parseVolumeMounts(value: string | null): VolumeMapping[] | undefined {
   if (!value) return undefined
   try {
     const parsed = JSON.parse(value)
@@ -193,12 +200,16 @@ function parseVolumeMounts(value: string | null) {
               readOnly?: boolean
             }
             if (hostPath && containerPath) {
-              return { hostPath, containerPath, readOnly }
+              return {
+                hostPath,
+                containerPath,
+                ...(readOnly !== undefined && { readOnly }),
+              }
             }
           }
           return null
         })
-        .filter(Boolean)
+        .filter((v): v is VolumeMapping => v !== null)
     }
   } catch {
     return undefined
@@ -365,13 +376,13 @@ export const bundlesApi = {
     // so we use the request data
     return {
       version: response.version,
-      containers: data.containers.map((c) => ({
+      containers: data.containers.map((c): ContainerDefinition => ({
         name: c.name,
         image: c.image,
         tag: c.tag || 'latest',
-        environment: c.environment,
-        ports: c.ports,
-        volumes: c.volumes,
+        ...(c.environment && { environment: c.environment }),
+        ...(c.ports && { ports: c.ports }),
+        ...(c.volumes && { volumes: c.volumes }),
       })),
       createdAt: response.createdAt,
       isActive: false, // Will be updated when fetching full bundle details

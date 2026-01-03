@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevices } from '@/hooks/api/use-devices'
+import { useSearchDevicesByTagQuery } from '@/hooks/api/use-tags'
 import { Device } from '@/api/types'
 import { DeviceFilters, DeviceFiltersState } from './device-filters'
 import { deviceColumns } from './device-table-columns'
@@ -30,13 +31,15 @@ export function FleetOverview() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [filters, setFilters] = useState<DeviceFiltersState>({
     search: '',
-    status: undefined,
     tags: [],
     groupIds: [],
   })
 
-  // Fetch devices with filters
-  const { data, isLoading, isError, refetch, isFetching } = useDevices({
+  // Use tag query search if query is provided, otherwise use regular device list
+  const useTagQuery = !!filters.tagQuery
+
+  // Fetch devices with regular filters
+  const regularDeviceQuery = useDevices({
     page: currentPage,
     pageSize: ITEMS_PER_PAGE,
     status: filters.status,
@@ -45,31 +48,65 @@ export function FleetOverview() {
     search: filters.search || undefined,
   })
 
+  // Fetch devices with tag query
+  const tagQueryDeviceQuery = useSearchDevicesByTagQuery({
+    query: filters.tagQuery || '',
+    page: currentPage,
+    pageSize: ITEMS_PER_PAGE,
+  })
+
+  // Use the appropriate query based on whether tag query is active
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useTagQuery ? tagQueryDeviceQuery : regularDeviceQuery
+
+  // Normalize the response data to have a consistent structure
+  const normalizedData = useMemo(() => {
+    if (!data) return null
+
+    // Check if it's a SearchDevicesByTagQueryResponse or PaginatedResponse
+    if ('devices' in data) {
+      // SearchDevicesByTagQueryResponse
+      return {
+        data: data.devices,
+        total: data.totalCount,
+        totalPages: data.totalPages,
+      }
+    } else {
+      // PaginatedResponse<Device>
+      return data
+    }
+  }, [data])
+
   // Extract unique tags and groups from all devices for filter options
   const { availableTags, availableGroups } = useMemo(() => {
-    if (!data?.data) {
+    if (!normalizedData?.data) {
       return { availableTags: [], availableGroups: [] }
     }
 
     const tags = new Set<string>()
     const groups = new Set<string>()
 
-    data.data.forEach((device) => {
-      device.tags?.forEach((tag) => tags.add(tag))
-      device.groupIds?.forEach((groupId) => groups.add(groupId))
+    normalizedData.data.forEach((device: Device) => {
+      device.tags?.forEach((tag: string) => tags.add(tag))
+      device.groupIds?.forEach((groupId: string) => groups.add(groupId))
     })
 
     return {
       availableTags: Array.from(tags),
       availableGroups: Array.from(groups).map((id) => ({ id, name: id })),
     }
-  }, [data?.data])
+  }, [normalizedData?.data])
 
   // Client-side sorting (API might handle this in the future)
   const sortedDevices = useMemo(() => {
-    if (!data?.data) return []
+    if (!normalizedData?.data) return []
 
-    const sorted = [...data.data]
+    const sorted = [...normalizedData.data]
     sorted.sort((a, b) => {
       let aValue: string | number
       let bValue: string | number
@@ -101,7 +138,7 @@ export function FleetOverview() {
     })
 
     return sorted
-  }, [data?.data, sortColumn, sortDirection])
+  }, [normalizedData?.data, sortColumn, sortDirection])
 
   const handleSort = (columnKey: string) => {
     if (sortColumn === columnKey) {
@@ -158,7 +195,7 @@ export function FleetOverview() {
   }
 
   const hasDevices = sortedDevices.length > 0
-  const totalPages = data?.totalPages || 1
+  const totalPages = normalizedData?.totalPages || 1
 
   return (
     <div className="space-y-6">
@@ -167,7 +204,7 @@ export function FleetOverview() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Fleet Overview</h2>
           <p className="text-sm text-muted-foreground">
-            {data?.total || 0} device{data?.total !== 1 ? 's' : ''} registered
+            {normalizedData?.total || 0} device{normalizedData?.total !== 1 ? 's' : ''} registered
           </p>
         </div>
         <Button
