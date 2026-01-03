@@ -110,3 +110,61 @@ export function useRemoveDevicesFromGroup() {
     },
   })
 }
+
+/**
+ * Get group memberships (both static and dynamic)
+ */
+export function useGroupMemberships(groupId: string, enabled = true) {
+  return useQuery({
+    queryKey: [QUERY_KEY, groupId, 'memberships'],
+    queryFn: () => groupsApi.getGroupMemberships(groupId),
+    enabled,
+    staleTime: 30_000, // 30 seconds
+  })
+}
+
+/**
+ * Add single device to static group
+ */
+export function useAddDeviceToGroup() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ groupId, deviceId }: { groupId: string; deviceId: string }) =>
+      groupsApi.addDeviceToGroup(groupId, deviceId),
+    onSuccess: (_, variables) => {
+      // Invalidate group data and memberships
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, variables.groupId] })
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEY, variables.groupId, 'memberships'],
+      })
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY], exact: false })
+      // Invalidate device data
+      queryClient.invalidateQueries({ queryKey: ['devices', variables.deviceId] })
+      queryClient.invalidateQueries({ queryKey: ['devices'], exact: false })
+    },
+  })
+}
+
+/**
+ * Remove single device from static group
+ */
+export function useRemoveDeviceFromGroup() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ groupId, deviceId }: { groupId: string; deviceId: string }) =>
+      groupsApi.removeDeviceFromGroup(groupId, deviceId),
+    onSuccess: (_, variables) => {
+      // Invalidate group data and memberships
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, variables.groupId] })
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEY, variables.groupId, 'memberships'],
+      })
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY], exact: false })
+      // Invalidate device data
+      queryClient.invalidateQueries({ queryKey: ['devices', variables.deviceId] })
+      queryClient.invalidateQueries({ queryKey: ['devices'], exact: false })
+    },
+  })
+}

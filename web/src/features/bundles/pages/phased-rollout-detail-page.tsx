@@ -203,7 +203,7 @@ export function PhasedRolloutDetailPage() {
           <div className="space-y-4">
             {rollout.phases
               .sort((a, b) => a.phaseNumber - b.phaseNumber)
-              .map((phase, index) => {
+              .map((phase) => {
                 const isCurrentPhase = phase.phaseNumber === rollout.currentPhaseNumber
                 const successRate =
                   phase.successCount + phase.failureCount > 0

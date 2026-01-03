@@ -4,6 +4,7 @@
 
 import { apiRequest } from '../client'
 import { appendTenantId, withTenantId } from './tenant'
+import { DeviceStatus } from '../types'
 import type {
   ContainerDetails,
   ContainerLog,
@@ -30,8 +31,8 @@ export const devicesApi = {
     if (filters?.page) params.append('pageNumber', filters.page.toString())
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
     if (filters?.status) params.append('status', filters.status)
-    if (filters?.tags?.length) params.append('tag', filters.tags[0])
-    if (filters?.groupIds?.length) params.append('deviceGroupId', filters.groupIds[0])
+    if (filters?.tags?.length && filters.tags[0]) params.append('tag', filters.tags[0])
+    if (filters?.groupIds?.length && filters.groupIds[0]) params.append('deviceGroupId', filters.groupIds[0])
 
     const response = await apiRequest<BackendDeviceListResponse>({
       method: 'GET',
@@ -186,12 +187,12 @@ interface BackendDeviceResponse {
   deviceGroupId: string | null
 }
 
-const statusMap: Record<string, Device['status']> = {
-  online: 'online',
-  offline: 'offline',
-  updating: 'updating',
-  error: 'error',
-  registered: 'offline',
+const statusMap: Record<string, DeviceStatus> = {
+  online: DeviceStatus.Online,
+  offline: DeviceStatus.Offline,
+  updating: DeviceStatus.Updating,
+  error: DeviceStatus.Error,
+  registered: DeviceStatus.Offline,
 }
 
 function mapDevice(device: BackendDeviceResponse): Device {
@@ -199,7 +200,7 @@ function mapDevice(device: BackendDeviceResponse): Device {
     id: device.id,
     tenantId: device.tenantId,
     name: device.name,
-    status: statusMap[device.status.toLowerCase()] ?? 'offline',
+    status: statusMap[device.status.toLowerCase()] ?? DeviceStatus.Offline,
     lastHeartbeat: device.lastSeenAt,
     currentBundleId: device.assignedBundleId,
     currentBundleVersion: null,

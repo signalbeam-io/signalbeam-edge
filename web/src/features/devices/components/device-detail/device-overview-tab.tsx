@@ -2,107 +2,23 @@
  * Device Overview Tab - Shows tags, groups, bundle, and metadata
  */
 
-import { useState } from 'react'
 import { format } from 'date-fns'
-import { Edit, Plus, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Device } from '@/api/types'
-import { useUpdateDevice } from '@/hooks/api/use-devices'
+import { TagManager } from '../tags/tag-manager'
 
 interface DeviceOverviewTabProps {
   device: Device
 }
 
 export function DeviceOverviewTab({ device }: DeviceOverviewTabProps) {
-  const [isEditingTags, setIsEditingTags] = useState(false)
-  const [newTag, setNewTag] = useState('')
-  const [tags, setTags] = useState<string[]>(device.tags || [])
-  const updateDevice = useUpdateDevice()
-
-  const handleAddTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      const updatedTags = [...tags, newTag.trim()]
-      setTags(updatedTags)
-      setNewTag('')
-      saveTagsToServer(updatedTags)
-    }
-  }
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    const updatedTags = tags.filter((t) => t !== tagToRemove)
-    setTags(updatedTags)
-    saveTagsToServer(updatedTags)
-  }
-
-  const saveTagsToServer = async (updatedTags: string[]) => {
-    try {
-      await updateDevice.mutateAsync({
-        id: device.id,
-        data: { tags: updatedTags },
-      })
-    } catch (error) {
-      console.error('Failed to update tags:', error)
-      setTags(device.tags)
-    }
-  }
-
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      {/* Tags */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle className="text-base font-semibold">Tags</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsEditingTags(!isEditingTags)}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {tags.length > 0 ? (
-              tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
-                  {isEditingTags && (
-                    <button
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </Badge>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">No tags assigned</p>
-            )}
-          </div>
-          {isEditingTags && (
-            <div className="mt-4 flex gap-2">
-              <Input
-                placeholder="Add a tag"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleAddTag()
-                  }
-                }}
-              />
-              <Button onClick={handleAddTag} size="sm">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Tags - Full width for better visibility */}
+      <div className="md:col-span-2">
+        <TagManager deviceId={device.id} currentTags={device.tags} />
+      </div>
 
       {/* Groups */}
       <Card>

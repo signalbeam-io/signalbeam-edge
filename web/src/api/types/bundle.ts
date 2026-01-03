@@ -43,19 +43,19 @@ export interface VolumeMapping {
   readOnly?: boolean
 }
 
-export interface CreateBundleRequest {
+export interface CreateBundleRequest extends Record<string, unknown> {
   name: string
   description?: string
   version?: string
   containers?: ContainerDefinition[]
 }
 
-export interface UpdateBundleRequest {
+export interface UpdateBundleRequest extends Record<string, unknown> {
   name?: string
   description?: string
 }
 
-export interface CreateBundleVersionRequest {
+export interface CreateBundleVersionRequest extends Record<string, unknown> {
   version: string
   containers: ContainerDefinition[]
 }

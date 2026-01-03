@@ -51,7 +51,7 @@ export enum DeviceRolloutState {
   Failed = 'failed',
 }
 
-export interface CreateRolloutRequest {
+export interface CreateRolloutRequest extends Record<string, unknown> {
   bundleId: string
   version: string
   targetType: 'device' | 'group'
@@ -148,7 +148,7 @@ export interface PhaseConfig {
   minHealthyDurationMinutes: number | null
 }
 
-export interface CreatePhasedRolloutRequest {
+export interface CreatePhasedRolloutRequest extends Record<string, unknown> {
   bundleId: string
   targetVersion: string
   previousVersion?: string

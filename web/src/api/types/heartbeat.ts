@@ -28,7 +28,7 @@ export interface HeartbeatFilters extends PaginationParams {
   endDate?: string
 }
 
-export interface SendHeartbeatRequest {
+export interface SendHeartbeatRequest extends Record<string, unknown> {
   deviceId: string
   cpuUsage: number
   memoryUsage: number

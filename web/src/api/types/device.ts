@@ -41,7 +41,7 @@ export interface RegisterDeviceRequest {
   metadata?: Record<string, unknown>
 }
 
-export interface UpdateDeviceRequest {
+export interface UpdateDeviceRequest extends Record<string, unknown> {
   name?: string
   tags?: string[]
   groupIds?: string[]
