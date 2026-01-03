@@ -54,7 +54,7 @@ public static class CertificateEndpoints
     /// </summary>
     private static async Task<IResult> IssueCertificate(
         Guid deviceId,
-        IssueCertificateHandler handler,
+        [FromServices] IssueCertificateHandler handler,
         [FromQuery] int validityDays = 90,
         CancellationToken cancellationToken = default)
     {
@@ -71,7 +71,7 @@ public static class CertificateEndpoints
     /// </summary>
     private static async Task<IResult> RenewCertificate(
         string serialNumber,
-        RenewCertificateHandler handler,
+        [FromServices] RenewCertificateHandler handler,
         CancellationToken cancellationToken = default)
     {
         var command = new RenewCertificateCommand(serialNumber);
@@ -88,7 +88,7 @@ public static class CertificateEndpoints
     private static async Task<IResult> RevokeCertificate(
         string serialNumber,
         [FromQuery] string? reason,
-        RevokeCertificateHandler handler,
+        [FromServices] RevokeCertificateHandler handler,
         CancellationToken cancellationToken = default)
     {
         var command = new RevokeCertificateCommand(serialNumber, reason);
@@ -104,7 +104,7 @@ public static class CertificateEndpoints
     /// </summary>
     private static async Task<IResult> GetDeviceCertificates(
         Guid deviceId,
-        GetDeviceCertificatesHandler handler,
+        [FromServices] GetDeviceCertificatesHandler handler,
         CancellationToken cancellationToken = default)
     {
         var query = new GetDeviceCertificatesQuery(deviceId);

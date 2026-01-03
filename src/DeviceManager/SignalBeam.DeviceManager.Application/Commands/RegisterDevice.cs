@@ -11,10 +11,10 @@ namespace SignalBeam.DeviceManager.Application.Commands;
 /// </summary>
 public record RegisterDeviceCommand(
     Guid TenantId,
-    Guid DeviceId,
     string Name,
-    string? RegistrationToken = null,
-    string? Metadata = null);
+    string? Metadata = null,
+    Guid? DeviceId = null,
+    string? RegistrationToken = null);
 
 /// <summary>
 /// Response after registering a device.
@@ -49,7 +49,10 @@ public class RegisterDeviceHandler
         RegisterDeviceCommand command,
         CancellationToken cancellationToken)
     {
-        var deviceId = new DeviceId(command.DeviceId);
+        // Generate DeviceId if not provided
+        var deviceId = command.DeviceId.HasValue
+            ? new DeviceId(command.DeviceId.Value)
+            : DeviceId.New();
         var tenantId = new TenantId(command.TenantId);
 
         // Validate registration token if provided
