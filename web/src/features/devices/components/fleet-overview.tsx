@@ -21,6 +21,7 @@ import { useSearchDevicesByTagQuery } from '@/hooks/api/use-tags'
 import { Device } from '@/api/types'
 import { DeviceFilters, DeviceFiltersState } from './device-filters'
 import { deviceColumns } from './device-table-columns'
+import { RegisterDeviceDialog } from './register-device-dialog'
 
 const ITEMS_PER_PAGE = 10
 
@@ -199,7 +200,7 @@ export function FleetOverview() {
 
   return (
     <div className="space-y-6">
-      {/* Header with refresh button */}
+      {/* Header with refresh and register buttons */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Fleet Overview</h2>
@@ -207,17 +208,20 @@ export function FleetOverview() {
             {normalizedData?.total || 0} device{normalizedData?.total !== 1 ? 's' : ''} registered
           </p>
         </div>
-        <Button
-          onClick={handleRefresh}
-          variant="outline"
-          size="sm"
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            disabled={isFetching}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+          <RegisterDeviceDialog />
+        </div>
       </div>
 
       {/* Filters */}

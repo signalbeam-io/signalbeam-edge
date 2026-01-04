@@ -65,34 +65,30 @@ export function ActiveRollouts() {
         ) : (
           <div className="space-y-4">
             {activeRollouts.slice(0, 5).map((rollout) => {
-              const completedPhases = rollout.phases.filter(
-                (p) => p.status === 'Completed'
-              ).length
-              const totalPhases = rollout.phases.length
-              const progress = totalPhases > 0 ? (completedPhases / totalPhases) * 100 : 0
+              const progress = rollout.currentPhaseSuccessRate * 100
 
               return (
                 <div
-                  key={rollout.id}
+                  key={rollout.rolloutId}
                   className="flex flex-col gap-2 rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
-                  onClick={() => navigate(`/phased-rollouts/${rollout.id}`)}
+                  onClick={() => navigate(`/phased-rollouts/${rollout.rolloutId}`)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium text-sm">{rollout.name}</h4>
-                      {renderStatusBadge(rollout.status)}
+                      {renderStatusBadge(rollout.status as RolloutLifecycleStatus)}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(rollout.createdAt), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(rollout.startedAt), { addSuffix: true })}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>
-                      Phase {rollout.currentPhaseNumber || 1} of {totalPhases}
+                      Phase {rollout.currentPhaseNumber}: {rollout.currentPhaseName}
                     </span>
                     <span>•</span>
                     <span>
-                      {completedPhases} completed, {totalPhases - completedPhases} remaining
+                      {rollout.currentPhaseSuccessCount} / {rollout.currentPhaseTargetCount} devices
                     </span>
                   </div>
                   <Progress value={progress} className="h-2" />

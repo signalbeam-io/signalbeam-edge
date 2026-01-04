@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -12,22 +13,16 @@ namespace SignalBeam.TelemetryProcessor.Application.BackgroundServices;
 /// </summary>
 public class NotificationDispatcherService : BackgroundService
 {
-    private readonly IAlertRepository _alertRepository;
-    private readonly IAlertNotificationRepository _notificationRepository;
-    private readonly IAlertNotificationService _notificationService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationDispatcherService> _logger;
     private readonly NotificationDispatcherOptions _options;
 
     public NotificationDispatcherService(
-        IAlertRepository alertRepository,
-        IAlertNotificationRepository notificationRepository,
-        IAlertNotificationService notificationService,
+        IServiceScopeFactory scopeFactory,
         ILogger<NotificationDispatcherService> logger,
         IOptions<NotificationDispatcherOptions> options)
     {
-        _alertRepository = alertRepository;
-        _notificationRepository = notificationRepository;
-        _notificationService = notificationService;
+        _scopeFactory = scopeFactory;
         _logger = logger;
         _options = options.Value;
     }
@@ -68,9 +63,15 @@ public class NotificationDispatcherService : BackgroundService
         var startTime = DateTimeOffset.UtcNow;
         _logger.LogDebug("Starting notification dispatch cycle");
 
+        // Create a scope to resolve scoped services
+        using var scope = _scopeFactory.CreateScope();
+        var alertRepository = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+        var notificationRepository = scope.ServiceProvider.GetRequiredService<IAlertNotificationRepository>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<IAlertNotificationService>();
+
         // Get recent active alerts (last 5 minutes to catch new ones)
         var since = DateTimeOffset.UtcNow.AddMinutes(-5);
-        var recentAlerts = await _alertRepository.GetAlertsByTimeRangeAsync(
+        var recentAlerts = await alertRepository.GetAlertsByTimeRangeAsync(
             since,
             DateTimeOffset.UtcNow,
             null,
@@ -91,7 +92,7 @@ public class NotificationDispatcherService : BackgroundService
             try
             {
                 // Check if notifications already sent for this alert
-                var existingNotifications = await _notificationRepository.GetByAlertIdAsync(
+                var existingNotifications = await notificationRepository.GetByAlertIdAsync(
                     alert.Id,
                     cancellationToken);
 
@@ -111,7 +112,7 @@ public class NotificationDispatcherService : BackgroundService
                     alert.Severity,
                     alert.Type);
 
-                var notifications = await _notificationService.SendNotificationsAsync(
+                var notifications = await notificationService.SendNotificationsAsync(
                     alert,
                     cancellationToken);
 

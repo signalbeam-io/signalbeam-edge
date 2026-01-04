@@ -28,7 +28,8 @@ public class DeviceAuthenticationMiddleware
         HttpContext context,
         IDeviceCertificateValidator? certificateValidator = null,
         IDeviceApiKeyService? apiKeyService = null,
-        IDeviceApiKeyValidator? apiKeyValidator = null)
+        IDeviceApiKeyValidator? apiKeyValidator = null,
+        IApiKeyValidator? tenantApiKeyValidator = null)
     {
         // Skip authentication for health checks, metrics, and API documentation
         if (context.Request.Path.StartsWithSegments("/health") ||
@@ -81,51 +82,65 @@ public class DeviceAuthenticationMiddleware
 
         var apiKey = apiKeyValue.ToString();
 
-        // Validate API key format and extract prefix
-        if (apiKeyService == null || apiKeyValidator == null)
+        // [2a] Try device-specific API key first (new format: sb_device_{prefix}_{secret})
+        if (apiKeyService != null && apiKeyValidator != null)
         {
-            _logger.LogError("API key services not configured");
-            await RespondUnauthorized(context,
-                "AUTHENTICATION_NOT_CONFIGURED",
-                "API key authentication is not properly configured.");
-            return;
+            var keyPrefix = apiKeyService.ExtractKeyPrefix(apiKey);
+            if (!string.IsNullOrWhiteSpace(keyPrefix))
+            {
+                // This looks like a device-specific API key
+                var apiKeyResult = await apiKeyValidator.ValidateAsync(
+                    apiKey,
+                    keyPrefix,
+                    context.RequestAborted);
+
+                if (apiKeyResult.IsSuccess)
+                {
+                    _logger.LogInformation(
+                        "Device {DeviceId} authenticated via device-specific API key",
+                        apiKeyResult.Value.DeviceId);
+
+                    SetUserPrincipal(context, apiKeyResult.Value, AuthenticationMethod.ApiKey);
+                    await _next(context);
+                    return;
+                }
+
+                _logger.LogDebug(
+                    "Device-specific API key validation failed: {ErrorCode} - {ErrorMessage}",
+                    apiKeyResult.Error!.Code,
+                    apiKeyResult.Error.Message);
+            }
         }
 
-        var keyPrefix = apiKeyService.ExtractKeyPrefix(apiKey);
-        if (string.IsNullOrWhiteSpace(keyPrefix))
+        // [2b] Fallback to tenant-level API key (old format: {tenantId}:{key}:{scopes})
+        if (tenantApiKeyValidator != null)
         {
-            _logger.LogWarning("Invalid API key format provided");
-            await RespondUnauthorized(context,
-                "INVALID_API_KEY_FORMAT",
-                "The provided API key format is invalid.");
-            return;
+            _logger.LogDebug("Attempting tenant-level API key authentication");
+
+            var tenantKeyResult = await tenantApiKeyValidator.ValidateAsync(
+                apiKey,
+                context.RequestAborted);
+
+            if (tenantKeyResult.IsSuccess)
+            {
+                _logger.LogInformation(
+                    "Tenant {TenantId} authenticated via tenant-level API key",
+                    tenantKeyResult.Value.TenantId);
+
+                SetTenantPrincipal(context, tenantKeyResult.Value);
+                await _next(context);
+                return;
+            }
+
+            _logger.LogDebug(
+                "Tenant-level API key validation failed");
         }
 
-        // Validate API key
-        var apiKeyResult = await apiKeyValidator.ValidateAsync(
-            apiKey,
-            keyPrefix,
-            context.RequestAborted);
-
-        if (apiKeyResult.IsFailure)
-        {
-            _logger.LogWarning(
-                "API key validation failed: {ErrorCode} - {ErrorMessage}",
-                apiKeyResult.Error!.Code,
-                apiKeyResult.Error.Message);
-
-            await RespondUnauthorized(context,
-                apiKeyResult.Error.Code,
-                apiKeyResult.Error.Message);
-            return;
-        }
-
-        _logger.LogInformation(
-            "Device {DeviceId} authenticated via API key",
-            apiKeyResult.Value.DeviceId);
-
-        SetUserPrincipal(context, apiKeyResult.Value, AuthenticationMethod.ApiKey);
-        await _next(context);
+        // Both authentication methods failed
+        _logger.LogWarning("All API key authentication methods failed");
+        await RespondUnauthorized(context,
+            "INVALID_API_KEY",
+            "The provided API key is invalid or has expired.");
     }
 
     private void SetUserPrincipal(
@@ -151,6 +166,31 @@ public class DeviceAuthenticationMiddleware
         context.Items["DeviceId"] = result.DeviceId;
         context.Items["TenantId"] = result.TenantId;
         context.Items["AuthenticationMethod"] = method;
+    }
+
+    private void SetTenantPrincipal(
+        HttpContext context,
+        ApiKeyValidationResult result)
+    {
+        var claims = new List<Claim>
+        {
+            new(AuthenticationConstants.TenantIdClaimType, result.TenantId),
+            new(ClaimTypes.AuthenticationMethod, "TenantApiKey")
+        };
+
+        // Add scopes as claims
+        foreach (var scope in result.Scopes)
+        {
+            claims.Add(new Claim("scope", scope));
+        }
+
+        var identity = new ClaimsIdentity(claims, AuthenticationConstants.ApiKeyScheme);
+        context.User = new ClaimsPrincipal(identity);
+
+        // Store tenant ID in context for easy access
+        context.Items["TenantId"] = result.TenantId;
+        context.Items["AuthenticationMethod"] = "TenantApiKey";
+        context.Items["Scopes"] = result.Scopes;
     }
 
     private async Task RespondUnauthorized(

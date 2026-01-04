@@ -132,10 +132,7 @@ builder.Services.AddScoped<GetAllTagsHandler>();
 builder.Services.AddScoped<GetGroupMembershipsHandler>();
 
 // Register certificate-related services
-builder.Services.AddScoped<SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.ICertificateGenerator,
-    SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.X509CertificateGenerator>();
-builder.Services.AddSingleton<SignalBeam.DeviceManager.Application.Services.ICertificateAuthorityService,
-    SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.CertificateAuthorityService>();
+// Note: ICertificateGenerator and ICertificateAuthorityService are registered in DependencyInjection.cs
 builder.Services.AddScoped<SignalBeam.Shared.Infrastructure.Authentication.IDeviceCertificateValidator,
     SignalBeam.DeviceManager.Infrastructure.Authentication.DeviceCertificateValidator>();
 

@@ -13,6 +13,7 @@ import type {
   PhasedRollout,
   PhasedRolloutFilters,
   CreatePhasedRolloutRequest,
+  ActiveRollout,
 } from '../types'
 
 const BASE_PATH = '/api/rollouts'
@@ -199,13 +200,16 @@ export const rolloutsApi = {
   /**
    * Get active rollouts for a tenant
    */
-  async getActiveRollouts(): Promise<PhasedRollout[]> {
+  async getActiveRollouts(): Promise<ActiveRollout[]> {
     const params = new URLSearchParams()
     appendTenantId(params)
 
-    return apiRequest<PhasedRollout[]>({
+    const response = await apiRequest<{ activeRollouts: ActiveRollout[]; totalCount: number }>({
       method: 'GET',
       url: `${PHASED_BASE_PATH}/active?${params.toString()}`,
     })
+
+    // Extract the activeRollouts array from the response object
+    return response.activeRollouts
   },
 }
