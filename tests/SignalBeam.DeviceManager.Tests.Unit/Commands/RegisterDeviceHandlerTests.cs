@@ -40,7 +40,7 @@ public class RegisterDeviceHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
-        result.Value!.DeviceId.Should().Be(command.DeviceId);
+        result.Value!.DeviceId.Should().Be(command.DeviceId!.Value);
         result.Value.Name.Should().Be(command.Name);
 
         await _deviceRepository.Received(1).AddAsync(

@@ -85,6 +85,24 @@ export interface PhasedRollout {
   updatedAt: string
 }
 
+// Active Rollout DTO (simplified version for dashboard)
+export interface ActiveRollout {
+  rolloutId: string
+  bundleId: string
+  name: string
+  targetVersion: string
+  status: string
+  currentPhaseNumber: number
+  currentPhaseName: string
+  currentPhaseTargetCount: number
+  currentPhaseSuccessCount: number
+  currentPhaseFailureCount: number
+  currentPhaseSuccessRate: number
+  phaseStartedAt: string | null
+  startedAt: string
+  failureThreshold: number
+}
+
 export enum RolloutLifecycleStatus {
   Pending = 'Pending',
   InProgress = 'InProgress',

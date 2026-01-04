@@ -4,9 +4,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.Core;
 using SignalBeam.DeviceManager.Application.Repositories;
+using SignalBeam.DeviceManager.Application.Services;
 using SignalBeam.DeviceManager.Infrastructure.Authentication;
 using SignalBeam.DeviceManager.Infrastructure.BackgroundServices;
 using SignalBeam.DeviceManager.Infrastructure.Caching;
+using SignalBeam.DeviceManager.Infrastructure.CertificateAuthority;
 using SignalBeam.DeviceManager.Infrastructure.Persistence;
 using SignalBeam.DeviceManager.Infrastructure.Persistence.Repositories;
 using SignalBeam.DeviceManager.Infrastructure.Storage;
@@ -50,11 +52,15 @@ public static class DependencyInjection
         services.AddScoped<IDeviceApiKeyRepository, DeviceApiKeyRepository>();
         services.AddScoped<IDeviceAuthenticationLogRepository, DeviceAuthenticationLogRepository>();
         services.AddScoped<IDeviceRegistrationTokenRepository, DeviceRegistrationTokenRepository>();
-        // TODO: Add DeviceCertificateRepository when implementing certificate-based authentication
+        services.AddScoped<IDeviceCertificateRepository, DeviceCertificateRepository>();
 
         // Register application services
         services.AddScoped<SignalBeam.DeviceManager.Application.Services.IDynamicGroupMembershipManager,
             SignalBeam.DeviceManager.Application.Services.DynamicGroupMembershipManager>();
+
+        // Register certificate authority services
+        services.AddSingleton<ICertificateGenerator, X509CertificateGenerator>();
+        services.AddSingleton<ICertificateAuthorityService, CertificateAuthorityService>();
 
         // Register caching services
         services.AddMemoryCache();
