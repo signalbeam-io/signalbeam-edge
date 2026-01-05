@@ -26,7 +26,7 @@ WORKDIR /src/src/EdgeAgent/SignalBeam.EdgeAgent.Host
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/runtime:9.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 
 # Install Docker CLI
 RUN apk add --no-cache docker-cli
