@@ -21,11 +21,11 @@ public static class RegisterCommand
             IsRequired = true
         };
 
-        var deviceIdOption = new Option<string>(
+        var deviceIdOption = new Option<string?>(
             name: "--device-id",
-            description: "The unique device ID")
+            description: "The unique device ID (auto-generated if not provided)")
         {
-            IsRequired = true
+            IsRequired = false
         };
 
         var tokenOption = new Option<string>(
@@ -53,7 +53,7 @@ public static class RegisterCommand
         return command;
     }
 
-    private static async Task<int> ExecuteAsync(Guid tenantId, string deviceId, string token, string cloudUrl)
+    private static async Task<int> ExecuteAsync(Guid tenantId, string? deviceId, string token, string cloudUrl)
     {
         var serviceProvider = HostBuilder.BuildServiceProvider();
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
@@ -63,14 +63,17 @@ public static class RegisterCommand
 
         try
         {
-            logger.LogInformation("Registering device {DeviceId} with tenant {TenantId}", deviceId, tenantId);
+            // Auto-generate device ID if not provided
+            var effectiveDeviceId = deviceId ?? Guid.NewGuid().ToString();
+
+            logger.LogInformation("Registering device {DeviceId} with tenant {TenantId}", effectiveDeviceId, tenantId);
 
             var hostname = Environment.MachineName;
             var platform = Environment.OSVersion.Platform.ToString();
 
             var command = new RegisterDeviceCommand(
                 tenantId,
-                deviceId,
+                effectiveDeviceId,
                 token,
                 hostname,
                 platform);
