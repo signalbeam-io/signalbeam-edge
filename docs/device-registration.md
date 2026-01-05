@@ -60,18 +60,17 @@ On your edge device (Raspberry Pi, mini-PC, etc.):
 
 ```bash
 # Pull the Edge Agent image
-docker pull signalbeam/edge-agent:latest
+docker pull ghcr.io/signalbeam-io/edge-agent:dev
 
 # Run the Edge Agent
-docker run -d \
-  --name signalbeam-agent \
-  --restart unless-stopped \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e SIGNALBEAM_API_URL=https://api.signalbeam.io \
-  -e SIGNALBEAM_TENANT_ID=your-tenant-id \
-  -e SIGNALBEAM_REGISTRATION_TOKEN=sbt_a1b2c3d4e5f6g7h8... \
-  -e SIGNALBEAM_DEVICE_NAME=my-device-01 \
-  signalbeam/edge-agent:latest
+docker run --rm \
+-v signalbeam-data:/var/lib/signalbeam \
+ghcr.io/signalbeam-io/edge-agent:dev \
+register \
+--tenant-id 00000000-0000-0000-0000-000000000001 \
+--token sbt_2a0326a8_jl42snpPcuBmkPJKTdBzbGqpBUJuVFWc \ \
+--device-name my-device \
+--api-url http://localhost:8080
 ```
 
 #### Option B: Using .NET Runtime
