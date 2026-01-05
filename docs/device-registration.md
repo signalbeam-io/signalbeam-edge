@@ -69,8 +69,8 @@ ghcr.io/signalbeam-io/edge-agent:dev \
 register \
 --tenant-id 00000000-0000-0000-0000-000000000001 \
 --token sbt_2a0326a8_jl42snpPcuBmkPJKTdBzbGqpBUJuVFWc \ \
---device-name my-device \
---api-url http://localhost:8080
+--device-id my-device-id \
+--cloud-url http://localhost:8080
 ```
 
 #### Option B: Using .NET Runtime

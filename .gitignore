@@ -404,5 +404,6 @@ FodyWeavers.xsd
 # Created issues mapping
 created-issues.json
 CLAUDE.md
+CLAUDE.EXTENDED.md
 docs/signalbeam-edge-business-plan.md
 AGENTS.md
