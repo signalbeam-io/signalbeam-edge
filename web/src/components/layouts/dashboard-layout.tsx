@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Bundles', href: '/bundles' },
   { name: 'Phased Rollouts', href: '/phased-rollouts' },
   { name: 'Alerts', href: '/alerts' },
+  { name: 'Registration Tokens', href: '/registration-tokens' },
 ]
 
 export function DashboardLayout() {

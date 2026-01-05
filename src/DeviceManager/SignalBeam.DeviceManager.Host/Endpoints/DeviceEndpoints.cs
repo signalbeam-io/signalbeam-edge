@@ -126,15 +126,25 @@ public static class DeviceEndpoints
             .WithSummary("Generate registration token")
             .WithDescription("Generates a new registration token for device registration (admin only).");
 
-        // Authentication logs
-        var authLogsGroup = app.MapGroup("/api/authentication-logs")
-            .WithTags("Authentication Logs")
-            .WithOpenApi();
+        tokenGroup.MapGet("/", GetRegistrationTokens)
+            .WithName("GetRegistrationTokens")
+            .WithSummary("Get registration tokens")
+            .WithDescription("Retrieves a paginated list of registration tokens for a tenant.");
 
-        authLogsGroup.MapGet("/", GetAuthenticationLogs)
-            .WithName("GetAuthenticationLogs")
-            .WithSummary("Get authentication logs")
-            .WithDescription("Retrieves authentication logs with optional filtering by device, date range, and success status.");
+        tokenGroup.MapDelete("/{tokenId:guid}", RevokeRegistrationToken)
+            .WithName("RevokeRegistrationToken")
+            .WithSummary("Revoke registration token")
+            .WithDescription("Revokes a registration token, preventing further use.");
+
+        // Authentication logs - TODO: Implement
+        // var authLogsGroup = app.MapGroup("/api/authentication-logs")
+        //     .WithTags("Authentication Logs")
+        //     .WithOpenApi();
+
+        // authLogsGroup.MapGet("/", GetAuthenticationLogs)
+        //     .WithName("GetAuthenticationLogs")
+        //     .WithSummary("Get authentication logs")
+        //     .WithDescription("Retrieves authentication logs with optional filtering by device, date range, and success status.");
 
         return app;
     }
@@ -540,25 +550,62 @@ public static class DeviceEndpoints
             });
     }
 
-    private static async Task<IResult> GetAuthenticationLogs(
-        [FromServices] GetAuthenticationLogsHandler handler,
-        Guid? deviceId = null,
-        DateTimeOffset? startDate = null,
-        DateTimeOffset? endDate = null,
-        bool? successOnly = null,
-        int pageNumber = 1,
-        int pageSize = 50,
+    // TODO: Implement authentication logs
+    // private static async Task<IResult> GetAuthenticationLogs(
+    //     [FromServices] GetAuthenticationLogsHandler handler,
+    //     Guid? deviceId = null,
+    //     DateTimeOffset? startDate = null,
+    //     DateTimeOffset? endDate = null,
+    //     bool? successOnly = null,
+    //     int pageNumber = 1,
+    //     int pageSize = 50,
+    //     CancellationToken cancellationToken = default)
+    // {
+    //     var query = new GetAuthenticationLogsQuery(
+    //         deviceId,
+    //         startDate,
+    //         endDate,
+    //         successOnly,
+    //         pageNumber,
+    //         pageSize);
+    //
+    //     var result = await handler.Handle(query, cancellationToken);
+    //
+    //     return result.IsSuccess
+    //         ? Results.Ok(result.Value)
+    //         : Results.BadRequest(new
+    //         {
+    //             error = result.Error!.Code,
+    //             message = result.Error.Message,
+    //             type = result.Error.Type.ToString()
+    //         });
+    // }
+
+    private static async Task<IResult> GetRegistrationTokens(
+        [AsParameters] GetRegistrationTokensQuery query,
+        [FromServices] GetRegistrationTokensHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(query, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> RevokeRegistrationToken(
+        Guid tokenId,
+        [FromServices] RevokeRegistrationTokenHandler handler,
+        string? revokedBy = null,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetAuthenticationLogsQuery(
-            deviceId,
-            startDate,
-            endDate,
-            successOnly,
-            pageNumber,
-            pageSize);
-
-        var result = await handler.Handle(query, cancellationToken);
+        var command = new RevokeRegistrationTokenCommand(tokenId, revokedBy);
+        var result = await handler.Handle(command, cancellationToken);
 
         return result.IsSuccess
             ? Results.Ok(result.Value)

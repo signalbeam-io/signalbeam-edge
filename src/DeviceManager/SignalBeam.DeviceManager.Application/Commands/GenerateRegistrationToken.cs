@@ -12,6 +12,8 @@ namespace SignalBeam.DeviceManager.Application.Commands;
 /// </summary>
 public record GenerateRegistrationTokenCommand(
     Guid TenantId,
+    int? MaxUses = null,
+    DateTimeOffset? ExpiresAt = null,
     int ValidityDays = 30,
     string? CreatedBy = null,
     string? Description = null);
@@ -56,7 +58,7 @@ public class GenerateRegistrationTokenHandler
             var (plainTextToken, tokenHash, tokenPrefix) = _tokenService.GenerateToken();
 
             // Calculate expiration
-            var expiresAt = DateTimeOffset.UtcNow.AddDays(command.ValidityDays);
+            var expiresAt = command.ExpiresAt ?? DateTimeOffset.UtcNow.AddDays(command.ValidityDays);
 
             // Create token entity
             var token = DeviceRegistrationToken.Create(
@@ -65,7 +67,8 @@ public class GenerateRegistrationTokenHandler
                 tokenPrefix,
                 expiresAt,
                 command.CreatedBy,
-                command.Description);
+                command.Description,
+                command.MaxUses);
 
             // Save to database
             await _tokenRepository.AddAsync(token, cancellationToken);

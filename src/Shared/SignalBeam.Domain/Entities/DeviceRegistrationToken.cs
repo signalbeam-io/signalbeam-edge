@@ -21,7 +21,8 @@ public class DeviceRegistrationToken : Entity<Guid>
         DateTimeOffset createdAt,
         DateTimeOffset expiresAt,
         string? createdBy,
-        string? description)
+        string? description,
+        int? maxUses)
         : base(id)
     {
         TenantId = tenantId;
@@ -31,6 +32,9 @@ public class DeviceRegistrationToken : Entity<Guid>
         ExpiresAt = expiresAt;
         CreatedBy = createdBy;
         Description = description;
+        MaxUses = maxUses;
+        CurrentUses = 0;
+        IsRevoked = false;
         IsUsed = false;
         UsedAt = null;
         UsedByDeviceId = null;
@@ -73,24 +77,58 @@ public class DeviceRegistrationToken : Entity<Guid>
     public string? Description { get; private set; }
 
     /// <summary>
-    /// Whether the token has been used.
+    /// Maximum number of times this token can be used (null = unlimited).
+    /// </summary>
+    public int? MaxUses { get; private set; }
+
+    /// <summary>
+    /// Current number of times this token has been used.
+    /// </summary>
+    public int CurrentUses { get; private set; }
+
+    /// <summary>
+    /// Whether the token has been manually revoked.
+    /// </summary>
+    public bool IsRevoked { get; private set; }
+
+    /// <summary>
+    /// When the token was revoked.
+    /// </summary>
+    public DateTimeOffset? RevokedAt { get; private set; }
+
+    /// <summary>
+    /// Who revoked the token.
+    /// </summary>
+    public string? RevokedBy { get; private set; }
+
+    /// <summary>
+    /// Whether the token has been used (legacy field, kept for backward compatibility).
+    /// Use CurrentUses > 0 instead.
     /// </summary>
     public bool IsUsed { get; private set; }
 
     /// <summary>
-    /// When the token was used.
+    /// When the token was first used (legacy field, kept for backward compatibility).
     /// </summary>
     public DateTimeOffset? UsedAt { get; private set; }
 
     /// <summary>
-    /// The device ID that used this token.
+    /// The device ID that used this token (legacy field, kept for backward compatibility).
     /// </summary>
     public DeviceId? UsedByDeviceId { get; private set; }
 
     /// <summary>
-    /// Whether the token is currently valid (not used, not expired).
+    /// Whether the token is currently valid (not expired, not revoked, has remaining uses).
     /// </summary>
-    public bool IsValid => !IsUsed && ExpiresAt > DateTimeOffset.UtcNow;
+    public bool IsValid =>
+        !IsRevoked &&
+        ExpiresAt > DateTimeOffset.UtcNow &&
+        (MaxUses == null || CurrentUses < MaxUses.Value);
+
+    /// <summary>
+    /// Whether the token is active (can be displayed in UI).
+    /// </summary>
+    public bool IsActive => !IsRevoked && ExpiresAt > DateTimeOffset.UtcNow;
 
     /// <summary>
     /// Creates a new registration token.
@@ -101,7 +139,8 @@ public class DeviceRegistrationToken : Entity<Guid>
         string tokenPrefix,
         DateTimeOffset expiresAt,
         string? createdBy = null,
-        string? description = null)
+        string? description = null,
+        int? maxUses = null)
     {
         return new DeviceRegistrationToken(
             Guid.NewGuid(),
@@ -111,7 +150,8 @@ public class DeviceRegistrationToken : Entity<Guid>
             DateTimeOffset.UtcNow,
             expiresAt,
             createdBy,
-            description);
+            description,
+            maxUses);
     }
 
     /// <summary>
@@ -119,9 +159,9 @@ public class DeviceRegistrationToken : Entity<Guid>
     /// </summary>
     public void MarkAsUsed(DeviceId deviceId)
     {
-        if (IsUsed)
+        if (IsRevoked)
         {
-            throw new InvalidOperationException("Token has already been used.");
+            throw new InvalidOperationException("Token has been revoked.");
         }
 
         if (ExpiresAt < DateTimeOffset.UtcNow)
@@ -129,8 +169,34 @@ public class DeviceRegistrationToken : Entity<Guid>
             throw new InvalidOperationException("Token has expired.");
         }
 
-        IsUsed = true;
-        UsedAt = DateTimeOffset.UtcNow;
-        UsedByDeviceId = deviceId;
+        if (MaxUses.HasValue && CurrentUses >= MaxUses.Value)
+        {
+            throw new InvalidOperationException("Token has reached maximum number of uses.");
+        }
+
+        CurrentUses++;
+
+        // Set legacy fields for backward compatibility
+        if (CurrentUses == 1)
+        {
+            IsUsed = true;
+            UsedAt = DateTimeOffset.UtcNow;
+            UsedByDeviceId = deviceId;
+        }
+    }
+
+    /// <summary>
+    /// Revokes the token, preventing further use.
+    /// </summary>
+    public void Revoke(string? revokedBy = null)
+    {
+        if (IsRevoked)
+        {
+            throw new InvalidOperationException("Token has already been revoked.");
+        }
+
+        IsRevoked = true;
+        RevokedAt = DateTimeOffset.UtcNow;
+        RevokedBy = revokedBy;
     }
 }

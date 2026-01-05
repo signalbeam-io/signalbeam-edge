@@ -45,6 +45,27 @@ public class DeviceRegistrationTokenRepository : IDeviceRegistrationTokenReposit
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<DeviceRegistrationToken>> GetAllByTenantAsync(
+        TenantId tenantId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.DeviceRegistrationTokens
+            .Where(t => t.TenantId == tenantId);
+
+        if (!includeInactive)
+        {
+            // Expand IsActive logic inline since it's a computed property
+            // IsActive = !IsRevoked && ExpiresAt > DateTimeOffset.UtcNow
+            var now = DateTimeOffset.UtcNow;
+            query = query.Where(t => !t.IsRevoked && t.ExpiresAt > now);
+        }
+
+        return await query
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(DeviceRegistrationToken token, CancellationToken cancellationToken = default)
     {
         await _context.DeviceRegistrationTokens.AddAsync(token, cancellationToken);

@@ -26,6 +26,14 @@ public interface IDeviceRegistrationTokenRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets all tokens for a tenant with optional filtering.
+    /// </summary>
+    Task<IReadOnlyList<DeviceRegistrationToken>> GetAllByTenantAsync(
+        TenantId tenantId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds a new registration token.
     /// </summary>
     Task AddAsync(DeviceRegistrationToken token, CancellationToken cancellationToken = default);
