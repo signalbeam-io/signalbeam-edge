@@ -53,6 +53,25 @@ public class DeviceRegistrationTokenConfiguration : IEntityTypeConfiguration<Dev
             .HasColumnName("description")
             .HasMaxLength(500);
 
+        builder.Property(t => t.MaxUses)
+            .HasColumnName("max_uses");
+
+        builder.Property(t => t.CurrentUses)
+            .HasColumnName("current_uses")
+            .IsRequired();
+
+        builder.Property(t => t.IsRevoked)
+            .HasColumnName("is_revoked")
+            .IsRequired();
+
+        builder.Property(t => t.RevokedAt)
+            .HasColumnName("revoked_at");
+
+        builder.Property(t => t.RevokedBy)
+            .HasColumnName("revoked_by")
+            .HasMaxLength(256);
+
+        // Legacy fields (kept for backward compatibility)
         builder.Property(t => t.IsUsed)
             .HasColumnName("is_used")
             .IsRequired();
@@ -73,10 +92,11 @@ public class DeviceRegistrationTokenConfiguration : IEntityTypeConfiguration<Dev
         builder.HasIndex(t => t.TenantId)
             .HasDatabaseName("ix_device_registration_tokens_tenant_id");
 
-        builder.HasIndex(t => new { t.IsUsed, t.ExpiresAt })
-            .HasDatabaseName("ix_device_registration_tokens_is_used_expires_at");
+        builder.HasIndex(t => new { t.IsRevoked, t.ExpiresAt })
+            .HasDatabaseName("ix_device_registration_tokens_is_revoked_expires_at");
 
-        // Ignore navigation properties (not needed for this entity)
+        // Ignore computed properties (not needed for this entity)
         builder.Ignore(t => t.IsValid);
+        builder.Ignore(t => t.IsActive);
     }
 }

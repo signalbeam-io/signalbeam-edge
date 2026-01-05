@@ -119,6 +119,10 @@ builder.Services.AddScoped<RemoveDeviceFromGroupHandler>();
 builder.Services.AddScoped<RemoveDeviceTagHandler>();
 builder.Services.AddScoped<BulkAddDeviceTagsHandler>();
 builder.Services.AddScoped<BulkRemoveDeviceTagsHandler>();
+builder.Services.AddScoped<ApproveDeviceRegistrationHandler>();
+builder.Services.AddScoped<RejectDeviceRegistrationHandler>();
+builder.Services.AddScoped<GenerateDeviceApiKeyHandler>();
+builder.Services.AddScoped<RevokeDeviceApiKeyHandler>();
 
 builder.Services.AddScoped<GetDevicesHandler>();
 builder.Services.AddScoped<GetDeviceByIdHandler>();
@@ -130,6 +134,9 @@ builder.Services.AddScoped<GetDeviceGroupsHandler>();
 builder.Services.AddScoped<GetDevicesByTagQueryHandler>();
 builder.Services.AddScoped<GetAllTagsHandler>();
 builder.Services.AddScoped<GetGroupMembershipsHandler>();
+builder.Services.AddScoped<GetRegistrationStatusHandler>();
+builder.Services.AddScoped<GetDevicesByRegistrationStatusHandler>();
+// builder.Services.AddScoped<GetAuthenticationLogsHandler>(); // TODO: Implement authentication logs
 
 // Register certificate-related services
 // Note: ICertificateGenerator and ICertificateAuthorityService are registered in DependencyInjection.cs
@@ -141,6 +148,11 @@ builder.Services.AddScoped<IssueCertificateHandler>();
 builder.Services.AddScoped<RenewCertificateHandler>();
 builder.Services.AddScoped<RevokeCertificateHandler>();
 builder.Services.AddScoped<GetDeviceCertificatesHandler>();
+
+// Register registration token command and query handlers
+builder.Services.AddScoped<GenerateRegistrationTokenHandler>();
+builder.Services.AddScoped<GetRegistrationTokensHandler>();
+builder.Services.AddScoped<RevokeRegistrationTokenHandler>();
 
 // Add OpenAPI and Scalar
 builder.Services.AddOpenApi(options =>
