@@ -225,10 +225,14 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
 From `src/SignalBeam.AppHost/Program.cs`:
 
 ```csharp
+// Database resource name must differ from container name
+var zitadelDb = postgres.AddDatabase("zitadel-db");
+
 var zitadel = builder.AddContainer("zitadel", "ghcr.io/zitadel/zitadel", "v2.66.3")
     .WithArgs("start-from-init", "--masterkey", "MasterkeyNeedsToHave32Characters", "--tlsMode", "disabled")
     .WithHttpEndpoint(port: 9080, targetPort: 8080, name: "zitadel")
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_HOST", postgres.Resource.Name)
+    .WithEnvironment("ZITADEL_DATABASE_POSTGRES_DATABASE", zitadelDb.Resource.DatabaseName)
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_USER_PASSWORD", postgresPassword)
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD", postgresPassword)
     .WithEnvironment("ZITADEL_EXTERNALDOMAIN", "localhost:8080")
@@ -238,6 +242,8 @@ var zitadel = builder.AddContainer("zitadel", "ghcr.io/zitadel/zitadel", "v2.66.
 ```
 
 **Key Points:**
+- Database resource named "zitadel-db" to avoid conflict with container name "zitadel"
+- Actual PostgreSQL database name is referenced via `zitadelDb.Resource.DatabaseName`
 - Zitadel runs on **port 9080** internally
 - External domain is set to `localhost:8080` (API Gateway)
 - TLS disabled for local development

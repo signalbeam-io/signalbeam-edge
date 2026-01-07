@@ -11,7 +11,8 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
 var signalbeamDb = postgres.AddDatabase("signalbeam");
 
 // Zitadel database (separate from SignalBeam DB)
-var zitadelDb = postgres.AddDatabase("zitadel");
+// Note: Database resource name must be different from container name
+var zitadelDb = postgres.AddDatabase("zitadel-db");
 
 var valkey = builder.AddRedis("valkey")
     .WithLifetime(ContainerLifetime.Persistent);
@@ -29,7 +30,7 @@ var zitadel = builder.AddContainer("zitadel", "ghcr.io/zitadel/zitadel", "v2.66.
     .WithHttpEndpoint(port: 9080, targetPort: 8080, name: "zitadel")
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_HOST", postgres.Resource.Name)
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_PORT", "5432")
-    .WithEnvironment("ZITADEL_DATABASE_POSTGRES_DATABASE", "zitadel")
+    .WithEnvironment("ZITADEL_DATABASE_POSTGRES_DATABASE", zitadelDb.Resource.DatabaseName)
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_USER_USERNAME", "postgres")
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_USER_PASSWORD", postgresPassword)
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE", "disable")
