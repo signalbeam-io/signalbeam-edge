@@ -51,18 +51,37 @@ VITE_ENABLE_DEVTOOLS=true
 
 Authentication configuration (pick one mode):
 
+**Option 1: Zitadel (Default - Production-ready Multi-tenant)**
+
 ```env
-VITE_AUTH_MODE=apiKey
-# VITE_AUTH_MODE=entra
+VITE_AUTH_MODE=zitadel
+VITE_ZITADEL_AUTHORITY=http://localhost:8080  # or https://zitadel.signalbeam.io for hosted
+VITE_ZITADEL_CLIENT_ID=your-client-id
+VITE_ZITADEL_REDIRECT_URI=http://localhost:5173/callback
+VITE_ZITADEL_POST_LOGOUT_REDIRECT_URI=http://localhost:5173
+```
+
+**Option 2: Microsoft Entra ID (Legacy)**
+
+```env
+VITE_AUTH_MODE=entra
 VITE_ENTRA_CLIENT_ID=your-client-id
 VITE_ENTRA_TENANT_ID=your-tenant-id
 VITE_ENTRA_SCOPES=openid,profile,email,api://signalbeam-device-manager/.default
 ```
 
-API key MVP testing uses the backend dev keys. Example (from `src/DeviceManager/SignalBeam.DeviceManager.Host/appsettings.json`):
+**Option 3: API Key (MVP Testing Only)**
+
+```env
+VITE_AUTH_MODE=apiKey
+```
+
+API key mode uses the backend dev keys. Example (from `src/DeviceManager/SignalBeam.DeviceManager.Host/appsettings.json`):
 
 - Tenant `00000000-0000-0000-0000-000000000001`
 - API key `dev-api-key-1`
+
+> **Note**: For local development with Zitadel, you'll need to configure a Zitadel application. See the main project README for Zitadel setup instructions.
 
 ### 3. Run Development Server
 

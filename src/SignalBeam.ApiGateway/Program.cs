@@ -16,13 +16,15 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy.WithOrigins(
-                "http://localhost:5173",  // Vite dev server
+                "http://localhost:5173",  // Vite dev server (default)
                 "http://localhost:3000",  // Alternative frontend port
+                "http://localhost:3001",  // Alternative frontend port
                 "http://localhost:4173"   // Vite preview
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials();
+            .AllowCredentials()
+            .WithExposedHeaders("*");  // Expose all response headers
     });
 });
 

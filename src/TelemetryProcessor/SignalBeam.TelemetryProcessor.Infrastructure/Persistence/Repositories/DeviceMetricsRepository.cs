@@ -255,6 +255,19 @@ public class DeviceMetricsRepository : IDeviceMetricsRepository
     }
 
     /// <summary>
+    /// Deletes metrics older than the specified date for specific devices.
+    /// Optimized for TimescaleDB time-series data with bulk deletion.
+    /// </summary>
+    public async Task<int> DeleteOldMetricsAsync(IEnumerable<DeviceId> deviceIds, DateTimeOffset olderThan, CancellationToken cancellationToken = default)
+    {
+        var deviceIdValues = deviceIds.Select(d => d.Value).ToList();
+
+        return await _context.DeviceMetrics
+            .Where(m => deviceIdValues.Contains(m.DeviceId.Value) && m.Timestamp < olderThan)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Saves all pending changes to the database.
     /// </summary>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)

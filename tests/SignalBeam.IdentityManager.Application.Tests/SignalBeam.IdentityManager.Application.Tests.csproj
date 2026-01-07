@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Common properties inherited from Directory.Build.props -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+    <Using Include="NSubstitute" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\IdentityManager\SignalBeam.IdentityManager.Application\SignalBeam.IdentityManager.Application.csproj" />
+    <ProjectReference Include="..\..\src\IdentityManager\SignalBeam.IdentityManager.Infrastructure\SignalBeam.IdentityManager.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\SignalBeam.Domain\SignalBeam.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Shared\SignalBeam.Shared.Infrastructure\SignalBeam.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

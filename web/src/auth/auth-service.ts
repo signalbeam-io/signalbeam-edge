@@ -11,6 +11,7 @@ import {
   ENTRA_REDIRECT_URI,
   ENTRA_SCOPES,
 } from './auth-config'
+import { zitadelAuth } from './zitadel-service'
 import { useAuthStore, type User } from '@/stores/auth-store'
 
 let msalInstance: PublicClientApplication | null = null
@@ -125,44 +126,71 @@ export function loginWithApiKey(apiKey: string) {
 
 export async function logout() {
   useAuthStore.getState().clearAuth()
-  if (AUTH_MODE !== 'entra') {
+
+  if (AUTH_MODE === 'zitadel') {
+    await zitadelAuth.logout()
     return
   }
-  await ensureMsalInitialized()
-  await getMsalInstance().logoutRedirect({
-    postLogoutRedirectUri: ENTRA_POST_LOGOUT_REDIRECT_URI,
-  })
+
+  if (AUTH_MODE === 'entra') {
+    await ensureMsalInitialized()
+    await getMsalInstance().logoutRedirect({
+      postLogoutRedirectUri: ENTRA_POST_LOGOUT_REDIRECT_URI,
+    })
+  }
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  if (AUTH_MODE !== 'entra') {
-    return null
-  }
-  if (!ENTRA_CLIENT_ID) {
-    useAuthStore.getState().setAuthError('Missing Entra client ID configuration.')
-    return null
-  }
-  await ensureMsalInitialized()
-  const account = getMsalInstance().getActiveAccount() ?? getMsalInstance().getAllAccounts()[0]
-  if (!account) {
-    return null
-  }
-  getMsalInstance().setActiveAccount(account)
-
   const store = useAuthStore.getState()
-  if (store.accessToken && !isTokenExpiring(store.expiresAt)) {
-    return store.accessToken
+
+  // For Zitadel mode, get token from Zitadel auth service
+  if (AUTH_MODE === 'zitadel') {
+    // Return cached token if not expiring
+    if (store.accessToken && !isTokenExpiring(store.expiresAt)) {
+      return store.accessToken
+    }
+
+    // Try to get token from Zitadel (might be available from automatic silent renew)
+    const token = await zitadelAuth.getAccessToken()
+    if (token) {
+      return token
+    }
+
+    // Token expired or not available, need to re-authenticate
+    useAuthStore.getState().setAuthError('Login required to continue.')
+    return null
   }
 
-  try {
-    const result = await getMsalInstance().acquireTokenSilent({ account, scopes: ENTRA_SCOPES })
-    applyAuthResult(result)
-    return result.accessToken
-  } catch (error) {
-    if (error instanceof InteractionRequiredAuthError) {
-      useAuthStore.getState().setAuthError('Login required to continue.')
+  // For Entra mode
+  if (AUTH_MODE === 'entra') {
+    if (!ENTRA_CLIENT_ID) {
+      useAuthStore.getState().setAuthError('Missing Entra client ID configuration.')
       return null
     }
-    throw error
+    await ensureMsalInitialized()
+    const account = getMsalInstance().getActiveAccount() ?? getMsalInstance().getAllAccounts()[0]
+    if (!account) {
+      return null
+    }
+    getMsalInstance().setActiveAccount(account)
+
+    if (store.accessToken && !isTokenExpiring(store.expiresAt)) {
+      return store.accessToken
+    }
+
+    try {
+      const result = await getMsalInstance().acquireTokenSilent({ account, scopes: ENTRA_SCOPES })
+      applyAuthResult(result)
+      return result.accessToken
+    } catch (error) {
+      if (error instanceof InteractionRequiredAuthError) {
+        useAuthStore.getState().setAuthError('Login required to continue.')
+        return null
+      }
+      throw error
+    }
   }
+
+  // For API key mode, no access token
+  return null
 }

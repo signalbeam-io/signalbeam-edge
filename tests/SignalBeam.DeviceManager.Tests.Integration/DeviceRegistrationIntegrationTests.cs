@@ -1,12 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using NSubstitute;
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Application.Repositories;
+using SignalBeam.DeviceManager.Application.Services;
 using SignalBeam.DeviceManager.Infrastructure.Persistence.Repositories;
 using SignalBeam.DeviceManager.Tests.Integration.Infrastructure;
 using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
 using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.DeviceManager.Tests.Integration;
 
@@ -27,7 +30,10 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         var repository = new DeviceRepository(context);
         var tokenRepository = new DeviceRegistrationTokenRepository(context);
         var tokenService = new RegistrationTokenService();
-        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
+        var quotaValidator = Substitute.For<IDeviceQuotaValidator>();
+        quotaValidator.CheckDeviceQuotaAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService, quotaValidator);
         var queryHandler = new GetDeviceByIdHandler(repository);
 
         var tenantId = Guid.NewGuid();
@@ -69,7 +75,10 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         var repository = new DeviceRepository(context);
         var tokenRepository = new DeviceRegistrationTokenRepository(context);
         var tokenService = new RegistrationTokenService();
-        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
+        var quotaValidator = Substitute.For<IDeviceQuotaValidator>();
+        quotaValidator.CheckDeviceQuotaAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService, quotaValidator);
         var heartbeatHandler = new RecordHeartbeatHandler(repository);
 
         var deviceId = Guid.NewGuid();
@@ -110,7 +119,10 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         var repository = new DeviceRepository(context);
         var tokenRepository = new DeviceRegistrationTokenRepository(context);
         var tokenService = new RegistrationTokenService();
-        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
+        var quotaValidator = Substitute.For<IDeviceQuotaValidator>();
+        quotaValidator.CheckDeviceQuotaAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService, quotaValidator);
         var updateHandler = new UpdateDeviceHandler(repository);
 
         var deviceId = Guid.NewGuid();
@@ -152,7 +164,10 @@ public class DeviceRegistrationIntegrationTests : IClassFixture<DeviceManagerTes
         var repository = new DeviceRepository(context);
         var tokenRepository = new DeviceRegistrationTokenRepository(context);
         var tokenService = new RegistrationTokenService();
-        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService);
+        var quotaValidator = Substitute.For<IDeviceQuotaValidator>();
+        quotaValidator.CheckDeviceQuotaAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+        var registerHandler = new RegisterDeviceHandler(repository, tokenRepository, tokenService, quotaValidator);
         var tagHandler = new AddDeviceTagHandler(repository);
 
         var deviceId = Guid.NewGuid();
