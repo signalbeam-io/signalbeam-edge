@@ -39,6 +39,15 @@ public interface IDeviceMetricsRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deletes metrics older than the specified date for specific devices.
+    /// </summary>
+    /// <param name="deviceIds">The device IDs to delete metrics for.</param>
+    /// <param name="olderThan">Delete metrics older than this date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of records deleted.</returns>
+    Task<int> DeleteOldMetricsAsync(IEnumerable<DeviceId> deviceIds, DateTimeOffset olderThan, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Saves changes to the database.
     /// </summary>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

@@ -1,0 +1,101 @@
+# Docker Compose for Local Development
+# This file provides infrastructure services for SignalBeam development
+#
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up -d
+#
+# Services:
+#   - PostgreSQL (with TimescaleDB)
+#   - Zitadel (OIDC/OAuth provider)
+#   - NATS (with JetStream)
+#   - Valkey (Redis alternative)
+
+version: '3.8'
+
+services:
+  # PostgreSQL with TimescaleDB extension
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: signalbeam-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: signalbeam
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Zitadel - Modern Identity Provider
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:latest
+    container_name: signalbeam-zitadel
+    command: 'start-from-init --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode disabled'
+    environment:
+      - ZITADEL_DATABASE_POSTGRES_HOST=postgres
+      - ZITADEL_DATABASE_POSTGRES_PORT=5432
+      - ZITADEL_DATABASE_POSTGRES_DATABASE=zitadel
+      - ZITADEL_DATABASE_POSTGRES_USER_USERNAME=postgres
+      - ZITADEL_DATABASE_POSTGRES_USER_PASSWORD=postgres
+      - ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE=disable
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME=postgres
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD=postgres
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE=disable
+      - ZITADEL_EXTERNALSECURE=false
+      - ZITADEL_EXTERNALPORT=9080
+    ports:
+      - "9080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - zitadel-data:/zitadel-data
+
+  # NATS with JetStream
+  nats:
+    image: nats:latest
+    container_name: signalbeam-nats
+    command:
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+    ports:
+      - "4222:4222"  # NATS client port
+      - "8222:8222"  # HTTP monitoring port
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Valkey (Redis alternative)
+  valkey:
+    image: valkey/valkey:7.2
+    container_name: signalbeam-valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    command: valkey-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  zitadel-data:
+  nats-data:
+  valkey-data:
+
+networks:
+  default:
+    name: signalbeam-network

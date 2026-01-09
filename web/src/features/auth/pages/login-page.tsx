@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AUTH_MODE, ENTRA_CLIENT_ID } from '@/auth/auth-config'
+import {
+  AUTH_MODE,
+  ENTRA_CLIENT_ID,
+  ZITADEL_AUTHORITY,
+  ZITADEL_CLIENT_ID,
+} from '@/auth/auth-config'
 import { handleAuthRedirect, loginWithApiKey, loginWithEntra } from '@/auth/auth-service'
+import { zitadelAuth } from '@/auth/zitadel-service'
 import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +25,7 @@ export function LoginPage() {
     [searchParams]
   )
 
+  // Handle Entra redirect
   useEffect(() => {
     let isMounted = true
 
@@ -45,6 +52,7 @@ export function LoginPage() {
     }
   }, [navigate, redirectPath, setAuthError])
 
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       navigate(redirectPath, { replace: true })
@@ -67,6 +75,11 @@ export function LoginPage() {
     await loginWithEntra(redirectUrl)
   }
 
+  const handleZitadelLogin = async () => {
+    setAuthError(null)
+    await zitadelAuth.login()
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-md space-y-6 rounded-lg border bg-card p-8 shadow-sm">
@@ -83,7 +96,25 @@ export function LoginPage() {
           </div>
         )}
 
-        {AUTH_MODE === 'entra' ? (
+        {AUTH_MODE === 'zitadel' ? (
+          <div className="space-y-4">
+            <Button
+              className="w-full"
+              onClick={handleZitadelLogin}
+              type="button"
+              disabled={!ZITADEL_CLIENT_ID || !ZITADEL_AUTHORITY}
+            >
+              Sign in with Zitadel
+            </Button>
+            {(!ZITADEL_CLIENT_ID || !ZITADEL_AUTHORITY) && (
+              <p className="text-xs text-muted-foreground">
+                Configure <code className="font-mono">VITE_ZITADEL_AUTHORITY</code> and{' '}
+                <code className="font-mono">VITE_ZITADEL_CLIENT_ID</code> to enable Zitadel
+                sign-in.
+              </p>
+            )}
+          </div>
+        ) : AUTH_MODE === 'entra' ? (
           <div className="space-y-4">
             <Button
               className="w-full"
@@ -95,8 +126,8 @@ export function LoginPage() {
             </Button>
             {!ENTRA_CLIENT_ID && (
               <p className="text-xs text-muted-foreground">
-                Configure <code className="font-mono">VITE_ENTRA_CLIENT_ID</code> to enable
-                Entra sign-in.
+                Configure <code className="font-mono">VITE_ENTRA_CLIENT_ID</code> to enable Entra
+                sign-in.
               </p>
             )}
           </div>

@@ -9,6 +9,7 @@ using SignalBeam.DeviceManager.Infrastructure.Authentication;
 using SignalBeam.DeviceManager.Infrastructure.BackgroundServices;
 using SignalBeam.DeviceManager.Infrastructure.Caching;
 using SignalBeam.DeviceManager.Infrastructure.CertificateAuthority;
+using SignalBeam.DeviceManager.Infrastructure.ExternalServices;
 using SignalBeam.DeviceManager.Infrastructure.Persistence;
 using SignalBeam.DeviceManager.Infrastructure.Persistence.Repositories;
 using SignalBeam.DeviceManager.Infrastructure.Storage;
@@ -75,6 +76,16 @@ public static class DependencyInjection
         services.AddSingleton<IDeviceApiKeyService, DeviceApiKeyService>();
         services.AddSingleton<IRegistrationTokenService, RegistrationTokenService>();
         services.AddScoped<IDeviceApiKeyValidator, DeviceApiKeyValidator>();
+
+        // Register IdentityManager HTTP client for quota validation
+        var identityManagerUrl = configuration.GetValue<string>("IdentityManager:BaseUrl")
+            ?? "http://localhost:5002"; // Default for local development
+
+        services.AddHttpClient<IDeviceQuotaValidator, IdentityManagerClient>(client =>
+        {
+            client.BaseAddress = new Uri(identityManagerUrl);
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
 
         // NATS message publisher
         var natsUrl = configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222";

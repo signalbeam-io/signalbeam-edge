@@ -135,6 +135,36 @@ public static class DependencyInjection
         services.AddHttpClient<SignalBeam.TelemetryProcessor.Infrastructure.Notifications.SlackNotificationChannel>();
         services.AddHttpClient<SignalBeam.TelemetryProcessor.Infrastructure.Notifications.TeamsNotificationChannel>();
 
+        // Configure data retention options
+        services.Configure<SignalBeam.TelemetryProcessor.Application.BackgroundServices.DataRetentionOptions>(
+            configuration.GetSection(SignalBeam.TelemetryProcessor.Application.BackgroundServices.DataRetentionOptions.SectionName));
+
+        // Register HttpClient for IdentityManager communication
+        var identityManagerUrl = configuration.GetValue<string>("IdentityManager:BaseUrl")
+            ?? "http://localhost:5002";
+
+        services.AddHttpClient<SignalBeam.TelemetryProcessor.Infrastructure.Services.ITenantRetentionClient,
+            SignalBeam.TelemetryProcessor.Infrastructure.Services.TenantRetentionClient>(client =>
+        {
+            client.BaseAddress = new Uri(identityManagerUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        // Register HttpClient for DeviceManager communication
+        var deviceManagerUrl = configuration.GetValue<string>("DeviceManager:BaseUrl")
+            ?? "http://localhost:5001";
+
+        services.AddHttpClient<SignalBeam.TelemetryProcessor.Infrastructure.Services.IDeviceClient,
+            SignalBeam.TelemetryProcessor.Infrastructure.Services.DeviceClient>(client =>
+        {
+            client.BaseAddress = new Uri(deviceManagerUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        // Register data retention service
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.IDataRetentionService,
+            SignalBeam.TelemetryProcessor.Infrastructure.Services.DataRetentionService>();
+
         // Register notification channels
         services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.Notifications.INotificationChannel,
             SignalBeam.TelemetryProcessor.Infrastructure.Notifications.EmailNotificationChannel>();
@@ -153,6 +183,9 @@ public static class DependencyInjection
 
         // Register NATS consumer as hosted service
         services.AddHostedService<NatsConsumerService>();
+
+        // Register data retention worker as hosted service
+        services.AddHostedService<SignalBeam.TelemetryProcessor.Application.BackgroundServices.DataRetentionWorker>();
 
         // Resilience policies are created as static methods and called directly where needed
 

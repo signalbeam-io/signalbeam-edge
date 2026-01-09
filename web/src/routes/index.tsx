@@ -12,12 +12,16 @@ import { AlertsPage } from '@/features/alerts/pages/alerts-page'
 import { RegistrationTokensPage } from '@/features/registration-tokens/pages/registration-tokens-page'
 import { NotFoundPage } from '@/features/not-found/pages/not-found-page'
 import { LoginPage } from '@/features/auth/pages/login-page'
+import { CallbackPage } from '@/features/auth/pages/callback-page'
+import { RegisterPage } from '@/features/auth/pages/register-page'
 import { ProtectedRoute } from './protected-route'
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/callback" element={<CallbackPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />

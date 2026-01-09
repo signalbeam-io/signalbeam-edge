@@ -1,4 +1,5 @@
 using SignalBeam.DeviceManager.Application.Repositories;
+using SignalBeam.DeviceManager.Application.Services;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
 using SignalBeam.Shared.Infrastructure.Authentication;
@@ -34,15 +35,18 @@ public class RegisterDeviceHandler
     private readonly IDeviceRepository _deviceRepository;
     private readonly IDeviceRegistrationTokenRepository _tokenRepository;
     private readonly IRegistrationTokenService _tokenService;
+    private readonly IDeviceQuotaValidator _quotaValidator;
 
     public RegisterDeviceHandler(
         IDeviceRepository deviceRepository,
         IDeviceRegistrationTokenRepository tokenRepository,
-        IRegistrationTokenService tokenService)
+        IRegistrationTokenService tokenService,
+        IDeviceQuotaValidator quotaValidator)
     {
         _deviceRepository = deviceRepository;
         _tokenRepository = tokenRepository;
         _tokenService = tokenService;
+        _quotaValidator = quotaValidator;
     }
 
     public async Task<Result<RegisterDeviceResponse>> Handle(
@@ -54,6 +58,13 @@ public class RegisterDeviceHandler
             ? new DeviceId(command.DeviceId.Value)
             : DeviceId.New();
         var tenantId = new TenantId(command.TenantId);
+
+        // Check device quota before allowing registration
+        var quotaCheck = await _quotaValidator.CheckDeviceQuotaAsync(tenantId, cancellationToken);
+        if (quotaCheck.IsFailure)
+        {
+            return Result.Failure<RegisterDeviceResponse>(quotaCheck.Error!);
+        }
 
         // Validate registration token if provided
         if (!string.IsNullOrEmpty(command.RegistrationToken))

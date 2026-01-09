@@ -271,6 +271,19 @@ public class DeviceHeartbeatRepository : IDeviceHeartbeatRepository
     }
 
     /// <summary>
+    /// Deletes heartbeats older than the specified date for specific devices.
+    /// Optimized for TimescaleDB time-series data with bulk deletion.
+    /// </summary>
+    public async Task<int> DeleteOldHeartbeatsAsync(IEnumerable<DeviceId> deviceIds, DateTimeOffset olderThan, CancellationToken cancellationToken = default)
+    {
+        var deviceIdValues = deviceIds.Select(d => d.Value).ToList();
+
+        return await _context.DeviceHeartbeats
+            .Where(h => deviceIdValues.Contains(h.DeviceId.Value) && h.Timestamp < olderThan)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Saves all pending changes to the database.
     /// </summary>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
