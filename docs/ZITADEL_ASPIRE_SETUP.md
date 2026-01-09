@@ -409,9 +409,9 @@ docker logs $(docker ps -q --filter ancestor=ghcr.io/zitadel/zitadel:v2.66.3)
 
 ## Next Steps
 
-- [Complete Authentication Flow](web/AUTHENTICATION.md)
-- [Zitadel Production Setup](ZITADEL_SETUP.md)
-- [Configure Multi-Tenant Architecture](ARCHITECTURE.md)
+- [Complete Authentication Flow](../web/AUTHENTICATION.md)
+- [Zitadel Production Setup](./ZITADEL_SETUP.md)
+- [Configure Multi-Tenant Architecture](./ARCHITECTURE.md)
 
 ## Support
 

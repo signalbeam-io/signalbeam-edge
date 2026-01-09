@@ -25,6 +25,7 @@ export function LoginPage() {
     [searchParams]
   )
 
+  // Handle Entra redirect
   useEffect(() => {
     let isMounted = true
 
@@ -51,6 +52,7 @@ export function LoginPage() {
     }
   }, [navigate, redirectPath, setAuthError])
 
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       navigate(redirectPath, { replace: true })

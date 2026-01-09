@@ -28,6 +28,7 @@ var nats = builder.AddContainer("nats", "nats", "latest")
 var zitadel = builder.AddContainer("zitadel", "ghcr.io/zitadel/zitadel", "v2.66.3")
     .WithArgs("start-from-init", "--masterkey", "MasterkeyNeedsToHave32Characters", "--tlsMode", "disabled")
     .WithHttpEndpoint(port: 9080, targetPort: 8080, name: "zitadel")
+    // Database configuration
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_HOST", postgres.Resource.Name)
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_PORT", "5432")
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_DATABASE", zitadelDb.Resource.DatabaseName)
@@ -37,9 +38,18 @@ var zitadel = builder.AddContainer("zitadel", "ghcr.io/zitadel/zitadel", "v2.66.
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME", "postgres")
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD", postgresPassword)
     .WithEnvironment("ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE", "disable")
+    // External domain configuration
     .WithEnvironment("ZITADEL_EXTERNALSECURE", "false")
-    .WithEnvironment("ZITADEL_EXTERNALDOMAIN", "localhost:8080")
+    .WithEnvironment("ZITADEL_EXTERNALDOMAIN", "localhost")
     .WithEnvironment("ZITADEL_EXTERNALPORT", "8080")
+    // Default admin user configuration
+    .WithEnvironment("ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME", "admin")
+    .WithEnvironment("ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD", "Password1!")
+    .WithEnvironment("ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED", "false")
+    .WithEnvironment("ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS", "admin@signalbeam.local")
+    .WithEnvironment("ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_VERIFIED", "true")
+    .WithEnvironment("ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME", "SignalBeam")
+    .WithEnvironment("ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME", "Admin")
     .WaitFor(postgres)
     .WithLifetime(ContainerLifetime.Persistent);
 

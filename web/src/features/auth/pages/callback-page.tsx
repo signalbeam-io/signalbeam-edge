@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { zitadelAuth } from '@/auth/zitadel-service'
 import { useAuthStore } from '@/stores/auth-store'
-import { apiClient } from '@/lib/api-client'
+import axios from 'axios'
 import type { User as OidcUser } from 'oidc-client-ts'
 import type { SubscriptionInfo, User, UserRole } from '@/stores/auth-store'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 interface CurrentUserResponse {
   userId: string
@@ -31,21 +33,28 @@ export function CallbackPage() {
     let isMounted = true
 
     async function handleCallback() {
+      console.log('[CALLBACK] Starting callback handler')
       try {
         // Step 1: Handle OIDC callback
         setStatus('loading')
+        console.log('[CALLBACK] Calling zitadelAuth.handleCallback()')
         const oidcUser: OidcUser = await zitadelAuth.handleCallback()
+        console.log('[CALLBACK] Got OIDC user:', oidcUser.profile.sub)
 
         if (!isMounted) return
 
         // Step 2: Check if user exists in our system
         setStatus('checking')
+        console.log('[CALLBACK] Checking if user exists in SignalBeam...')
+        console.log('[CALLBACK] Access token:', oidcUser.access_token.substring(0, 20) + '...')
         try {
-          const response = await apiClient.get<CurrentUserResponse>('/api/auth/me', {
+          // Use axios directly to bypass the apiClient interceptor
+          const response = await axios.get<CurrentUserResponse>(`${API_URL}/api/auth/me`, {
             headers: {
               Authorization: `Bearer ${oidcUser.access_token}`,
             },
           })
+          console.log('[CALLBACK] User found in SignalBeam:', response.data)
 
           if (!isMounted) return
 
@@ -81,19 +90,24 @@ export function CallbackPage() {
 
           // Step 3b: User doesn't exist - navigate to registration
           const axiosError = error as { response?: { status?: number } }
+          console.log('[CALLBACK] /api/auth/me error:', axiosError.response?.status, error)
           if (axiosError.response?.status === 404) {
+            console.log('[CALLBACK] User not found (404) - redirecting to /register')
             // Store OIDC user in sessionStorage for registration page
             sessionStorage.setItem('oidc_user', JSON.stringify(oidcUser))
             navigate('/register', { replace: true })
           } else {
+            console.error('[CALLBACK] Unexpected error from /api/auth/me, rethrowing')
             throw error
           }
         }
       } catch (error) {
         console.error('Callback error:', error)
+        console.error('Error details:', JSON.stringify(error, null, 2))
         if (isMounted) {
           setStatus('error')
-          setErrorMessage('Authentication failed. Please try again.')
+          const errorMsg = error instanceof Error ? error.message : 'Authentication failed. Please try again.'
+          setErrorMessage(errorMsg)
           setAuthError('Authentication failed')
           setTimeout(() => {
             navigate('/login', { replace: true })

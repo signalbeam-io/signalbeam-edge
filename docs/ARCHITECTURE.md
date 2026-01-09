@@ -460,6 +460,20 @@ kubectl get pods -n signalbeam
 - Device fleet status
 - Rollout progress
 
+## Detailed Documentation
+
+For in-depth information about specific aspects of the architecture, see:
+
+### Authentication & Multi-Tenancy
+- **[Authentication Architecture](./architecture/AUTHENTICATION_ARCHITECTURE.md)** - Deep dive into authentication flows, JWT validation, multi-tenancy, and security architecture
+- **[Authentication Feature Guide](./features/AUTHENTICATION.md)** - Complete feature documentation including user flows, API reference, configuration, and troubleshooting
+- **[Zitadel Aspire Setup](./ZITADEL_ASPIRE_SETUP.md)** - Step-by-step guide for running Zitadel with .NET Aspire for local development
+- **[Frontend Authentication Guide](../web/AUTHENTICATION.md)** - Frontend-specific authentication configuration and flows
+
+### Getting Started
+- **[Zitadel Setup Guide](./ZITADEL_SETUP.md)** - Production Zitadel deployment and configuration
+- **[CLAUDE.md](../CLAUDE.md)** - Project overview, technical stack, and development guidelines
+
 ## Future Enhancements
 
 - [ ] gRPC inter-service communication
@@ -471,3 +485,9 @@ kubectl get pods -n signalbeam
 - [ ] Database sharding by tenant
 - [ ] CDN for bundle artifacts
 - [ ] Advanced analytics with ClickHouse
+- [ ] Team management and user invitations
+- [ ] Custom roles and permissions
+- [ ] SSO integration (SAML, Google Workspace)
+- [ ] API keys for service accounts
+- [ ] Comprehensive audit logs
+- [ ] Billing integration (Stripe)
