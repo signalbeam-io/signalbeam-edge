@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -12,19 +13,16 @@ namespace SignalBeam.TelemetryProcessor.Application.BackgroundServices;
 /// </summary>
 public class AlertManagerService : BackgroundService
 {
-    private readonly IEnumerable<IAlertRule> _alertRules;
-    private readonly IAlertRepository _alertRepository;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<AlertManagerService> _logger;
     private readonly AlertManagerOptions _options;
 
     public AlertManagerService(
-        IEnumerable<IAlertRule> alertRules,
-        IAlertRepository alertRepository,
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<AlertManagerService> logger,
         IOptions<AlertManagerOptions> options)
     {
-        _alertRules = alertRules;
-        _alertRepository = alertRepository;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
         _options = options.Value;
     }
@@ -62,10 +60,14 @@ public class AlertManagerService : BackgroundService
 
     private async Task EvaluateRulesAsync(CancellationToken cancellationToken)
     {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var alertRules = scope.ServiceProvider.GetRequiredService<IEnumerable<IAlertRule>>();
+        var alertRepository = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+        
         var startTime = DateTimeOffset.UtcNow;
         _logger.LogDebug("Starting alert rule evaluation cycle");
 
-        var enabledRules = _alertRules.Where(r => r.IsEnabled).ToList();
+        var enabledRules = alertRules.Where(r => r.IsEnabled).ToList();
 
         if (!enabledRules.Any())
         {
@@ -96,7 +98,7 @@ public class AlertManagerService : BackgroundService
                     // Note: AddAsync already calls SaveChangesAsync internally
                     foreach (var alert in alerts)
                     {
-                        await _alertRepository.AddAsync(alert, cancellationToken);
+                        await alertRepository.AddAsync(alert, cancellationToken);
                         totalAlerts++;
 
                         _logger.LogInformation(

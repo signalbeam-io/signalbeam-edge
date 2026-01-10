@@ -131,8 +131,17 @@ builder.Services.AddScoped<GetDevicesByTagQueryHandler>();
 builder.Services.AddScoped<GetAllTagsHandler>();
 builder.Services.AddScoped<GetGroupMembershipsHandler>();
 
+// Device registration and authentication handlers
+builder.Services.AddScoped<GenerateRegistrationTokenHandler>();
+builder.Services.AddScoped<ApproveDeviceRegistrationHandler>();
+builder.Services.AddScoped<RejectDeviceRegistrationHandler>();
+builder.Services.AddScoped<GenerateDeviceApiKeyHandler>();
+builder.Services.AddScoped<RevokeDeviceApiKeyHandler>();
+builder.Services.AddScoped<GetRegistrationStatusHandler>();
+builder.Services.AddScoped<GetDevicesByRegistrationStatusHandler>();
+
 // Register certificate-related services
-builder.Services.AddScoped<SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.ICertificateGenerator,
+builder.Services.AddSingleton<SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.ICertificateGenerator,
     SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.X509CertificateGenerator>();
 builder.Services.AddSingleton<SignalBeam.DeviceManager.Application.Services.ICertificateAuthorityService,
     SignalBeam.DeviceManager.Infrastructure.CertificateAuthority.CertificateAuthorityService>();

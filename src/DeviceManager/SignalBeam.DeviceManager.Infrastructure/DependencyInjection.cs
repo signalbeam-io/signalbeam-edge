@@ -50,7 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IDeviceApiKeyRepository, DeviceApiKeyRepository>();
         services.AddScoped<IDeviceAuthenticationLogRepository, DeviceAuthenticationLogRepository>();
         services.AddScoped<IDeviceRegistrationTokenRepository, DeviceRegistrationTokenRepository>();
-        // TODO: Add DeviceCertificateRepository when implementing certificate-based authentication
+        services.AddScoped<IDeviceCertificateRepository, DeviceCertificateRepository>();
 
         // Register application services
         services.AddScoped<SignalBeam.DeviceManager.Application.Services.IDynamicGroupMembershipManager,

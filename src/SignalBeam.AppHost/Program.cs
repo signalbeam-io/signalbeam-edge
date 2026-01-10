@@ -26,18 +26,24 @@ var blobs = storage.AddBlobs("blobs");
 // Microservices
 var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("device-manager")
     .WithReference(signalbeamDb)
+    .WaitFor(signalbeamDb)
     .WithReference(valkey)
+    .WaitFor(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
 var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrator_Host>("bundle-orchestrator")
     .WithReference(signalbeamDb)
+    .WaitFor(signalbeamDb)
     .WithReference(valkey)
+    .WaitFor(valkey)
     .WithReference(blobs)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
 var telemetryProcessor = builder.AddProject<Projects.SignalBeam_TelemetryProcessor_Host>("telemetry-processor")
     .WithReference(signalbeamDb)
+    .WaitFor(signalbeamDb)
     .WithReference(valkey)
+    .WaitFor(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"));
 
 // API Gateway - Single entry point for all services
