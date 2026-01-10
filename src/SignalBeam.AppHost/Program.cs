@@ -64,8 +64,8 @@ var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"))
-    .WithEnvironment("Authentication__Jwt__Authority", zitadel.GetEndpoint("zitadel"))
-    .WithEnvironment("Authentication__Jwt__Audience", "api://signalbeam-api")
+    .WithEnvironment("Authentication__Jwt__Authority", "http://localhost:8080")
+    .WithEnvironment("Authentication__Jwt__Audience", "354924471519401733")
     .WithEnvironment("Authentication__Jwt__RequireHttpsMetadata", "false");
 
 var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrator_Host>("bundle-orchestrator")
@@ -73,24 +73,24 @@ var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrat
     .WithReference(valkey)
     .WithReference(blobs)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"))
-    .WithEnvironment("Authentication__Jwt__Authority", zitadel.GetEndpoint("zitadel"))
-    .WithEnvironment("Authentication__Jwt__Audience", "api://signalbeam-api")
+    .WithEnvironment("Authentication__Jwt__Authority", "http://localhost:8080")
+    .WithEnvironment("Authentication__Jwt__Audience", "354924471519401733")
     .WithEnvironment("Authentication__Jwt__RequireHttpsMetadata", "false");
 
 var telemetryProcessor = builder.AddProject<Projects.SignalBeam_TelemetryProcessor_Host>("telemetry-processor")
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"))
-    .WithEnvironment("Authentication__Jwt__Authority", zitadel.GetEndpoint("zitadel"))
-    .WithEnvironment("Authentication__Jwt__Audience", "api://signalbeam-api")
+    .WithEnvironment("Authentication__Jwt__Authority", "http://localhost:8080")
+    .WithEnvironment("Authentication__Jwt__Audience", "354924471519401733")
     .WithEnvironment("Authentication__Jwt__RequireHttpsMetadata", "false");
 
 var identityManager = builder.AddProject<Projects.SignalBeam_IdentityManager_Host>("identity-manager")
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"))
-    .WithEnvironment("Authentication__Jwt__Authority", zitadel.GetEndpoint("zitadel"))
-    .WithEnvironment("Authentication__Jwt__Audience", "api://signalbeam-api")
+    .WithEnvironment("Authentication__Jwt__Authority", "http://localhost:8080")
+    .WithEnvironment("Authentication__Jwt__Audience", "354924471519401733")
     .WithEnvironment("Authentication__Jwt__RequireHttpsMetadata", "false");
 
 // API Gateway - Single entry point for all services

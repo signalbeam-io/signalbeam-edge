@@ -46,12 +46,17 @@ export function CallbackPage() {
         // Step 2: Check if user exists in our system
         setStatus('checking')
         console.log('[CALLBACK] Checking if user exists in SignalBeam...')
-        console.log('[CALLBACK] Access token:', oidcUser.access_token.substring(0, 20) + '...')
+
+        // Use id_token (JWT) instead of access_token (opaque) for backend authentication
+        const token = oidcUser.id_token || oidcUser.access_token
+        console.log('[CALLBACK] Token type:', oidcUser.id_token ? 'id_token (JWT)' : 'access_token')
+        console.log('[CALLBACK] Token:', token.substring(0, 50) + '...')
+
         try {
           // Use axios directly to bypass the apiClient interceptor
           const response = await axios.get<CurrentUserResponse>(`${API_URL}/api/auth/me`, {
             headers: {
-              Authorization: `Bearer ${oidcUser.access_token}`,
+              Authorization: `Bearer ${token}`,
             },
           })
           console.log('[CALLBACK] User found in SignalBeam:', response.data)
@@ -79,7 +84,7 @@ export function CallbackPage() {
 
           setJwtAuth(
             user,
-            oidcUser.access_token,
+            token, // Use id_token (JWT) instead of access_token
             oidcUser.expires_at ? new Date(oidcUser.expires_at * 1000).toISOString() : null,
             subscription
           )
