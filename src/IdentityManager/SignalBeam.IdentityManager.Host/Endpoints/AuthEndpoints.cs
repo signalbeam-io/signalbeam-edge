@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SignalBeam.IdentityManager.Application.Commands;
@@ -74,11 +75,19 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        // Debug: Log all claims
+        var claims = httpContext.User.Claims.Select(c => $"{c.Type}={c.Value}");
+        Console.WriteLine($"[AUTH] Claims in token: {string.Join(", ", claims)}");
+        Console.WriteLine($"[AUTH] User.Identity.IsAuthenticated: {httpContext.User.Identity?.IsAuthenticated}");
+
         // Extract Zitadel user ID from JWT claims
-        var zitadelUserId = httpContext.User.FindFirst("sub")?.Value;
+        // ASP.NET Core maps "sub" claim to ClaimTypes.NameIdentifier
+        var zitadelUserId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        Console.WriteLine($"[AUTH] Extracted zitadelUserId: {zitadelUserId}");
 
         if (string.IsNullOrEmpty(zitadelUserId))
         {
+            Console.WriteLine("[AUTH] zitadelUserId is null or empty - returning 401");
             return Results.Unauthorized();
         }
 
