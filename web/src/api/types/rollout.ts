@@ -162,3 +162,11 @@ export interface PhasedRolloutFilters extends PaginationParams {
   bundleId?: string
   status?: RolloutLifecycleStatus
 }
+
+/**
+ * Response from the active rollouts endpoint
+ */
+export interface ActiveRolloutsResponse {
+  activeRollouts: PhasedRollout[]
+  totalCount: number
+}

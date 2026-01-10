@@ -15,7 +15,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 export function ActiveRollouts() {
   const navigate = useNavigate()
-  const { data: rollouts, isLoading } = useActiveRollouts()
+  const { data: response, isLoading } = useActiveRollouts()
 
   if (isLoading) {
     return (
@@ -31,7 +31,8 @@ export function ActiveRollouts() {
     )
   }
 
-  const activeRollouts = rollouts || []
+  // Extract activeRollouts from the response
+  const activeRollouts = response?.activeRollouts ?? []
 
   return (
     <Card>
