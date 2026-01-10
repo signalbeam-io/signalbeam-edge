@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,16 +12,19 @@ namespace SignalBeam.TelemetryProcessor.Application.BackgroundServices;
 /// </summary>
 public class NotificationRetryService : BackgroundService
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IAlertNotificationRepository _notificationRepository;
+    private readonly IAlertNotificationService _notificationService;
     private readonly ILogger<NotificationRetryService> _logger;
     private readonly NotificationRetryOptions _options;
 
     public NotificationRetryService(
-        IServiceScopeFactory serviceScopeFactory,
+        IAlertNotificationRepository notificationRepository,
+        IAlertNotificationService notificationService,
         ILogger<NotificationRetryService> logger,
         IOptions<NotificationRetryOptions> options)
     {
-        _serviceScopeFactory = serviceScopeFactory;
+        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
         _logger = logger;
         _options = options.Value;
     }
@@ -61,15 +63,12 @@ public class NotificationRetryService : BackgroundService
 
     private async Task RetryFailedNotificationsAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var notificationRepository = scope.ServiceProvider.GetRequiredService<IAlertNotificationRepository>();
-        
         var startTime = DateTimeOffset.UtcNow;
         _logger.LogDebug("Starting notification retry cycle");
 
         // Get failed notifications from last hour
         var since = DateTimeOffset.UtcNow.AddHours(-1);
-        var failedNotifications = await notificationRepository.GetFailedNotificationsAsync(
+        var failedNotifications = await _notificationRepository.GetFailedNotificationsAsync(
             since,
             limit: 100,
             cancellationToken);

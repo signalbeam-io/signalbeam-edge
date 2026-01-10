@@ -35,46 +35,10 @@ public class DeviceAuthenticationMiddleware
             context.Request.Path.StartsWithSegments("/metrics") ||
             context.Request.Path.StartsWithSegments("/scalar") ||
             context.Request.Path.StartsWithSegments("/openapi") ||
-            context.Request.Path.StartsWithSegments("/api/certificates/ca") || // CA cert is public
-            context.Request.Path.StartsWithSegments("/api/registration-tokens")) // Registration tokens (admin only in production)
+            context.Request.Path.StartsWithSegments("/api/certificates/ca")) // CA cert is public
         {
             await _next(context);
             return;
-        }
-
-        // Skip authentication for device registration when using registration token
-        // POST /api/devices with X-Registration-Token header
-        if (context.Request.Method == HttpMethods.Post &&
-            context.Request.Path.Equals("/api/devices") &&
-            context.Request.Headers.ContainsKey("X-Registration-Token"))
-        {
-            _logger.LogDebug("Device registration with token detected, skipping device authentication");
-            await _next(context);
-            return;
-        }
-
-        // Skip authentication for device approval/rejection (admin only in production)
-        // These endpoints require admin auth in production but are open for dev testing
-        if (context.Request.Method == HttpMethods.Post &&
-            (context.Request.Path.Value?.Contains("/approve") == true ||
-             context.Request.Path.Value?.Contains("/reject") == true))
-        {
-            _logger.LogDebug("Device approval/rejection endpoint detected, skipping device authentication for development");
-            await _next(context);
-            return;
-        }
-
-        // Allow static development API keys (for UI/admin access during development)
-        // In production, these should be validated through proper admin authentication
-        if (context.Request.Headers.TryGetValue(AuthenticationConstants.ApiKeyHeaderName, out var devApiKey))
-        {
-            var key = devApiKey.ToString();
-            if (key == "dev-api-key-1" || key == "dev-api-key-2")
-            {
-                _logger.LogDebug("Development API key detected, allowing request");
-                await _next(context);
-                return;
-            }
         }
 
         // [1] Try certificate authentication first (if mTLS is configured)
