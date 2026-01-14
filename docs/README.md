@@ -9,24 +9,24 @@ Welcome to the SignalBeam Edge documentation! This directory contains guides, ar
 
 ## Features
 
-- **[Authentication & Multi-Tenancy](./features/AUTHENTICATION.md)** - Complete guide to Zitadel authentication, workspaces, and subscriptions ⭐
+- **[Authentication & Multi-Tenancy](./features/authentication.md)** - Complete guide to Zitadel authentication, workspaces, and subscriptions ⭐
 - **[App Bundles](./features/)** - Deploy containerized applications to edge devices
 - **[Device Groups](./features/)** - Organize and manage devices at scale
 - **[Tags](./features/)** - Label and filter devices
 
 ## Architecture
 
-- **[Main Architecture](./ARCHITECTURE.md)** - Complete system architecture overview ⭐
-- **[Authentication Architecture](./architecture/AUTHENTICATION_ARCHITECTURE.md)** - Deep dive into authentication flows, JWT validation, and multi-tenancy
-- **[Docker Requirements](./DOCKER_REQUIREMENTS.md)** - Container runtime requirements
+- **[Main Architecture](./architecture.md)** - Complete system architecture overview ⭐
+- **[Authentication Architecture](./architecture/authentication-architecture.md)** - Deep dive into authentication flows, JWT validation, and multi-tenancy
+- **[Docker Requirements](./docker-requirements.md)** - Container runtime requirements
 
 ## Development
 
 - **[Development Setup](./development/)** - Local development environment setup
-- **[Zitadel Aspire Setup](./ZITADEL_ASPIRE_SETUP.md)** - Running Zitadel with .NET Aspire for local development ⭐
-- **[Zitadel Production Setup](./ZITADEL_SETUP.md)** - Production Zitadel deployment and configuration
-- **[Frontend Authentication Guide](../web/AUTHENTICATION.md)** - Frontend-specific authentication configuration
-- **[Business Plan](./signalbeam-edge-business-plan.md)** - Product vision and roadmap
+- **[Zitadel Aspire Setup](./zitadel-aspire-setup.md)** - Running Zitadel with .NET Aspire for local development ⭐
+- **[Zitadel Production Setup](./zitadel-setup.md)** - Production Zitadel deployment and configuration
+- **[Frontend Authentication Guide](./web/authentication.md)** - Frontend-specific authentication configuration
+- **[Business Plan](./business-plan.md)** - Product vision and roadmap
 
 ## Quick Links
 

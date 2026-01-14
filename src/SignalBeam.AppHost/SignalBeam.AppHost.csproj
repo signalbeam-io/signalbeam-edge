@@ -23,6 +23,7 @@
     <ProjectReference Include="..\TelemetryProcessor\SignalBeam.TelemetryProcessor.Host\SignalBeam.TelemetryProcessor.Host.csproj" />
     <ProjectReference Include="..\IdentityManager\SignalBeam.IdentityManager.Host\SignalBeam.IdentityManager.Host.csproj" />
     <ProjectReference Include="..\EdgeAgent\SignalBeam.EdgeAgent.Simulator\SignalBeam.EdgeAgent.Simulator.csproj" />
+    <ProjectReference Include="..\SignalBeam.ZitadelSetup\SignalBeam.ZitadelSetup.csproj" />
   </ItemGroup>
 
 </Project>

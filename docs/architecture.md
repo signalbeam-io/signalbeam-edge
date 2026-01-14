@@ -465,14 +465,14 @@ kubectl get pods -n signalbeam
 For in-depth information about specific aspects of the architecture, see:
 
 ### Authentication & Multi-Tenancy
-- **[Authentication Architecture](./architecture/AUTHENTICATION_ARCHITECTURE.md)** - Deep dive into authentication flows, JWT validation, multi-tenancy, and security architecture
-- **[Authentication Feature Guide](./features/AUTHENTICATION.md)** - Complete feature documentation including user flows, API reference, configuration, and troubleshooting
-- **[Zitadel Aspire Setup](./ZITADEL_ASPIRE_SETUP.md)** - Step-by-step guide for running Zitadel with .NET Aspire for local development
-- **[Frontend Authentication Guide](../web/AUTHENTICATION.md)** - Frontend-specific authentication configuration and flows
+- **[Authentication Architecture](./architecture/authentication-architecture.md)** - Deep dive into authentication flows, JWT validation, multi-tenancy, and security architecture
+- **[Authentication Feature Guide](./features/authentication.md)** - Complete feature documentation including user flows, API reference, configuration, and troubleshooting
+- **[Zitadel Aspire Setup](./zitadel-aspire-setup.md)** - Step-by-step guide for running Zitadel with .NET Aspire for local development
+- **[Frontend Authentication Guide](./web/authentication.md)** - Frontend-specific authentication configuration and flows
 
 ### Getting Started
-- **[Zitadel Setup Guide](./ZITADEL_SETUP.md)** - Production Zitadel deployment and configuration
-- **[CLAUDE.md](../CLAUDE.md)** - Project overview, technical stack, and development guidelines
+- **[Zitadel Setup Guide](./zitadel-setup.md)** - Production Zitadel deployment and configuration
+- **[Claude Guide](../CLAUDE.md)** - Project overview, technical stack, and development guidelines
 
 ## Future Enhancements
 

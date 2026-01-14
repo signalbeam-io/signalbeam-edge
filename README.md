@@ -4,12 +4,32 @@
 
 SignalBeam Edge is a platform for onboarding, monitoring, and updating fleets of edge devices (e.g., Raspberry Pis, mini-PCs running containers) from a single dashboard. It targets small-to-medium fleets that need simple, reliable rollout and visibility without heavyweight IoT stacks.
 
+---
+
+**🚀 New to SignalBeam?** → **[Start Here: 5-Minute Quick Start Guide](docs/quickstart.md)**
+
+Fully automated setup with zero manual configuration!
+
+---
+
 ## 🎯 Product Focus
 
 - **Radical simplicity**: device → group → bundle → status
 - **First-class fleet visibility** with clear rollout outcomes
 - **Built for teams** managing ~5–200 devices without an IoT platform team
 - **Open, opinionated stack** that integrates with existing tooling
+
+## ⚡ Quick Start
+
+**New to SignalBeam?** Get up and running in under 5 minutes with fully automated setup:
+
+👉 **[Read the Quick Start Guide](docs/quickstart.md)** 👈
+
+The Quick Start guide includes:
+- ✅ **Zero-configuration** Zitadel setup (fully automated via API)
+- ✅ One-command backend startup with .NET Aspire
+- ✅ Automatic frontend configuration
+- ✅ No manual steps in Zitadel console required!
 
 ## 🏗️ Architecture at a Glance
 
@@ -31,7 +51,9 @@ SignalBeam Edge is a platform for onboarding, monitoring, and updating fleets of
 - **Storage**: Azure Blob Storage for bundle artifacts
 - **Orchestration**: .NET Aspire for local development
 
-## 🚀 Quick Start
+## 🚀 Detailed Setup
+
+> **📘 For step-by-step instructions with automated Zitadel configuration, see [QUICKSTART.md](docs/quickstart.md)**
 
 ### Prerequisites
 
@@ -51,12 +73,13 @@ The easiest way to run the entire SignalBeam platform locally:
 # Navigate to the Aspire AppHost
 cd src/SignalBeam.AppHost
 
-# Start all services
+# Start all services (automatically configures Zitadel!)
 dotnet run
 ```
 
 This will:
 - Start PostgreSQL, Valkey, NATS, and Azure Storage (Azurite)
+- Start and **automatically configure Zitadel** (OIDC authentication)
 - Launch all backend microservices
 - Open the Aspire Dashboard at `http://localhost:15888`
 
@@ -68,11 +91,15 @@ This will:
 
 ### Run the Frontend
 
-In a separate terminal:
+After the backend is running, in a separate terminal:
 
 ```bash
+# Update frontend config from auto-generated Zitadel settings
+./scripts/update-frontend-config.sh
+
+# Start the frontend
 cd web
-npm install
+npm install  # First time only
 npm run dev
 ```
 
@@ -177,9 +204,10 @@ dotnet run
 ## 📚 Documentation
 
 ### Getting Started
+- **[Quick Start Guide](docs/quickstart.md)** - 5-minute automated setup (recommended for first-time users)
 - [Project Overview](docs/project-overview.md) - High-level architecture and workflows
-- [Running with Aspire](RUNNING_WITH_ASPIRE.md) - Local development with .NET Aspire
-- [Docker Requirements](docs/DOCKER_REQUIREMENTS.md) - Docker setup guide
+- [Running with Aspire](docs/aspire-setup.md) - Local development with .NET Aspire
+- [Docker Requirements](docs/docker-requirements.md) - Docker setup guide
 
 ### Architecture
 - [Domain Model](docs/architecture/domain-model.md) - DDD entities and aggregates

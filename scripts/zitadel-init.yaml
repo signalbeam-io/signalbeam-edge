@@ -1,0 +1,37 @@
+# Zitadel Initial Configuration
+# This file automatically configures Zitadel on first startup
+# Reference: https://zitadel.com/docs/self-hosting/manage/configure
+
+# Create a project for SignalBeam
+Projects:
+  - Name: "SignalBeam Edge"
+    # Project will be created in the default organization
+
+# Create an OIDC application within the project
+Applications:
+  - Name: "SignalBeam Web"
+    Type: "OIDC"
+    ProjectName: "SignalBeam Edge"
+    RedirectURIs:
+      - "http://localhost:5173/callback"
+      - "http://localhost:5173/silent-renew"
+    PostLogoutRedirectURIs:
+      - "http://localhost:5173"
+    ResponseTypes:
+      - "CODE"
+    GrantTypes:
+      - "AUTHORIZATION_CODE"
+      - "REFRESH_TOKEN"
+    AppType: "USER_AGENT"  # SPA / Public client
+    AuthMethodType: "NONE"  # No client secret for public clients
+    DevMode: true
+    AccessTokenType: "JWT"
+    IDTokenRoleAssertion: true
+    IDTokenUserinfoAssertion: true
+    ClockSkew: "0s"
+
+# Optional: Create API applications for backend services
+  - Name: "SignalBeam API"
+    Type: "API"
+    ProjectName: "SignalBeam Edge"
+    AuthMethodType: "BASIC"  # Client credentials
