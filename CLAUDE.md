@@ -126,8 +126,8 @@ signalbeam-edge/
 
 ## Technical Stack
 
-### Backend (.NET 10)
-- **Framework:** .NET 10.0, C# 14
+### Backend (.NET 9)
+- **Framework:** .NET 9.0, C# 13
 - **Code Quality:** Nullable reference types, treat warnings as errors, Roslynator + SonarAnalyzer
 - **Architecture:** Hexagonal architecture with clear domain/application/infrastructure separation
 
@@ -437,7 +437,7 @@ Core entities to implement:
 ## Development Setup
 
 ### Prerequisites
-- **.NET 10 SDK** - Backend development
+- **.NET 9 SDK** - Backend development
 - **.NET Aspire Workload** - Local development orchestration: `dotnet workload install aspire`
 - **Docker Desktop** - Containers and local development
 - **Kubernetes** - Local cluster (Docker Desktop, minikube, kind, or k3d)

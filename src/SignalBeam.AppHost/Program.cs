@@ -53,6 +53,16 @@ var zitadel = builder.AddContainer("zitadel", "ghcr.io/zitadel/zitadel", "v2.66.
     .WaitFor(postgres)
     .WithLifetime(ContainerLifetime.Persistent);
 
+// Zitadel Auto-Configuration
+// This runs once after Zitadel starts to create the project and application via API
+var zitadelConfigPath = Path.Combine(Path.GetTempPath(), "signalbeam-zitadel-config.json");
+var zitadelSetup = builder.AddProject<Projects.SignalBeam_ZitadelSetup>("zitadel-setup")
+    .WithEnvironment("ZITADEL_URL", zitadel.GetEndpoint("zitadel"))
+    .WithEnvironment("ZITADEL_ADMIN_USER", "admin")
+    .WithEnvironment("ZITADEL_ADMIN_PASSWORD", "Password1!")
+    .WithEnvironment("CONFIG_OUTPUT_PATH", zitadelConfigPath)
+    .WaitFor(zitadel);
+
 // Azurite - Azure Storage Emulator for local development
 var storage = builder.AddAzureStorage("storage")
     .RunAsEmulator();

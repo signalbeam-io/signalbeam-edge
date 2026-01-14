@@ -34,7 +34,7 @@ API Gateway (localhost:8080)
 
 ## Prerequisites
 
-1. **.NET 10 SDK** installed
+1. **.NET 9 SDK** installed
 2. **.NET Aspire Workload** installed:
    ```bash
    dotnet workload install aspire
