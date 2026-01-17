@@ -1,0 +1,212 @@
+name: Integration Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**/*.Integration/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/ci-integration-tests.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**/*.Integration/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/ci-integration-tests.yml'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # Build job to restore and compile once
+  build:
+    name: Build Solution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore src/SignalBeam.sln
+
+      - name: Build solution
+        run: dotnet build src/SignalBeam.sln --no-restore --configuration Release
+
+  # Integration tests - run in parallel (each uses its own Testcontainer)
+  integration-tests-device-manager:
+    name: Device Manager Integration Tests
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      # Docker-in-Docker is available on ubuntu-latest by default
+      docker:
+        image: docker:dind
+        options: --privileged
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Pre-pull TimescaleDB image
+        run: docker pull timescale/timescaledb:latest-pg16
+
+      - name: Run Device Manager Integration Tests
+        run: |
+          dotnet test tests/SignalBeam.DeviceManager.Tests.Integration/SignalBeam.DeviceManager.Tests.Integration.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=device-manager-integration-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+        env:
+          # Testcontainers configuration
+          TESTCONTAINERS_RYUK_DISABLED: false
+          DOCKER_HOST: unix:///var/run/docker.sock
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-device-manager-integration
+          path: ./TestResults
+          retention-days: 7
+
+  integration-tests-telemetry-processor:
+    name: Telemetry Processor Integration Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Pre-pull TimescaleDB image
+        run: docker pull timescale/timescaledb:latest-pg16
+
+      - name: Run Telemetry Processor Integration Tests
+        run: |
+          dotnet test tests/SignalBeam.TelemetryProcessor.Tests.Integration/SignalBeam.TelemetryProcessor.Tests.Integration.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=telemetry-processor-integration-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: false
+          DOCKER_HOST: unix:///var/run/docker.sock
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-telemetry-processor-integration
+          path: ./TestResults
+          retention-days: 7
+
+  integration-tests-edge-agent:
+    name: Edge Agent Integration Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Pre-pull TimescaleDB image
+        run: docker pull timescale/timescaledb:latest-pg16
+
+      - name: Run Edge Agent Integration Tests
+        run: |
+          dotnet test tests/SignalBeam.EdgeAgent.Tests.Integration/SignalBeam.EdgeAgent.Tests.Integration.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=edge-agent-integration-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: false
+          DOCKER_HOST: unix:///var/run/docker.sock
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-edge-agent-integration
+          path: ./TestResults
+          retention-days: 7
+
+  # Summary job that depends on all integration test jobs
+  integration-tests-summary:
+    name: Integration Tests Summary
+    needs:
+      - integration-tests-device-manager
+      - integration-tests-telemetry-processor
+      - integration-tests-edge-agent
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.integration-tests-device-manager.result }}" == "failure" ]] || \
+             [[ "${{ needs.integration-tests-telemetry-processor.result }}" == "failure" ]] || \
+             [[ "${{ needs.integration-tests-edge-agent.result }}" == "failure" ]]; then
+            echo "❌ One or more integration test jobs failed"
+            exit 1
+          fi
+          echo "✅ All integration tests passed successfully"
