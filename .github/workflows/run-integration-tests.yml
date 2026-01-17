@@ -9,14 +9,14 @@ on:
       - 'tests/**/*.Integration/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
-      - '.github/workflows/ci-integration-tests.yml'
+      - '.github/workflows/run-integration-tests.yml'
   pull_request:
     paths:
       - 'src/**'
       - 'tests/**/*.Integration/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
-      - '.github/workflows/ci-integration-tests.yml'
+      - '.github/workflows/run-integration-tests.yml'
   workflow_dispatch:
 
 env:

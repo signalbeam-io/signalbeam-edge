@@ -6,11 +6,11 @@ on:
       - main
     paths:
       - 'web/**'
-      - '.github/workflows/ci-web-tests.yml'
+      - '.github/workflows/run-web-tests.yml'
   pull_request:
     paths:
       - 'web/**'
-      - '.github/workflows/ci-web-tests.yml'
+      - '.github/workflows/run-web-tests.yml'
   workflow_dispatch:
 
 env:

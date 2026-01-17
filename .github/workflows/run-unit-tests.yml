@@ -11,7 +11,7 @@ on:
       - 'tests/SignalBeam.Shared.Infrastructure.Tests/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
-      - '.github/workflows/ci-unit-tests.yml'
+      - '.github/workflows/run-unit-tests.yml'
   pull_request:
     paths:
       - 'src/**'
@@ -20,7 +20,7 @@ on:
       - 'tests/SignalBeam.Shared.Infrastructure.Tests/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
-      - '.github/workflows/ci-unit-tests.yml'
+      - '.github/workflows/run-unit-tests.yml'
   workflow_dispatch:
 
 env:
