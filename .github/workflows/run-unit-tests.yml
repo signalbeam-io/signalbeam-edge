@@ -1,0 +1,352 @@
+name: Unit Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**/*.Unit/**'
+      - 'tests/SignalBeam.Domain.Tests/**'
+      - 'tests/SignalBeam.Shared.Infrastructure.Tests/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/run-unit-tests.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**/*.Unit/**'
+      - 'tests/SignalBeam.Domain.Tests/**'
+      - 'tests/SignalBeam.Shared.Infrastructure.Tests/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/run-unit-tests.yml'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # Build job to restore and compile once
+  build:
+    name: Build Solution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore src/SignalBeam.sln
+
+      - name: Build solution
+        run: dotnet build src/SignalBeam.sln --no-restore --configuration Release
+
+  # Unit tests - run in parallel by domain
+  unit-tests-domain:
+    name: Domain Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Run Domain Tests
+        run: |
+          dotnet test tests/SignalBeam.Domain.Tests/SignalBeam.Domain.Tests.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=domain-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-domain
+          path: ./TestResults
+          retention-days: 7
+
+  unit-tests-shared:
+    name: Shared Infrastructure Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Run Shared Infrastructure Tests
+        run: |
+          dotnet test tests/SignalBeam.Shared.Infrastructure.Tests/SignalBeam.Shared.Infrastructure.Tests.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=shared-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-shared
+          path: ./TestResults
+          retention-days: 7
+
+  unit-tests-device-manager:
+    name: Device Manager Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Run Device Manager Unit Tests
+        run: |
+          dotnet test tests/SignalBeam.DeviceManager.Tests.Unit/SignalBeam.DeviceManager.Tests.Unit.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=device-manager-unit-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-device-manager-unit
+          path: ./TestResults
+          retention-days: 7
+
+  unit-tests-bundle-orchestrator:
+    name: Bundle Orchestrator Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Run Bundle Orchestrator Unit Tests
+        run: |
+          dotnet test tests/SignalBeam.BundleOrchestrator.Tests.Unit/SignalBeam.BundleOrchestrator.Tests.Unit.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=bundle-orchestrator-unit-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-bundle-orchestrator-unit
+          path: ./TestResults
+          retention-days: 7
+
+  unit-tests-edge-agent:
+    name: Edge Agent Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Run Edge Agent Unit Tests
+        run: |
+          dotnet test tests/SignalBeam.EdgeAgent.Tests.Unit/SignalBeam.EdgeAgent.Tests.Unit.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=edge-agent-unit-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-edge-agent-unit
+          path: ./TestResults
+          retention-days: 7
+
+  unit-tests-telemetry-processor:
+    name: Telemetry Processor Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Run Telemetry Processor Infrastructure Tests
+        run: |
+          dotnet test tests/SignalBeam.TelemetryProcessor.Infrastructure.Tests/SignalBeam.TelemetryProcessor.Infrastructure.Tests.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=telemetry-processor-unit-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-telemetry-processor-unit
+          path: ./TestResults
+          retention-days: 7
+
+  unit-tests-identity-manager:
+    name: Identity Manager Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Run Identity Manager Tests
+        run: |
+          dotnet test tests/SignalBeam.IdentityManager.Application.Tests/SignalBeam.IdentityManager.Application.Tests.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=identity-manager-unit-tests.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-identity-manager-unit
+          path: ./TestResults
+          retention-days: 7
+
+  # Summary job that depends on all test jobs
+  unit-tests-summary:
+    name: Unit Tests Summary
+    needs:
+      - unit-tests-domain
+      - unit-tests-shared
+      - unit-tests-device-manager
+      - unit-tests-bundle-orchestrator
+      - unit-tests-edge-agent
+      - unit-tests-telemetry-processor
+      - unit-tests-identity-manager
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.unit-tests-domain.result }}" == "failure" ]] || \
+             [[ "${{ needs.unit-tests-shared.result }}" == "failure" ]] || \
+             [[ "${{ needs.unit-tests-device-manager.result }}" == "failure" ]] || \
+             [[ "${{ needs.unit-tests-bundle-orchestrator.result }}" == "failure" ]] || \
+             [[ "${{ needs.unit-tests-edge-agent.result }}" == "failure" ]] || \
+             [[ "${{ needs.unit-tests-telemetry-processor.result }}" == "failure" ]] || \
+             [[ "${{ needs.unit-tests-identity-manager.result }}" == "failure" ]]; then
+            echo "❌ One or more unit test jobs failed"
+            exit 1
+          fi
+          echo "✅ All unit tests passed successfully"
