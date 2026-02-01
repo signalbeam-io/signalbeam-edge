@@ -81,7 +81,7 @@ terraform fmt -recursive infra/terraform/modules
 
 # Validate all modules via Terragrunt
 cd infra/terragrunt/dev
-terragrunt run-all validate
+terragrunt run --all validate
 
 # TFLint per module (optional)
 cd infra/terraform/modules
@@ -94,28 +94,28 @@ Preview all changes (respects the [dependency order](#architecture)):
 
 ```bash
 cd infra/terragrunt/dev
-terragrunt run-all plan
+terragrunt run --all plan
 ```
 
 To plan a single module:
 
 ```bash
 cd infra/terragrunt/dev/aks-cluster
-terragrunt plan
+terragrunt run plan
 ```
 
 ### 6. Apply
 
 ```bash
 cd infra/terragrunt/dev
-terragrunt run-all apply
+terragrunt run --all apply
 ```
 
 Terragrunt resolves dependencies and applies modules in the correct order. To apply a single module:
 
 ```bash
 cd infra/terragrunt/dev/aks-cluster
-terragrunt apply
+terragrunt run apply
 ```
 
 ### 7. Connect to the AKS cluster
@@ -167,13 +167,13 @@ For day-to-day work after initial setup, the cycle is:
 # 1. Edit modules
 # 2. Lint
 terraform fmt -check -recursive infra/terraform/modules
-cd infra/terragrunt/dev && terragrunt run-all validate
+cd infra/terragrunt/dev && terragrunt run --all validate
 
 # 3. Plan
-cd infra/terragrunt/dev && terragrunt run-all plan
+cd infra/terragrunt/dev && terragrunt run --all plan
 
 # 4. Apply
-cd infra/terragrunt/dev && terragrunt run-all apply
+cd infra/terragrunt/dev && terragrunt run --all apply
 ```
 
 ## Destroy
@@ -182,7 +182,7 @@ To tear down all infrastructure:
 
 ```bash
 cd infra/terragrunt/dev
-terragrunt run-all destroy
+terragrunt run --all destroy
 ```
 
 ## Security Notes
