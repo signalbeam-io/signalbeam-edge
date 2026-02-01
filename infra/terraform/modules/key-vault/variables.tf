@@ -1,0 +1,47 @@
+variable "environment" {
+  description = "Environment name (e.g. dev, staging, prod)"
+  type        = string
+}
+
+variable "location" {
+  description = "Azure region"
+  type        = string
+}
+
+variable "project" {
+  description = "Project prefix for resource naming"
+  type        = string
+  default     = "sb"
+}
+
+variable "resource_group_name" {
+  description = "Name of the resource group"
+  type        = string
+}
+
+variable "aks_subnet_id" {
+  description = "AKS subnet ID for Key Vault network ACLs"
+  type        = string
+}
+
+variable "services_subnet_id" {
+  description = "Services subnet ID for Key Vault network ACLs"
+  type        = string
+}
+
+variable "workload_identity_principal_id" {
+  description = "Principal ID of the workload managed identity"
+  type        = string
+}
+
+variable "soft_delete_retention_days" {
+  description = "Number of days for soft delete retention"
+  type        = number
+  default     = 7
+}
+
+variable "tags" {
+  description = "Common tags applied to all resources"
+  type        = map(string)
+  default     = {}
+}
