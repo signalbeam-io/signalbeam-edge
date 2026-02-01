@@ -1,3 +1,5 @@
+data "azurerm_client_config" "current" {}
+
 locals {
   location_short = "weu"
   cluster_name   = "${var.project}-aks-${var.environment}-${local.location_short}"
@@ -10,7 +12,17 @@ resource "azurerm_kubernetes_cluster" "this" {
   dns_prefix          = "${var.project}-aks-${var.environment}"
   kubernetes_version  = var.kubernetes_version
 
-  sku_tier = "Free"
+  sku_tier               = "Free"
+  local_account_disabled = true
+
+  azure_active_directory_role_based_access_control {
+    azure_rbac_enabled = true
+    tenant_id          = data.azurerm_client_config.current.tenant_id
+  }
+
+  api_server_access_profile {
+    authorized_ip_ranges = var.api_server_authorized_ip_ranges
+  }
 
   default_node_pool {
     name                 = "system"

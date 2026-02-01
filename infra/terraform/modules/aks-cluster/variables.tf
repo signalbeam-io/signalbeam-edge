@@ -109,6 +109,12 @@ variable "cert_manager_sa_name" {
   default     = "cert-manager"
 }
 
+variable "api_server_authorized_ip_ranges" {
+  description = "List of CIDRs allowed to access the AKS API server. Empty list allows all."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Common tags applied to all resources"
   type        = map(string)

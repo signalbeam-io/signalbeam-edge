@@ -48,3 +48,15 @@ resource "azurerm_postgresql_flexible_server_configuration" "log_min_duration" {
   name      = "log_min_duration_statement"
   value     = "1000" # 1 second
 }
+
+resource "azurerm_postgresql_flexible_server_configuration" "require_secure_transport" {
+  server_id = azurerm_postgresql_flexible_server.this.id
+  name      = "require_secure_transport"
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "ssl_min_protocol_version" {
+  server_id = azurerm_postgresql_flexible_server.this.id
+  name      = "ssl_min_protocol_version"
+  value     = "TLSv1.2"
+}

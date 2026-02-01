@@ -84,4 +84,8 @@ inputs = {
   workload_identity_id        = dependency.managed_identity.outputs.id
   workload_identity_client_id = dependency.managed_identity.outputs.client_id
   key_vault_id                = dependency.key_vault.outputs.id
+
+  # Restrict API server access to your IP. Replace with your public IP/CIDR.
+  # Empty list = allow all (not recommended for production).
+  api_server_authorized_ip_ranges = [] # e.g. ["203.0.113.0/24"]
 }
