@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if the assistant's response involved writing code. If it did, verify: 1) No TODO comments were left in the code, 2) No placeholder values remain. If issues found, respond with {\"ok\": false, \"reason\": \"description of what's missing\"}. If no code was written or everything looks complete, respond with {\"ok\": true}."
+          }
+        ]
+      }
+    ]
+  }
+}

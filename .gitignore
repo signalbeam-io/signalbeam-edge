@@ -401,6 +401,9 @@ FodyWeavers.xsd
 # Mac files
 .DS_Store
 
+# Local environment files with secrets
+.env*.local
+
 # Created issues mapping
 created-issues.json
 docs/signalbeam-edge-business-plan.md
