@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
 using SignalBeam.IdentityManager.Infrastructure.Persistence;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,13 +35,17 @@ builder.Services.AddAuthentication(options =>
 {
     var jwtConfig = builder.Configuration.GetSection("Authentication:Jwt");
     options.Authority = jwtConfig["Authority"];
-    options.Audience = jwtConfig["Audience"];
+
+    // Read audience from dynamic Zitadel config if available, fallback to appsettings
+    var audience = GetAudienceFromZitadelConfig(builder.Configuration) ?? jwtConfig["Audience"];
+    options.Audience = audience;
+
     options.RequireHttpsMetadata = jwtConfig.GetValue<bool>("RequireHttpsMetadata", true);
 
     options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
     {
         ValidateIssuer = true,
-        ValidateAudience = false, // Temporarily disabled for debugging
+        ValidateAudience = false, // Disabled - Zitadel audience handling requires project:aud scope
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ClockSkew = TimeSpan.FromMinutes(5)
@@ -159,6 +164,34 @@ app.MapSubscriptionEndpoints();
 app.MapTenantEndpoints();
 
 app.Run();
+
+// Helper method to read audience from Zitadel config file
+static string? GetAudienceFromZitadelConfig(IConfiguration configuration)
+{
+    var configPath = configuration["ZITADEL_CONFIG_PATH"];
+    if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
+    {
+        return null;
+    }
+
+    try
+    {
+        var json = File.ReadAllText(configPath);
+        var config = JsonSerializer.Deserialize<JsonElement>(json);
+
+        if (config.TryGetProperty("backend", out var backend) &&
+            backend.TryGetProperty("audience", out var audience))
+        {
+            return audience.GetString();
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Warning: Failed to read Zitadel config from {configPath}: {ex.Message}");
+    }
+
+    return null;
+}
 
 // Make Program accessible to WebApplicationFactory in tests
 public partial class Program { }

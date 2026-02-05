@@ -2,42 +2,142 @@
 
 Follow this end-to-end process when building features. Each step has a corresponding skill.
 
-## 1. Plan (`/plan-feature`)
-- Break down the feature into domain, application, infrastructure, endpoint, frontend, and test tasks.
-- Identify affected services and acceptance criteria.
-- Call out open questions and out-of-scope items.
+## Workflow Overview
 
-## 2. Track (`/create-issue`)
-- Create a GitHub issue from the plan with labels and a checklist.
-- The issue becomes the single source of truth for scope.
+```
+PRD → Issues → Branch → Implement → Verify → Review → PR
+ │       │        │          │          │        │      │
+/prd  /create   /start    /add-*    /check   /code   /complete
+      -issues   -work               -arch   -review  -task
+                                    /lint
+                                    /run-tests
+```
 
-## 3. Branch (`/start-work {issue-number}`)
-- Create a feature branch from latest main using the naming convention: `{username}/{issue-number}-{short-slug}`.
-- Always start from a clean working tree.
+For simple features without PRD:
+```
+Plan → Issue → Branch → Implement → ...
+  │       │       │
+/plan  /create  /start
+-feature -issue  -work
+```
 
-## 4. Implement
-- Follow the layer order: Domain → Application → Infrastructure → Endpoints → Frontend → Tests.
-- Use `/add-entity`, `/add-command`, `/add-query` to scaffold code following project conventions.
-- Commit logically — one commit per logical change, not one giant commit.
+## 1. Requirements (`/prd`)
 
-## 5. Verify Architecture (`/check-architecture`)
-- Run before creating a PR to catch layer violations, Result pattern issues, and convention drift.
+For complex features, start with a Product Requirements Document:
+- Answer structured discovery questions
+- Analyze existing codebase for patterns
+- Generate comprehensive PRD with acceptance criteria
+- Output: `docs/prd/{feature-slug}.md`
 
-## 6. Verify Tests (`/run-tests`)
-- Run unit tests first, then integration tests.
-- All tests must pass before creating a PR.
+Skip for simple bug fixes or small enhancements.
 
-## 7. Lint (`/lint`)
-- Run all linters: `dotnet format`, `npm run lint`, `helm lint`, `terraform validate`, `terraform fmt -check`.
-- Fix all violations before creating a PR.
+## 2. Plan (`/plan-feature`)
 
-## 8. Pull Request (`/create-pr`)
-- Push the branch and create a PR with a structured description.
-- Link to the issue with `Closes #N` for auto-close on merge.
-- Include a test plan checklist in the PR body.
+Break down the feature into implementation tasks:
+- Identify affected services and acceptance criteria
+- Create tasks ordered by layer: Domain → Application → Infrastructure → Endpoints → Frontend → Tests
+- Call out open questions and out-of-scope items
+
+## 3. Track (`/create-issues` or `/create-issue`)
+
+**For PRDs with multiple tasks** — use `/create-issues`:
+- Creates an **epic issue** for the overall feature
+- Creates **task issues** for each implementation item
+- Links tasks to epic with checkboxes
+- Labels derived from affected services
+
+**For simple features** — use `/create-issue`:
+- Creates a single issue with all tasks as checklist
+- Good for small features that don't need separate tracking
+
+The issue(s) become the single source of truth for scope.
+
+## 4. Branch (`/start-work {issue-number}`)
+
+Create a feature branch from latest main:
+- Naming convention: `{username}/{issue-number}-{short-slug}`
+- Always start from a clean working tree
+- Print acceptance criteria as a reminder
+
+## 5. Implement
+
+Follow the layer order: Domain → Application → Infrastructure → Endpoints → Frontend → Tests.
+
+Use scaffolding skills:
+- `/add-entity` — New domain entity with value object ID
+- `/add-command` — New CQRS command with handler and validator
+- `/add-query` — New CQRS query with handler
+
+Commit logically — one commit per logical change, not one giant commit.
+
+## 6. Verify
+
+Run verification checks during development:
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| `/check-architecture` | Layer violations, Result pattern | Before committing |
+| `/run-tests` | Unit and integration tests | After each change |
+| `/lint` | Format, ESLint, Helm, Terraform | Before PR |
+
+## 7. Complete Task (`/complete-task`)
+
+When implementation is done, run the full completion workflow:
+
+1. **Pre-flight** — Verify on feature branch, clean working tree
+2. **Build & Lint** — Deterministic bash gates
+3. **Tests** — Unit tests, then integration tests
+4. **Code Review** — Subagent checks security, architecture, quality
+5. **Task Check** — Subagent verifies acceptance criteria
+6. **Auto-fix** — If issues found, fix and retry (max 3 iterations)
+7. **Create PR** — Push and create pull request
+
+This replaces manually running `/check-architecture`, `/lint`, `/run-tests`, and `/create-pr`.
+
+## 8. Diagnose (`/diagnose`)
+
+When something goes wrong:
+- Structured evidence gathering
+- Hypothesis generation and testing
+- Root cause analysis (5 Whys)
+- Solution proposals with trade-offs
+
+## Quick Reference
+
+| Skill | Description |
+|-------|-------------|
+| `/prd` | Generate PRD through discovery |
+| `/plan-feature` | Break feature into tasks (simple features) |
+| `/create-issues` | Create epic + task issues from PRD |
+| `/create-issue` | Create single GitHub issue from plan |
+| `/start-work N` | Create feature branch |
+| `/add-entity` | Scaffold domain entity |
+| `/add-command` | Scaffold CQRS command |
+| `/add-query` | Scaffold CQRS query |
+| `/check-architecture` | Verify architecture rules |
+| `/run-tests` | Run unit/integration tests |
+| `/lint` | Run all linters |
+| `/code-review` | Review code changes |
+| `/task-check` | Verify acceptance criteria |
+| `/complete-task` | Full completion workflow |
+| `/create-pr` | Create pull request |
+| `/diagnose` | Investigate problems |
+
+## Subagents
+
+These specialized agents run in isolated contexts:
+
+| Subagent | Purpose |
+|----------|---------|
+| `code-reviewer` | Security, architecture, quality review |
+| `task-checker` | Acceptance criteria verification |
+| `investigator` | Evidence gathering for diagnosis |
+| `explorer` | Codebase analysis for new features |
 
 ## Pre-PR Checklist
-Before running `/create-pr`, verify:
+
+Before `/complete-task` or `/create-pr`:
+- [ ] All acceptance criteria addressed
 - [ ] Architecture check passes
 - [ ] All unit tests pass
 - [ ] All integration tests pass (if applicable)

@@ -1,14 +1,28 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Check if the assistant's response involved writing code. If it did, verify: 1) No TODO comments were left in the code, 2) No placeholder values remain. If issues found, respond with {\"ok\": false, \"reason\": \"description of what's missing\"}. If no code was written or everything looks complete, respond with {\"ok\": true}."
-          }
-        ]
-      }
-    ]
+  "subagents": {
+    "code-reviewer": {
+      "description": "Reviews code changes for security, architecture, and quality issues. Use for PR reviews and pre-merge checks.",
+      "prompt": "You are a code reviewer for SignalBeam Edge. Review changes comparing the current branch to origin/main. Check for: 1) Security vulnerabilities (OWASP top 10), 2) Architecture violations (hexagonal layers, Result pattern), 3) Code quality issues. Return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.",
+      "tools": ["Bash", "Read", "Glob", "Grep"],
+      "model": "sonnet"
+    },
+    "task-checker": {
+      "description": "QA reviewer that verifies implementation matches GitHub issue requirements. Use to validate acceptance criteria.",
+      "prompt": "You are a QA reviewer for SignalBeam Edge. Fetch the GitHub issue for the current branch and verify each acceptance criterion is met. For each criterion, find evidence in the code changes. Return MET/UNMET/PARTIAL status for each and a PASS/FAIL summary.",
+      "tools": ["Bash", "Read", "Glob", "Grep"],
+      "model": "sonnet"
+    },
+    "investigator": {
+      "description": "Gathers evidence to diagnose problems. Use for debugging and root cause analysis.",
+      "prompt": "You are a technical investigator. Systematically gather evidence from error messages, code, git history, configuration, and tests. Create an evidence matrix with findings and relevance ratings. Do not draw conclusions - just collect and organize facts.",
+      "tools": ["Bash", "Read", "Glob", "Grep", "WebSearch"],
+      "model": "sonnet"
+    },
+    "explorer": {
+      "description": "Analyzes codebase to find patterns and integration points. Use before implementing new features.",
+      "prompt": "You are a codebase explorer for SignalBeam Edge. Find related entities, existing patterns, integration points (NATS subjects, API endpoints, domain events), and dependencies. Return a structured analysis with recommendations based on existing patterns.",
+      "tools": ["Bash", "Read", "Glob", "Grep"],
+      "model": "haiku"
+    }
   }
 }

@@ -410,3 +410,4 @@ docs/signalbeam-edge-business-plan.md
 AGENTS.md
 infra/terragrunt/dev/*/.terragrunt*
 infra/terragrunt/dev/*/.terraform*
+.zitadel/
