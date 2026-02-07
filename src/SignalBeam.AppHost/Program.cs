@@ -137,6 +137,13 @@ var apiGateway = builder.AddProject<Projects.SignalBeam_ApiGateway>("api-gateway
     .WithReference(identityManager)
     .WithEnvironment("ReverseProxy__Clusters__zitadel__Destinations__destination1__Address", zitadel.GetEndpoint("zitadel"));
 
+// Frontend - React + Vite dev server
+var frontend = builder.AddNpmApp("frontend", "../../web", "dev")
+    .WithHttpEndpoint(port: 5173, env: "PORT")
+    .WithEnvironment("VITE_API_URL", apiGateway.GetEndpoint("gateway"))
+    .WithEnvironment("BROWSER", "none")
+    .WithExternalHttpEndpoints();
+
 // Edge Agent Simulator - use hardcoded gateway URL for simplicity
 var edgeAgentSimulator = builder.AddProject<Projects.SignalBeam_EdgeAgent_Simulator>("edge-agent-simulator")
     .WithEnvironment("SIM_DEVICE_MANAGER_URL", "http://localhost:8080")
