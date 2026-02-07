@@ -105,71 +105,11 @@ If tests fail, STOP and report failures.
 
 ### Phase 3: Quality Review (Parallel Subagents)
 
-Launch TWO subagents in parallel using the Task tool:
+Launch TWO subagents in parallel using the Task tool. Each subagent uses the detailed instructions from its `.claude/subagents/*.md` file.
 
-**Subagent 1: Code Review**
-```
-You are a code reviewer for SignalBeam Edge.
+**Subagent 1: `reviewer`** — Code review for security, architecture, and quality issues. Uses the `reviewer` subagent definition. The subagent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
 
-Review all changes on this branch compared to origin/main.
-
-Run: git diff origin/main...HEAD
-
-Check for:
-1. Security vulnerabilities (OWASP top 10: injection, XSS, auth bypass)
-2. Result pattern violations (throwing exceptions for business logic)
-3. Hexagonal architecture violations (Domain depending on Infrastructure)
-4. Missing error handling or swallowed exceptions
-5. Code duplication that should be extracted
-6. Missing or inadequate tests for new functionality
-7. Hardcoded secrets or configuration values
-8. Breaking API changes without versioning
-
-Output format:
-## Code Review Results
-
-### Critical Issues (must fix)
-- [ ] {file}:{line} — {description}
-
-### Warnings (should fix)
-- [ ] {file}:{line} — {description}
-
-### Suggestions (nice to have)
-- {description}
-
-### Summary
-{PASS | FAIL with issue count}
-```
-
-**Subagent 2: Task Check (QA)**
-```
-You are a QA reviewer for SignalBeam Edge.
-
-Fetch the GitHub issue for this branch and verify implementation matches requirements.
-
-1. Get issue number from branch: git branch --show-current
-2. Fetch issue: gh issue view {number} --json title,body,labels
-3. Review the acceptance criteria in the issue body
-4. Check what was implemented: git diff origin/main...HEAD --stat
-
-For each acceptance criterion:
-- Mark as MET if the implementation satisfies it
-- Mark as UNMET if missing or incomplete
-- Mark as PARTIAL if partially implemented
-
-Output format:
-## Task Check Results
-
-### Issue: #{number} — {title}
-
-### Acceptance Criteria
-- [x] AC1: {criterion} — MET: {evidence}
-- [ ] AC2: {criterion} — UNMET: {what's missing}
-- [~] AC3: {criterion} — PARTIAL: {what's done, what's missing}
-
-### Summary
-{PASS | FAIL — X of Y criteria met}
-```
+**Subagent 2: `verifier`** — QA verification that implementation matches the GitHub issue acceptance criteria. Uses the `verifier` subagent definition. The subagent should fetch the issue via `gh issue view`, compare against the diff, and return MET/UNMET/PARTIAL status for each criterion with a PASS/FAIL summary.
 
 ### Phase 4: Evaluate Results
 

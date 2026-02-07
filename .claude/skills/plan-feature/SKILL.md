@@ -69,4 +69,4 @@ One-paragraph description of the feature and the problem it solves.
 - Keep tasks small enough that each maps to roughly one file or one logical change.
 - Flag when a task requires a new migration, a new NATS subject, or a new API route.
 - If the feature spans multiple services, note cross-service integration points.
-- After producing the plan, suggest the user run `/create-issue` to push it to GitHub.
+- After producing the plan, suggest the user run `/create-tasks` to push it to GitHub.

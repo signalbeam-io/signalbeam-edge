@@ -8,17 +8,17 @@ Follow this end-to-end process when building features. Each step has a correspon
 PRD → Issues → Branch → Implement → Verify → Review → PR
  │       │        │          │          │        │      │
 /prd  /create   /start    /add-*    /check   /code   /complete
-      -issues   -work               -arch   -review  -task
+      -tasks    -work               -arch   -review  -task
                                     /lint
                                     /run-tests
 ```
 
 For simple features without PRD:
 ```
-Plan → Issue → Branch → Implement → ...
-  │       │       │
-/plan  /create  /start
--feature -issue  -work
+Plan → Issues → Branch → Implement → ...
+  │       │        │
+/plan  /create   /start
+-feature -tasks   -work
 ```
 
 ## 1. Requirements (`/prd`)
@@ -38,17 +38,11 @@ Break down the feature into implementation tasks:
 - Create tasks ordered by layer: Domain → Application → Infrastructure → Endpoints → Frontend → Tests
 - Call out open questions and out-of-scope items
 
-## 3. Track (`/create-issues` or `/create-issue`)
+## 3. Track (`/create-tasks`)
 
-**For PRDs with multiple tasks** — use `/create-issues`:
-- Creates an **epic issue** for the overall feature
-- Creates **task issues** for each implementation item
-- Links tasks to epic with checkboxes
-- Labels derived from affected services
-
-**For simple features** — use `/create-issue`:
-- Creates a single issue with all tasks as checklist
-- Good for small features that don't need separate tracking
+Use `/create-tasks` — it automatically decides the right structure:
+- **Small features** (≤ 3 tasks, single service): creates a single issue with checklist
+- **Large features** (multiple tasks/services): creates an epic + individual task issues
 
 The issue(s) become the single source of truth for scope.
 
@@ -67,6 +61,11 @@ Use scaffolding skills:
 - `/add-entity` — New domain entity with value object ID
 - `/add-command` — New CQRS command with handler and validator
 - `/add-query` — New CQRS query with handler
+- `/add-event-handler` — WolverineFx event handler for domain/integration events
+- `/add-migration` — EF Core migration after model changes
+- `/add-feature` — Frontend feature module (page, components, API service)
+
+Run the local environment with `/run-local` to test as you build.
 
 Commit logically — one commit per logical change, not one giant commit.
 
@@ -108,12 +107,15 @@ When something goes wrong:
 |-------|-------------|
 | `/prd` | Generate PRD through discovery |
 | `/plan-feature` | Break feature into tasks (simple features) |
-| `/create-issues` | Create epic + task issues from PRD |
-| `/create-issue` | Create single GitHub issue from plan |
+| `/create-tasks` | Create GitHub issues (auto: single or epic + tasks) |
 | `/start-work N` | Create feature branch |
 | `/add-entity` | Scaffold domain entity |
 | `/add-command` | Scaffold CQRS command |
 | `/add-query` | Scaffold CQRS query |
+| `/add-event-handler` | Scaffold WolverineFx event handler |
+| `/add-migration` | Create EF Core migration |
+| `/add-feature` | Scaffold frontend feature module |
+| `/run-local` | Start local dev environment (Aspire) |
 | `/check-architecture` | Verify architecture rules |
 | `/run-tests` | Run unit/integration tests |
 | `/lint` | Run all linters |
@@ -129,10 +131,10 @@ These specialized agents run in isolated contexts:
 
 | Subagent | Purpose |
 |----------|---------|
-| `code-reviewer` | Security, architecture, quality review |
-| `task-checker` | Acceptance criteria verification |
+| `reviewer` | Security, architecture, quality review |
+| `verifier` | Acceptance criteria verification |
 | `investigator` | Evidence gathering for diagnosis |
-| `explorer` | Codebase analysis for new features |
+| `analyzer` | Codebase analysis for new features |
 
 ## Pre-PR Checklist
 

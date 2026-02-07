@@ -2,13 +2,24 @@
 name: check-architecture
 description: Verify hexagonal architecture layer rules, Result pattern usage, and coding conventions
 allowed-tools: Read, Glob, Grep, Bash
+user-invocable: true
 ---
 
 # Architecture Check
 
-Verify the project follows its architectural rules. Run these checks and report violations.
+Verify the project follows its architectural rules. Run automated arch tests first, then supplement with manual checks.
 
-## 1. Layer Dependency Violations
+## 1. Run NetArchTest.Rules Tests
+
+First, run any architecture tests in the test suite:
+
+```bash
+dotnet test src/SignalBeam.sln --filter "FullyQualifiedName~Arch" --no-restore
+```
+
+If no arch tests exist, proceed with manual checks below.
+
+## 2. Layer Dependency Violations
 
 Check that Domain layer has no forbidden references:
 - Search `src/**/Domain/**/*.cs` for `using` statements referencing Infrastructure, Host, Entity Framework, ASP.NET
@@ -19,7 +30,7 @@ Check that Application layer doesn't reference Host:
 
 Check that no circular project references exist in .csproj files.
 
-## 2. Result Pattern Compliance
+## 3. Result Pattern Compliance
 
 Search Application layer handlers for:
 - Methods that `throw` exceptions for business logic (should use `Result.Failure()` instead)
@@ -28,7 +39,7 @@ Search Application layer handlers for:
 
 Acceptable throws: `ArgumentException` in value object constructors, `InvalidOperationException` for programmer errors.
 
-## 3. CQRS Conventions
+## 4. CQRS Conventions
 
 Verify:
 - Command records are in `Application/Commands/` folders
@@ -36,7 +47,7 @@ Verify:
 - Command handlers don't use query-only repositories for writes
 - Query handlers don't call write repositories
 
-## 4. Domain Entity Conventions
+## 5. Domain Entity Conventions
 
 Check entities in `Domain/Entities/`:
 - Inherit from `Entity<TId>` or `AggregateRoot<TId>`
@@ -44,13 +55,13 @@ Check entities in `Domain/Entities/`:
 - Use factory methods (static Create/Register methods) not public constructors
 - Domain events raised via `RaiseDomainEvent()`
 
-## 5. Error Code Conventions
+## 6. Error Code Conventions
 
 Search for `Result.Failure` calls and verify:
 - Error codes use SCREAMING_SNAKE_CASE
 - Error codes are descriptive: `"DEVICE_NOT_FOUND"` not `"NOT_FOUND"`
 
-## 6. Endpoint Conventions
+## 7. Endpoint Conventions
 
 Check endpoints have:
 - `.WithName()`, `.WithSummary()`, `.WithOpenApi()`
@@ -59,7 +70,29 @@ Check endpoints have:
 
 ## Report Format
 
-For each check, report:
-- PASS or FAIL with count of violations
-- File path and line number for each violation
-- Suggested fix
+```markdown
+## Architecture Check Results
+
+### Automated Tests
+{PASS | FAIL | SKIPPED (no arch tests found)}
+
+### Manual Checks
+| # | Check | Status | Violations |
+|---|-------|--------|------------|
+| 1 | Layer dependencies | {PASS/FAIL} | {count} |
+| 2 | Result pattern | {PASS/FAIL} | {count} |
+| 3 | CQRS conventions | {PASS/FAIL} | {count} |
+| 4 | Domain entities | {PASS/FAIL} | {count} |
+| 5 | Error codes | {PASS/FAIL} | {count} |
+| 6 | Endpoints | {PASS/FAIL} | {count} |
+
+### Violations
+- {file}:{line} — {description} — **Fix:** {suggestion}
+
+### Summary: {PASS | FAIL}
+```
+
+## Related Skills
+
+- After fixing violations, run `/run-tests` to verify nothing broke
+- Use `/add-entity`, `/add-command`, `/add-query` to scaffold code that follows conventions
