@@ -92,3 +92,9 @@ services.AddScoped<{Name}Handler>();
 - [ ] Endpoint has OpenAPI metadata (WithName, WithSummary, Produces)
 - [ ] Handler registered in DI
 - [ ] CancellationToken propagated through all async calls
+
+## Related Skills
+
+- `/add-entity` if the command creates a new entity type
+- `/add-event-handler` to react to domain events raised by this command
+- `/add-query` if you also need a read endpoint for the same resource

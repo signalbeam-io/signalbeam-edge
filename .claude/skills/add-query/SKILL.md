@@ -96,3 +96,9 @@ For list endpoints, use `[FromQuery]` for pagination:
 - [ ] Endpoint has OpenAPI metadata
 - [ ] Pagination supported for list queries
 - [ ] CancellationToken propagated
+
+## Related Skills
+
+- `/add-command` if you also need a write endpoint for the same resource
+- `/add-entity` if the entity doesn't exist yet
+- `/add-feature` to create the frontend feature that calls this query

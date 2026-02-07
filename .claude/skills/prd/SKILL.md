@@ -43,7 +43,7 @@ Ask the user these questions using AskUserQuestion. Group related questions toge
 
 ### Phase 2: Codebase Analysis (unless --skip-analysis)
 
-Use an Explore subagent to analyze the existing codebase:
+Use the `analyzer` subagent to analyze the existing codebase:
 
 ```
 Analyze the SignalBeam Edge codebase for implementing "{feature name}".
@@ -254,7 +254,7 @@ After generating the PRD, suggest:
 1. Review and refine the PRD with stakeholders
 2. Resolve open questions
 3. Run `/plan-feature` to create implementation tasks
-4. Run `/create-issue` to track in GitHub
+4. Run `/create-tasks` to track in GitHub
 
 PRD saved to: docs/prd/{feature-slug}.md
 ```

@@ -141,3 +141,10 @@ public DbSet<{Entity}> {Entity}s => Set<{Entity}>();
 - [ ] EF Core configuration with value object conversions
 - [ ] DbSet added to DbContext
 - [ ] No framework dependencies in Domain layer
+
+## Related Skills
+
+- `/add-command` to create commands that operate on this entity
+- `/add-query` to create queries that read this entity
+- `/add-event-handler` to handle the domain events raised by this entity
+- `/add-migration` to create the EF Core migration for the new table
