@@ -1,22 +1,18 @@
 <Project>
-
   <PropertyGroup>
     <!-- Enable Central Package Management -->
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-
   <ItemGroup Label="Messaging and CQRS">
     <PackageVersion Include="WolverineFx" Version="3.7.0" />
     <PackageVersion Include="WolverineFx.Http" Version="3.7.0" />
   </ItemGroup>
-
   <ItemGroup Label="Data Access">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.3" />
     <PackageVersion Include="Dapper" Version="2.1.44" />
   </ItemGroup>
-
   <ItemGroup Label="Cloud-Native Integrations">
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.22.2" />
     <PackageVersion Include="NATS.Client.Core" Version="2.5.3" />
@@ -24,11 +20,9 @@
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
     <PackageVersion Include="Azure.Identity" Version="1.13.1" />
   </ItemGroup>
-
   <ItemGroup Label="Container Management">
     <PackageVersion Include="Docker.DotNet" Version="3.125.15" />
   </ItemGroup>
-
   <ItemGroup Label="Hosting and Configuration">
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="9.0.0" />
@@ -36,27 +30,22 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.0" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
-
   <ItemGroup Label="System Monitoring">
     <PackageVersion Include="System.Management" Version="9.0.0" />
   </ItemGroup>
-
   <ItemGroup Label="Authentication and Authorization">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.1.1" />
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
   </ItemGroup>
-
   <ItemGroup Label="API Documentation">
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="1.2.42" />
   </ItemGroup>
-
   <ItemGroup Label="API Gateway">
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.2.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="9.1.0" />
   </ItemGroup>
-
   <ItemGroup Label="Observability">
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageVersion Include="OpenTelemetry" Version="1.10.0" />
@@ -76,40 +65,35 @@
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="8.0.0" />
   </ItemGroup>
-
   <ItemGroup Label="Resilience">
     <PackageVersion Include="Polly" Version="8.5.0" />
     <PackageVersion Include="Polly.Extensions" Version="8.5.0" />
   </ItemGroup>
-
   <ItemGroup Label="Validation">
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
   </ItemGroup>
-
   <ItemGroup Label="Serialization">
     <PackageVersion Include="System.Text.Json" Version="9.0.0" />
   </ItemGroup>
-
   <ItemGroup Label="Health Checks">
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
     <PackageVersion Include="AspNetCore.HealthChecks.AzureBlobStorage" Version="8.0.1" />
   </ItemGroup>
-
   <ItemGroup Label=".NET Aspire">
     <PackageVersion Include="Aspire.Hosting" Version="9.1.0" />
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.1.0" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="9.1.0" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="9.1.0" />
     <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="9.1.0" />
+    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.1.0" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.1.0" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="9.1.0" />
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="9.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="9.1.0" />
   </ItemGroup>
-
   <ItemGroup Label="Testing">
     <PackageVersion Include="xunit" Version="2.9.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
@@ -122,7 +106,6 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
   </ItemGroup>
-
   <ItemGroup Label="Code Analyzers">
     <PackageVersion Include="Roslynator.Analyzers" Version="4.12.9" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.4.0.108396" />
@@ -130,5 +113,4 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.11.0" />
   </ItemGroup>
-
 </Project>
