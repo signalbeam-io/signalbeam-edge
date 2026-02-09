@@ -48,9 +48,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
     if (error.response?.status === 401) {
-      const nextUrl = `${window.location.pathname}${window.location.search}`
-      useAuthStore.getState().clearAuth()
-      window.location.href = `/login?redirect=${encodeURIComponent(nextUrl)}`
+      // Don't redirect if already on login/callback pages (prevents loops)
+      const path = window.location.pathname
+      if (path !== '/login' && path !== '/callback') {
+        console.warn('API returned 401:', error.config?.url, error.response?.data)
+        const nextUrl = `${path}${window.location.search}`
+        useAuthStore.getState().clearAuth()
+        window.location.href = `/login?redirect=${encodeURIComponent(nextUrl)}`
+      }
     }
     return Promise.reject(error)
   }

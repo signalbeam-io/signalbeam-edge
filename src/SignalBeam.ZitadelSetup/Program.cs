@@ -204,7 +204,7 @@ if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
 var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
 await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(config, jsonOptions));
 
-WriteWebEnvFile(clientId);
+WriteWebEnvFile(clientId, projectId);
 WriteApiEnvFile(clientId, apiClientId, apiClientSecret);
 
 Console.WriteLine("✅ Configuration saved!");
@@ -217,7 +217,7 @@ Console.WriteLine($"  Authority:   http://localhost:8080");
 Console.WriteLine();
 Console.WriteLine("🎉 Zitadel is fully configured and ready to use!");
 
-static void WriteWebEnvFile(string clientId)
+static void WriteWebEnvFile(string clientId, string projectId)
 {
     var repoRoot = FindRepoRoot();
     if (repoRoot is null)
@@ -233,29 +233,46 @@ static void WriteWebEnvFile(string clientId)
         return;
     }
 
+    var replacements = new Dictionary<string, string>
+    {
+        ["VITE_ZITADEL_CLIENT_ID"] = clientId,
+        ["VITE_ZITADEL_PROJECT_ID"] = projectId,
+    };
+
     var existing = File.ReadAllLines(envPath);
     var updated = new List<string>();
-    var replaced = false;
+    var found = new HashSet<string>();
+
     foreach (var line in existing)
     {
-        if (line.StartsWith("VITE_ZITADEL_CLIENT_ID=", StringComparison.Ordinal))
+        var replaced = false;
+        foreach (var (key, value) in replacements)
         {
-            updated.Add($"VITE_ZITADEL_CLIENT_ID={clientId}");
-            replaced = true;
+            if (line.StartsWith($"{key}=", StringComparison.Ordinal))
+            {
+                updated.Add($"{key}={value}");
+                found.Add(key);
+                replaced = true;
+                break;
+            }
         }
-        else
+
+        if (!replaced)
         {
             updated.Add(line);
         }
     }
 
-    if (!replaced)
+    foreach (var (key, value) in replacements)
     {
-        updated.Add($"VITE_ZITADEL_CLIENT_ID={clientId}");
+        if (!found.Contains(key))
+        {
+            updated.Add($"{key}={value}");
+        }
     }
 
     File.WriteAllLines(envPath, updated);
-    Console.WriteLine($"✅ Updated VITE_ZITADEL_CLIENT_ID in {envPath}");
+    Console.WriteLine($"✅ Updated VITE_ZITADEL_CLIENT_ID and VITE_ZITADEL_PROJECT_ID in {envPath}");
 }
 
 static void WriteApiEnvFile(string webClientId, string? apiClientId, string? apiClientSecret)
@@ -373,6 +390,18 @@ record AppResponse(
 record AppSearchResult(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("oidcConfig")] OidcConfig? OidcConfig,
+    [property: JsonPropertyName("apiConfig")] ApiConfig? ApiConfig
+)
+{
+    public string? ClientId => OidcConfig?.ClientId ?? ApiConfig?.ClientId;
+}
+
+record OidcConfig(
+    [property: JsonPropertyName("clientId")] string? ClientId
+);
+
+record ApiConfig(
     [property: JsonPropertyName("clientId")] string? ClientId
 );
 

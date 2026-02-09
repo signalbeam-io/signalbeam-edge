@@ -93,6 +93,34 @@ When implementation is done, run the full completion workflow:
 
 This replaces manually running `/check-architecture`, `/lint`, `/run-tests`, and `/create-pr`.
 
+## Infrastructure Workflow
+
+For infrastructure-only changes (Terraform, Helm, CI/CD), use the dedicated infra workflow. This skips .NET build/tests and frontend lint entirely.
+
+```
+Plan → Issues → Branch → Implement → Verify → PR
+  │       │        │          │          │      │
+/infra  /create  /start    /add-*    /infra  /complete
+-plan   -tasks   -work               -lint   -infra
+```
+
+### Infra Skills
+
+| Skill | Description |
+|-------|-------------|
+| `/infra-plan` | Plan infrastructure changes (Terraform, Helm, CI/CD) |
+| `/add-terraform-module` | Scaffold new Terraform module with Terragrunt wiring |
+| `/add-helm-chart` | Scaffold new Helm chart with standard templates |
+| `/infra-lint` | Lint Terraform/Helm only (fast, skips .NET/frontend) |
+| `/infra-apply` | Run `terraform plan` and optionally apply |
+| `/complete-infra` | Infra-specific completion: lint, validate, review, PR |
+
+### When to Use Infra Workflow vs Standard Workflow
+
+- **Infra workflow:** Changes only touch `infra/`, `deploy/`, or `.github/workflows/`
+- **Standard workflow:** Changes touch application code (`src/`, `web/`, `tests/`)
+- **Both:** If a feature needs app code + infra changes, use standard workflow with `/infra-lint` for validation
+
 ## 8. Diagnose (`/diagnose`)
 
 When something goes wrong:
@@ -124,6 +152,12 @@ When something goes wrong:
 | `/complete-task` | Full completion workflow |
 | `/create-pr` | Create pull request |
 | `/diagnose` | Investigate problems |
+| `/infra-plan` | Plan infrastructure changes |
+| `/add-terraform-module` | Scaffold Terraform module |
+| `/add-helm-chart` | Scaffold Helm chart |
+| `/infra-lint` | Lint Terraform/Helm only |
+| `/infra-apply` | Terraform plan/apply |
+| `/complete-infra` | Infra completion workflow |
 
 ## Subagents
 

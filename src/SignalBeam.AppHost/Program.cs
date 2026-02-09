@@ -139,7 +139,7 @@ var apiGateway = builder.AddProject<Projects.SignalBeam_ApiGateway>("api-gateway
 
 // Frontend - React + Vite dev server
 var frontend = builder.AddNpmApp("frontend", "../../web", "dev")
-    .WithHttpEndpoint(port: 5173, env: "PORT")
+    .WithHttpEndpoint(port: 5173, targetPort: 5174, env: "PORT")
     .WithEnvironment("VITE_API_URL", apiGateway.GetEndpoint("gateway"))
     .WithEnvironment("BROWSER", "none")
     .WithExternalHttpEndpoints();

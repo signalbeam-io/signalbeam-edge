@@ -56,6 +56,27 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ClockSkew = TimeSpan.FromMinutes(5)
     };
+
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"🔴 JWT Auth FAILED: {context.Exception.GetType().Name}: {context.Exception.Message}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var aud = string.Join(", ", context.Principal?.Claims.Where(c => c.Type == "aud").Select(c => c.Value) ?? []);
+            var iss = context.Principal?.Claims.FirstOrDefault(c => c.Type == "iss")?.Value;
+            Console.WriteLine($"🟢 JWT Auth OK: iss={iss} aud=[{aud}]");
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            Console.WriteLine($"🟡 JWT Challenge: {context.Error} {context.ErrorDescription}");
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();

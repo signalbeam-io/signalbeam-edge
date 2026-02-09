@@ -68,7 +68,15 @@ public class DeviceAuthenticationMiddleware
                 certResult.Error?.Message);
         }
 
-        // [2] Fallback to API key authentication
+        // [2] If request has a Bearer token, skip this middleware and let JWT auth handle it
+        var authHeader = context.Request.Headers.Authorization.ToString();
+        if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context);
+            return;
+        }
+
+        // [3] Fallback to API key authentication
         if (!context.Request.Headers.TryGetValue(
             AuthenticationConstants.ApiKeyHeaderName,
             out var apiKeyValue))

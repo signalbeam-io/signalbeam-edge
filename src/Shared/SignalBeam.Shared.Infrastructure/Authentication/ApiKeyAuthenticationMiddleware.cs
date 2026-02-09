@@ -36,6 +36,14 @@ public class ApiKeyAuthenticationMiddleware
             return;
         }
 
+        // If request has a Bearer token, skip API key auth and let JWT auth handle it
+        var authHeader = context.Request.Headers.Authorization.ToString();
+        if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context);
+            return;
+        }
+
         // Extract API key from header
         if (!context.Request.Headers.TryGetValue(AuthenticationConstants.ApiKeyHeaderName, out var apiKeyValue))
         {

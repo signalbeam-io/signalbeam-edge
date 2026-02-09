@@ -77,13 +77,12 @@ class ZitadelAuthService {
   }
 
   /**
-   * Gets the current access token (returns id_token which is a JWT)
-   * @returns ID token (JWT) if authenticated, null otherwise
+   * Gets the current access token
+   * @returns Access token if authenticated, null otherwise
    */
   async getAccessToken(): Promise<string | null> {
     const user = await this.getUser()
-    // Return id_token (JWT) instead of access_token (opaque) for backend authentication
-    return user?.id_token ?? null
+    return user?.access_token ?? null
   }
 
   /**

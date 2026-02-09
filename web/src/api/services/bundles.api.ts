@@ -4,6 +4,7 @@
 
 import { apiRequest } from '../client'
 import { appendTenantId, withTenantId } from './tenant'
+import { getTenantId } from '@/lib/tenant'
 import type {
   AppBundle,
   BundleFilters,
@@ -296,8 +297,8 @@ export const bundlesApi = {
 
     const response = await apiRequest<CreateBundleBackendResponse>({
       method: 'POST',
-      url: BASE_PATH,
-      data: withTenantId(data),
+      url: `${BASE_PATH}?tenantId=${getTenantId()}`,
+      data,
     })
 
     // Map backend response to AppBundle

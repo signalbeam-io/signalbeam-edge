@@ -16,7 +16,8 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy.WithOrigins(
-                "http://localhost:5173",  // Vite dev server (default)
+                "http://localhost:5173",  // Vite dev server (Aspire proxy)
+                "http://localhost:5174",  // Vite dev server (fallback port)
                 "http://localhost:3000",  // Alternative frontend port
                 "http://localhost:3001",  // Alternative frontend port
                 "http://localhost:4173"   // Vite preview

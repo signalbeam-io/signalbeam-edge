@@ -15,7 +15,15 @@ export const ZITADEL_REDIRECT_URI =
   import.meta.env.VITE_ZITADEL_REDIRECT_URI ?? `${window.location.origin}/callback`
 export const ZITADEL_POST_LOGOUT_REDIRECT_URI =
   import.meta.env.VITE_ZITADEL_POST_LOGOUT_REDIRECT_URI ?? window.location.origin
-export const ZITADEL_SCOPES = ['openid', 'profile', 'email']
+export const ZITADEL_PROJECT_ID = import.meta.env.VITE_ZITADEL_PROJECT_ID ?? ''
+export const ZITADEL_SCOPES = [
+  'openid',
+  'profile',
+  'email',
+  ...(ZITADEL_PROJECT_ID
+    ? [`urn:zitadel:iam:org:project:id:${ZITADEL_PROJECT_ID}:aud`]
+    : []),
+]
 
 // Entra ID Configuration (legacy)
 const defaultTenantId = import.meta.env.VITE_ENTRA_TENANT_ID ?? 'common'
