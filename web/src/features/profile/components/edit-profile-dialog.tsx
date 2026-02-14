@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,10 @@ interface EditProfileDialogProps {
 export function EditProfileDialog({ open, onOpenChange, currentName }: EditProfileDialogProps) {
   const [name, setName] = useState(currentName)
   const updateProfile = useUpdateProfile()
+
+  useEffect(() => {
+    if (open) setName(currentName)
+  }, [open, currentName])
   const { toast } = useToast()
 
   const isValid = name.trim().length >= 1 && name.trim().length <= 200

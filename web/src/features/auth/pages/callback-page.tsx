@@ -20,6 +20,7 @@ interface CurrentUserResponse {
   maxDevices: number
   currentDeviceCount: number
   dataRetentionDays: number
+  lastLoginAt: string | null
 }
 
 export function CallbackPage() {
@@ -73,6 +74,7 @@ export function CallbackPage() {
             tenantName: userData.tenantName,
             tenantSlug: userData.tenantSlug,
             role: userData.role,
+            ...(userData.lastLoginAt ? { lastLoginAt: userData.lastLoginAt } : {}),
           }
 
           const subscription: SubscriptionInfo = {

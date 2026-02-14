@@ -63,6 +63,14 @@ export function ProfilePage() {
               <p className="text-sm font-medium text-muted-foreground">Tenant</p>
               <p className="text-sm">{user.tenantName ?? 'N/A'}</p>
             </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Last Login</p>
+              <p className="text-sm">
+                {user.lastLoginAt
+                  ? new Date(user.lastLoginAt).toLocaleString()
+                  : 'Never'}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -75,11 +83,18 @@ export function ProfilePage() {
             <CardDescription>Your current plan and usage</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Tier</span>
-              <Badge variant={subscription.tier === 'Paid' ? 'default' : 'secondary'}>
-                {subscription.tier}
-              </Badge>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Tier</span>
+                <Badge variant={subscription.tier === 'Paid' ? 'default' : 'secondary'}>
+                  {subscription.tier}
+                </Badge>
+              </div>
+              {subscription.tier === 'Free' && (
+                <Button variant="outline" size="sm" disabled>
+                  Upgrade to Paid
+                </Button>
+              )}
             </div>
             <div>
               <div className="mb-1.5 flex items-center justify-between text-sm">

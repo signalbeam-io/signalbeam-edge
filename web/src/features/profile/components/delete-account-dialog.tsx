@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,10 @@ interface DeleteAccountDialogProps {
 export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogProps) {
   const [confirmation, setConfirmation] = useState('')
   const deleteAccount = useDeleteAccount()
+
+  useEffect(() => {
+    if (open) setConfirmation('')
+  }, [open])
   const { toast } = useToast()
 
   const isConfirmed = confirmation === 'DELETE'
