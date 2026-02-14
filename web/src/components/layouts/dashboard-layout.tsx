@@ -50,7 +50,14 @@ export function DashboardLayout() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {user && <span className="text-sm text-muted-foreground">{user.name}</span>}
+              {user && (
+                <Link
+                  to="/profile"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {user.name}
+                </Link>
+              )}
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 Logout
               </Button>

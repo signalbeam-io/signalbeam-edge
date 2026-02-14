@@ -10,6 +10,7 @@ import { PhasedRolloutsListPage } from '@/features/bundles/pages/phased-rollouts
 import { PhasedRolloutDetailPage } from '@/features/bundles/pages/phased-rollout-detail-page'
 import { AlertsPage } from '@/features/alerts/pages/alerts-page'
 import { RegistrationTokensPage } from '@/features/registration-tokens/pages/registration-tokens-page'
+import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { NotFoundPage } from '@/features/not-found/pages/not-found-page'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { CallbackPage } from '@/features/auth/pages/callback-page'
@@ -35,6 +36,7 @@ export function AppRoutes() {
           <Route path="phased-rollouts/:id" element={<PhasedRolloutDetailPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="registration-tokens" element={<RegistrationTokensPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

@@ -85,6 +85,8 @@ builder.Services.AddScoped<RegisterUserHandler>();
 builder.Services.AddScoped<GetCurrentUserHandler>();
 builder.Services.AddScoped<UpgradeSubscriptionHandler>();
 builder.Services.AddScoped<GetTenantsWithRetentionHandler>();
+builder.Services.AddScoped<UpdateUserProfileHandler>();
+builder.Services.AddScoped<DeleteUserAccountHandler>();
 
 // Add OpenAPI and Scalar
 builder.Services.AddOpenApi(options =>
@@ -162,6 +164,7 @@ app.MapDefaultEndpoints();
 app.MapAuthEndpoints();
 app.MapSubscriptionEndpoints();
 app.MapTenantEndpoints();
+app.MapUserEndpoints();
 
 app.Run();
 
