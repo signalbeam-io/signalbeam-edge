@@ -21,6 +21,7 @@ export interface User {
   tenantName?: string
   tenantSlug?: string
   role?: UserRole
+  lastLoginAt?: string
 }
 
 interface AuthState {
