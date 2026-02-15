@@ -2,7 +2,7 @@
  * Dialog for changing a team member's role
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -32,6 +32,12 @@ interface ChangeRoleDialogProps {
 
 export function ChangeRoleDialog({ member, onOpenChange, onChangeRole, isPending }: ChangeRoleDialogProps) {
   const [role, setRole] = useState<UserRole>(member?.role ?? 'DeviceOwner')
+
+  useEffect(() => {
+    if (member) {
+      setRole(member.role)
+    }
+  }, [member])
 
   const handleSubmit = () => {
     if (member) {

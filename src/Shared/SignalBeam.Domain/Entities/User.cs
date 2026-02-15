@@ -125,7 +125,10 @@ public class User : AggregateRoot<UserId>
     /// </summary>
     public void ChangeRole(UserRole newRole)
     {
+        var oldRole = Role;
         Role = newRole;
+        RaiseDomainEvent(new Events.UserRoleChangedEvent(
+            Id, TenantId, oldRole, newRole, DateTimeOffset.UtcNow));
     }
 
     /// <summary>

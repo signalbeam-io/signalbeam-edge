@@ -101,7 +101,8 @@ public static class TeamEndpoints
         var (_, tenantId, error) = await ResolveCallerContext(httpContext, userRepository, cancellationToken);
         if (error != null) return error;
 
-        var query = new GetTenantUsersQuery(tenantId!.Value, page > 0 ? page : 1, pageSize > 0 ? pageSize : 20, search);
+        var clampedPageSize = pageSize > 0 ? Math.Min(pageSize, 100) : 20;
+        var query = new GetTenantUsersQuery(tenantId!.Value, page > 0 ? page : 1, clampedPageSize, search);
         var result = await handler.Handle(query, cancellationToken);
 
         return result.IsSuccess

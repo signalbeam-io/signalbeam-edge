@@ -1,5 +1,4 @@
 using SignalBeam.Domain.Enums;
-using SignalBeam.Domain.Events;
 using SignalBeam.Domain.ValueObjects;
 using SignalBeam.IdentityManager.Application.Repositories;
 using SignalBeam.Shared.Infrastructure.Results;
@@ -58,7 +57,6 @@ public class ChangeUserRoleHandler
             }
         }
 
-        var oldRole = targetUser.Role;
         targetUser.ChangeRole(command.NewRole);
 
         await _userRepository.UpdateAsync(targetUser, cancellationToken);
