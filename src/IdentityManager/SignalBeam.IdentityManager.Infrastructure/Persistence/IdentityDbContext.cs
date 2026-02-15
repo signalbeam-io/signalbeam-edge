@@ -17,6 +17,7 @@ public class IdentityDbContext : DbContext
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

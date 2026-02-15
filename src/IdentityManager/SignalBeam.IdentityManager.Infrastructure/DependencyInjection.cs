@@ -31,9 +31,11 @@ public static class DependencyInjection
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
 
         // Register services
         services.AddScoped<IQuotaEnforcementService, QuotaEnforcementService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         return services;
     }
