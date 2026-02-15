@@ -87,6 +87,13 @@ builder.Services.AddScoped<UpgradeSubscriptionHandler>();
 builder.Services.AddScoped<GetTenantsWithRetentionHandler>();
 builder.Services.AddScoped<UpdateUserProfileHandler>();
 builder.Services.AddScoped<DeleteUserAccountHandler>();
+builder.Services.AddScoped<InviteUserHandler>();
+builder.Services.AddScoped<AcceptInvitationHandler>();
+builder.Services.AddScoped<DeclineInvitationHandler>();
+builder.Services.AddScoped<ChangeUserRoleHandler>();
+builder.Services.AddScoped<RemoveUserFromTenantHandler>();
+builder.Services.AddScoped<GetTenantUsersHandler>();
+builder.Services.AddScoped<GetPendingInvitationsHandler>();
 
 // Add OpenAPI and Scalar
 builder.Services.AddOpenApi(options =>
@@ -165,6 +172,7 @@ app.MapAuthEndpoints();
 app.MapSubscriptionEndpoints();
 app.MapTenantEndpoints();
 app.MapUserEndpoints();
+app.MapTeamEndpoints();
 
 app.Run();
 

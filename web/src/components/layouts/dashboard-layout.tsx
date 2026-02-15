@@ -11,6 +11,7 @@ const navigation = [
   { name: 'Phased Rollouts', href: '/phased-rollouts' },
   { name: 'Alerts', href: '/alerts' },
   { name: 'Registration Tokens', href: '/registration-tokens' },
+  { name: 'Team', href: '/team' },
 ]
 
 export function DashboardLayout() {
