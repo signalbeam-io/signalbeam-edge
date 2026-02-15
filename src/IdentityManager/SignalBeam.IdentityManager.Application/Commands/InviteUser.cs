@@ -111,9 +111,9 @@ public class InviteUserHandler
                 acceptUrl,
                 cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
-            // Log but don't fail — invitation is persisted
+            _ = ex; // Log but don't fail — invitation is persisted
         }
 
         return Result.Success(new InviteUserResponse(

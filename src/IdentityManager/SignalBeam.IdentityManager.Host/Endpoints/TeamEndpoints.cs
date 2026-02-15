@@ -21,6 +21,7 @@ public static class TeamEndpoints
             .WithOpenApi()
             .RequireAuthorization();
 
+        // Admin-only endpoints
         group.MapPost("/invite", InviteUser)
             .WithName("InviteUser")
             .WithSummary("Invite a user to the tenant")
@@ -52,17 +53,20 @@ public static class TeamEndpoints
             .WithSummary("Get pending invitations for the tenant")
             .Produces<List<InvitationDto>>();
 
+        // Public endpoints — invited users may not have accounts yet
         group.MapPost("/invitations/{token}/accept", AcceptInvitation)
             .WithName("AcceptInvitation")
             .WithSummary("Accept an invitation by token")
             .Produces<AcceptInvitationResponse>()
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .AllowAnonymous();
 
         group.MapPost("/invitations/{token}/decline", DeclineInvitation)
             .WithName("DeclineInvitation")
             .WithSummary("Decline an invitation by token")
             .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .AllowAnonymous();
 
         return app;
     }
@@ -74,7 +78,7 @@ public static class TeamEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        var (userId, tenantId, error) = await ResolveCallerContext(httpContext, userRepository, cancellationToken);
+        var (userId, tenantId, error) = await ResolveAdminContext(httpContext, userRepository, cancellationToken);
         if (error != null) return error;
 
         var command = new InviteUserCommand(tenantId!.Value, request.Email, request.Role, userId!.Value);
@@ -113,7 +117,7 @@ public static class TeamEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        var (callerId, tenantId, error) = await ResolveCallerContext(httpContext, userRepository, cancellationToken);
+        var (callerId, tenantId, error) = await ResolveAdminContext(httpContext, userRepository, cancellationToken);
         if (error != null) return error;
 
         var command = new ChangeUserRoleCommand(tenantId!.Value, userId, request.Role, callerId!.Value);
@@ -131,7 +135,7 @@ public static class TeamEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        var (callerId, tenantId, error) = await ResolveCallerContext(httpContext, userRepository, cancellationToken);
+        var (callerId, tenantId, error) = await ResolveAdminContext(httpContext, userRepository, cancellationToken);
         if (error != null) return error;
 
         var command = new RemoveUserFromTenantCommand(tenantId!.Value, userId, callerId!.Value);
@@ -148,7 +152,7 @@ public static class TeamEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        var (_, tenantId, error) = await ResolveCallerContext(httpContext, userRepository, cancellationToken);
+        var (_, tenantId, error) = await ResolveAdminContext(httpContext, userRepository, cancellationToken);
         if (error != null) return error;
 
         var query = new GetPendingInvitationsQuery(tenantId!.Value);
@@ -203,6 +207,23 @@ public static class TeamEndpoints
         }
 
         return (user.Id.Value, user.TenantId.Value, null);
+    }
+
+    private static async Task<(Guid? UserId, Guid? TenantId, IResult? Error)> ResolveAdminContext(
+        HttpContext httpContext,
+        IUserRepository userRepository,
+        CancellationToken cancellationToken)
+    {
+        var (userId, tenantId, error) = await ResolveCallerContext(httpContext, userRepository, cancellationToken);
+        if (error != null) return (userId, tenantId, error);
+
+        var user = await userRepository.GetByIdAsync(new UserId(userId!.Value), cancellationToken);
+        if (user is null || user.Role != UserRole.Admin)
+        {
+            return (null, null, Results.Forbid());
+        }
+
+        return (userId, tenantId, null);
     }
 
     private static IResult MapError(Error error) => error.Type switch
