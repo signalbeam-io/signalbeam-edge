@@ -58,12 +58,14 @@ Create a feature branch from latest main:
 Follow the layer order: Domain → Application → Infrastructure → Endpoints → Frontend → Tests.
 
 Use scaffolding skills:
-- `/add-entity` — New domain entity with value object ID
+- `/add-entity` — New domain entity with value object ID (**includes migration**)
 - `/add-command` — New CQRS command with handler and validator
 - `/add-query` — New CQRS query with handler
 - `/add-event-handler` — WolverineFx event handler for domain/integration events
 - `/add-migration` — EF Core migration after model changes
 - `/add-feature` — Frontend feature module (page, components, API service)
+
+**IMPORTANT:** Always create an EF Core migration (`/add-migration`) immediately after adding or modifying entities, configurations, or DbSets. Never commit model changes without the corresponding migration.
 
 Run the local environment with `/run-local` to test as you build.
 
@@ -75,7 +77,7 @@ Run verification checks during development:
 
 | Skill | Purpose | When to Use |
 |-------|---------|-------------|
-| `/check-architecture` | Layer violations, Result pattern | Before committing |
+| `/check-architecture` | Layer violations, Result pattern, pending migrations | Before committing |
 | `/run-tests` | Unit and integration tests | After each change |
 | `/lint` | Format, ESLint, Helm, Terraform | Before PR |
 
@@ -174,7 +176,7 @@ These specialized agents run in isolated contexts:
 
 Before `/complete-task` or `/create-pr`:
 - [ ] All acceptance criteria addressed
-- [ ] Architecture check passes
+- [ ] Architecture check passes (including no pending migrations)
 - [ ] All unit tests pass
 - [ ] All integration tests pass (if applicable)
 - [ ] .NET format is clean
