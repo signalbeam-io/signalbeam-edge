@@ -36,32 +36,41 @@ public static class MetricsStreamEndpoints
 
         var reader = connectionManager.Subscribe(deviceId);
         var eventId = 0L;
+        var lastWriteTime = DateTimeOffset.UtcNow;
 
         try
         {
-            using var keepaliveTimer = new PeriodicTimer(TimeSpan.FromSeconds(30));
-            var keepaliveTask = Task.Run(async () =>
+            while (!cancellationToken.IsCancellationRequested)
             {
-                while (!cancellationToken.IsCancellationRequested)
+                // Try to read a message with a timeout for keepalive
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+
+                try
                 {
-                    if (!await keepaliveTimer.WaitForNextTickAsync(cancellationToken))
-                        break;
-
-                    await context.Response.WriteAsync(":keepalive\n\n", cancellationToken);
-                    await context.Response.Body.FlushAsync(cancellationToken);
+                    if (await reader.WaitToReadAsync(timeoutCts.Token))
+                    {
+                        while (reader.TryRead(out var message))
+                        {
+                            eventId++;
+                            var json = JsonSerializer.Serialize(message, JsonOptions);
+                            await context.Response.WriteAsync($"id: {eventId}\ndata: {json}\n\n", cancellationToken);
+                            await context.Response.Body.FlushAsync(cancellationToken);
+                            lastWriteTime = DateTimeOffset.UtcNow;
+                        }
+                    }
                 }
-            }, cancellationToken);
-
-            await foreach (var message in reader.ReadAllAsync(cancellationToken))
-            {
-                eventId++;
-                var json = JsonSerializer.Serialize(message, JsonOptions);
-
-                await context.Response.WriteAsync($"id: {eventId}\ndata: {json}\n\n", cancellationToken);
-                await context.Response.Body.FlushAsync(cancellationToken);
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // Timeout — send keepalive if no data was written recently
+                    if (DateTimeOffset.UtcNow - lastWriteTime >= TimeSpan.FromSeconds(25))
+                    {
+                        await context.Response.WriteAsync(":keepalive\n\n", cancellationToken);
+                        await context.Response.Body.FlushAsync(cancellationToken);
+                        lastWriteTime = DateTimeOffset.UtcNow;
+                    }
+                }
             }
-
-            await keepaliveTask;
         }
         catch (OperationCanceledException)
         {

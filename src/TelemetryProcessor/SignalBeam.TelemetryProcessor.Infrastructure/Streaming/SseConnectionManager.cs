@@ -10,7 +10,7 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Streaming;
 /// </summary>
 public sealed class SseConnectionManager
 {
-    private readonly ConcurrentDictionary<string, ConcurrentBag<Channel<DeviceMetricsMessage>>> _connections = new();
+    private readonly ConcurrentDictionary<string, SubscriberSet> _connections = new();
     private readonly ILogger<SseConnectionManager> _logger;
 
     public SseConnectionManager(ILogger<SseConnectionManager> logger)
@@ -30,10 +30,10 @@ public sealed class SseConnectionManager
             SingleWriter = false
         });
 
-        var bag = _connections.GetOrAdd(deviceId, _ => new ConcurrentBag<Channel<DeviceMetricsMessage>>());
-        bag.Add(channel);
+        var set = _connections.GetOrAdd(deviceId, _ => new SubscriberSet());
+        set.Add(channel);
 
-        _logger.LogDebug("SSE client subscribed for device {DeviceId}. Active connections: {Count}", deviceId, bag.Count);
+        _logger.LogDebug("SSE client subscribed for device {DeviceId}. Active connections: {Count}", deviceId, set.Count);
 
         return channel.Reader;
     }
@@ -43,22 +43,18 @@ public sealed class SseConnectionManager
     /// </summary>
     public void Unsubscribe(string deviceId, ChannelReader<DeviceMetricsMessage> reader)
     {
-        if (!_connections.TryGetValue(deviceId, out var bag))
+        if (!_connections.TryGetValue(deviceId, out var set))
             return;
 
-        // ConcurrentBag doesn't support removal, so rebuild without the target channel
-        var remaining = new ConcurrentBag<Channel<DeviceMetricsMessage>>();
-        foreach (var ch in bag)
+        set.Remove(reader);
+
+        // Clean up empty entries to prevent memory growth
+        if (set.Count == 0)
         {
-            if (ch.Reader != reader)
-                remaining.Add(ch);
-            else
-                ch.Writer.TryComplete();
+            _connections.TryRemove(deviceId, out _);
         }
 
-        _connections.TryUpdate(deviceId, remaining, bag);
-
-        _logger.LogDebug("SSE client unsubscribed for device {DeviceId}. Remaining: {Count}", deviceId, remaining.Count);
+        _logger.LogDebug("SSE client unsubscribed for device {DeviceId}. Remaining: {Count}", deviceId, set.Count);
     }
 
     /// <summary>
@@ -66,14 +62,66 @@ public sealed class SseConnectionManager
     /// </summary>
     public void Publish(string deviceId, DeviceMetricsMessage message)
     {
-        if (!_connections.TryGetValue(deviceId, out var bag))
+        if (!_connections.TryGetValue(deviceId, out var set))
             return;
 
-        foreach (var channel in bag)
+        set.Publish(message, _logger, deviceId);
+    }
+
+    /// <summary>
+    /// Thread-safe set of subscriber channels with proper add/remove support.
+    /// </summary>
+    private sealed class SubscriberSet
+    {
+        private readonly Lock _lock = new();
+        private readonly HashSet<Channel<DeviceMetricsMessage>> _channels = [];
+
+        public int Count
         {
-            if (!channel.Writer.TryWrite(message))
+            get
             {
-                _logger.LogDebug("Dropped metrics message for device {DeviceId} (channel full or completed)", deviceId);
+                lock (_lock) { return _channels.Count; }
+            }
+        }
+
+        public void Add(Channel<DeviceMetricsMessage> channel)
+        {
+            lock (_lock) { _channels.Add(channel); }
+        }
+
+        public void Remove(ChannelReader<DeviceMetricsMessage> reader)
+        {
+            lock (_lock)
+            {
+                Channel<DeviceMetricsMessage>? target = null;
+                foreach (var ch in _channels)
+                {
+                    if (ch.Reader == reader)
+                    {
+                        target = ch;
+                        break;
+                    }
+                }
+
+                if (target is not null)
+                {
+                    _channels.Remove(target);
+                    target.Writer.TryComplete();
+                }
+            }
+        }
+
+        public void Publish(DeviceMetricsMessage message, ILogger logger, string deviceId)
+        {
+            lock (_lock)
+            {
+                foreach (var channel in _channels)
+                {
+                    if (!channel.Writer.TryWrite(message))
+                    {
+                        logger.LogDebug("Dropped metrics message for device {DeviceId} (channel full or completed)", deviceId);
+                    }
+                }
             }
         }
     }
