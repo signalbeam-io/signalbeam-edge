@@ -131,6 +131,18 @@ public class {Entity}Configuration : IEntityTypeConfiguration<{Entity}>
 public DbSet<{Entity}> {Entity}s => Set<{Entity}>();
 ```
 
+## 7. EF Core Migration (MANDATORY)
+
+After adding the DbSet and entity configuration, **always** create a migration immediately:
+
+```bash
+dotnet ef migrations add Add{Entity} \
+  --project src/{Service}/{Service}.Infrastructure \
+  --startup-project src/{Service}/{Service}.Host
+```
+
+Review the generated migration to verify only expected changes are included. This step is **not optional** — skipping it causes `PendingModelChangesWarning` errors at startup.
+
 ## Checklist
 - [ ] Value object ID with validation and `GetEqualityComponents()`
 - [ ] Entity inherits `AggregateRoot<TId>` with protected parameterless constructor
@@ -140,6 +152,7 @@ public DbSet<{Entity}> {Entity}s => Set<{Entity}>();
 - [ ] Separate command and query repository interfaces
 - [ ] EF Core configuration with value object conversions
 - [ ] DbSet added to DbContext
+- [ ] **EF Core migration created** for the new table
 - [ ] No framework dependencies in Domain layer
 
 ## Related Skills

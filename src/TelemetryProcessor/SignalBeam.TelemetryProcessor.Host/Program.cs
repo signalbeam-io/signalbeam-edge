@@ -77,6 +77,9 @@ app.MapDefaultEndpoints();
 // Map Alert Management API endpoints
 app.MapAlertEndpoints();
 
+// Map real-time metrics streaming endpoints (SSE)
+app.MapMetricsStreamEndpoints();
+
 // Map a root endpoint for basic service info
 app.MapGet("/", () => new
 {

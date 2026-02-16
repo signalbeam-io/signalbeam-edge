@@ -64,12 +64,30 @@ If pre-flight fails, STOP and report the issue.
 
 Run these bash commands in order. If any fail, STOP.
 
-**Step 1.1: Build**
+**Step 1.1: Pending Migrations Check**
+
+Check for pending model changes that need a migration. This catches missing migrations before they cause runtime errors.
+
+```bash
+# For each service with a DbContext, check for pending changes
+for service in DeviceManager BundleOrchestrator TelemetryProcessor IdentityManager; do
+  infra=$(find src -path "*/$service*Infrastructure*.csproj" | head -1)
+  host=$(find src -path "*/$service*Host*.csproj" | head -1)
+  if [ -n "$infra" ] && [ -n "$host" ]; then
+    echo "Checking $service for pending migrations..."
+    dotnet ef migrations has-pending-model-changes --project "$infra" --startup-project "$host" 2>&1 || true
+  fi
+done
+```
+
+If any service reports pending changes, STOP and create the migration using `/add-migration` before proceeding.
+
+**Step 1.2: Build**
 ```bash
 dotnet build src/SignalBeam.sln --configuration Release --no-restore
 ```
 
-**Step 1.2: Lint (with optional auto-fix)**
+**Step 1.3: Lint (with optional auto-fix)**
 If `--auto-fix` was passed:
 ```bash
 dotnet format src/SignalBeam.sln
@@ -82,7 +100,7 @@ dotnet format src/SignalBeam.sln --verify-no-changes
 cd web && npm run lint && npm run type-check && cd ..
 ```
 
-**Step 1.3: Helm & Terraform**
+**Step 1.4: Helm & Terraform**
 ```bash
 helm lint deploy/charts/signalbeam-infrastructure
 helm lint deploy/charts/signalbeam-platform

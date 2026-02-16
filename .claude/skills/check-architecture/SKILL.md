@@ -68,6 +68,22 @@ Check endpoints have:
 - `.Produces<T>()` and `.ProducesProblem()` declarations
 - Result-to-HTTP conversion via `.ToHttpResult()`
 
+## 8. Pending EF Core Migrations
+
+Check that no model changes are missing migrations:
+
+```bash
+for service in DeviceManager BundleOrchestrator TelemetryProcessor IdentityManager; do
+  infra=$(find src -path "*/$service*Infrastructure*.csproj" | head -1)
+  host=$(find src -path "*/$service*Host*.csproj" | head -1)
+  if [ -n "$infra" ] && [ -n "$host" ]; then
+    dotnet ef migrations has-pending-model-changes --project "$infra" --startup-project "$host" 2>&1 || true
+  fi
+done
+```
+
+Any pending changes are a **FAIL** — entity/configuration changes must always have a corresponding migration.
+
 ## Report Format
 
 ```markdown
@@ -85,6 +101,7 @@ Check endpoints have:
 | 4 | Domain entities | {PASS/FAIL} | {count} |
 | 5 | Error codes | {PASS/FAIL} | {count} |
 | 6 | Endpoints | {PASS/FAIL} | {count} |
+| 7 | Pending migrations | {PASS/FAIL} | {count} |
 
 ### Violations
 - {file}:{line} — {description} — **Fix:** {suggestion}

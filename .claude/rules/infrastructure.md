@@ -23,6 +23,13 @@ paths:
 - DbSets for aggregate roots only
 - Protected parameterless constructor not needed (DI handles instantiation)
 
+## EF Core Migrations (MANDATORY)
+- **Always create a migration** when adding or modifying entities, configurations, or DbSets
+- Run `dotnet ef migrations add {Name} --project {Infrastructure} --startup-project {Host}` immediately after model changes
+- Never commit entity/configuration changes without the corresponding migration
+- Review generated migrations before committing — verify only expected changes are included
+- Skipping migrations causes `PendingModelChangesWarning` runtime errors
+
 ## DI Registration Pattern
 - Expose a single `AddInfrastructure(this IServiceCollection services, IConfiguration configuration)` extension method
 - Register DbContext with Npgsql: `services.AddDbContext<TContext>(options => options.UseNpgsql(...))`
