@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { useDeviceMetrics } from '@/hooks/api/use-devices'
+import { useDeviceMetricsStream } from '@/hooks/api/use-device-metrics-stream'
 
 interface DeviceHealthTabProps {
   deviceId: string
@@ -24,6 +25,7 @@ interface DeviceHealthTabProps {
 
 export function DeviceHealthTab({ deviceId }: DeviceHealthTabProps) {
   const { data: metrics, isLoading } = useDeviceMetrics(deviceId)
+  const { isConnected } = useDeviceMetricsStream(deviceId)
 
   if (isLoading) {
     return (
@@ -62,6 +64,17 @@ export function DeviceHealthTab({ deviceId }: DeviceHealthTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Live Indicator */}
+      {isConnected && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+          </span>
+          <span className="font-medium text-green-600 dark:text-green-400">LIVE</span>
+        </div>
+      )}
+
       {/* Current Status Gauges */}
       <div className="grid gap-6 md:grid-cols-3">
         <MetricGauge

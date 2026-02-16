@@ -12,6 +12,7 @@ using SignalBeam.TelemetryProcessor.Infrastructure.Messaging.Options;
 using SignalBeam.TelemetryProcessor.Infrastructure.Persistence;
 using SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Repositories;
 using SignalBeam.TelemetryProcessor.Infrastructure.Resilience;
+using SignalBeam.TelemetryProcessor.Infrastructure.Streaming;
 
 namespace SignalBeam.TelemetryProcessor.Infrastructure;
 
@@ -180,6 +181,10 @@ public static class DependencyInjection
         // Register message handlers from Application layer
         services.AddScoped<DeviceHeartbeatMessageHandler>();
         services.AddScoped<DeviceMetricsMessageHandler>();
+
+        // Register SSE connection manager and NATS-SSE bridge
+        services.AddSingleton<SseConnectionManager>();
+        services.AddHostedService<NatsSseBridgeService>();
 
         // Register NATS consumer as hosted service
         services.AddHostedService<NatsConsumerService>();
