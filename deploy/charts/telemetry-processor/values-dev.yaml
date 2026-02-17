@@ -1,0 +1,27 @@
+replicaCount: 1
+
+image:
+  tag: "latest"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+  NATS__Url: "nats://nats.signalbeam:4222"
+  DeviceStatusMonitor__CheckIntervalSeconds: "30"
+  DeviceStatusMonitor__OfflineThresholdSeconds: "120"
+  MetricsAggregation__IntervalSeconds: "60"
+  HealthMonitor__CheckIntervalSeconds: "30"
+
+serviceMonitor:
+  enabled: false

@@ -1,0 +1,100 @@
+replicaCount: 3
+
+image:
+  repository: ghcr.io/signalbeam-io/telemetry-processor
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 15
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Azure Workload Identity
+workloadIdentity:
+  enabled: false
+  clientId: ""
+
+# Environment variables from ConfigMap
+config:
+  ASPNETCORE_ENVIRONMENT: Production
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+  # NATS connection
+  NATS__Url: "nats://nats.signalbeam:4222"
+  # Device status monitor
+  DeviceStatusMonitor__CheckIntervalSeconds: "30"
+  DeviceStatusMonitor__OfflineThresholdSeconds: "120"
+  # Metrics aggregation
+  MetricsAggregation__IntervalSeconds: "60"
+  # Health monitor
+  HealthMonitor__CheckIntervalSeconds: "30"
+
+# Secret references
+secrets:
+  - secretName: telemetry-processor-db
+    envMapping:
+      ConnectionStrings__DefaultConnection: connection-string
+  - secretName: telemetry-processor-nats
+    envMapping:
+      NATS__Token: token
+
+# ServiceMonitor for Prometheus
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  path: /metrics
+  labels: {}
