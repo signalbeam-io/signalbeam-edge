@@ -1,0 +1,32 @@
+replicaCount: 3
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: "1Gi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 15
+  targetCPUUtilizationPercentage: 65
+  targetMemoryUtilizationPercentage: 75
+
+config:
+  ASPNETCORE_ENVIRONMENT: Production
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+  NATS__Url: "nats://nats.signalbeam:4222"
+  DeviceStatusMonitor__CheckIntervalSeconds: "15"
+  DeviceStatusMonitor__OfflineThresholdSeconds: "90"
+  MetricsAggregation__IntervalSeconds: "30"
+  HealthMonitor__CheckIntervalSeconds: "15"
+
+workloadIdentity:
+  enabled: true
+  clientId: ""
+
+serviceMonitor:
+  interval: 10s
