@@ -1,0 +1,27 @@
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+config:
+  ASPNETCORE_ENVIRONMENT: Staging
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+
+backends:
+  deviceManager: "http://device-manager.signalbeam"
+  bundleOrchestrator: "http://bundle-orchestrator.signalbeam"
+  telemetryProcessor: "http://telemetry-processor.signalbeam"
+  identityManager: "http://identity-manager.signalbeam"
+  zitadel: "http://zitadel.signalbeam:8080"
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: api-staging.signalbeam.io
+      paths:
+        - path: /
+          pathType: Prefix
