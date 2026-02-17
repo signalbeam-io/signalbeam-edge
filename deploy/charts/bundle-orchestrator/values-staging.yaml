@@ -1,0 +1,25 @@
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+
+config:
+  ASPNETCORE_ENVIRONMENT: Staging
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+  NATS__Url: "nats://nats.signalbeam:4222"
+  AzureBlobStorage__ContainerName: "signalbeam-bundles-staging"
+
+workloadIdentity:
+  enabled: true
+  clientId: ""

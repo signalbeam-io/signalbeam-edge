@@ -1,0 +1,97 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/signalbeam-io/bundle-orchestrator
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: bundle-orchestrator.signalbeam.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Azure Workload Identity (required for Blob Storage access)
+workloadIdentity:
+  enabled: false
+  clientId: ""
+
+# Environment variables from ConfigMap
+config:
+  ASPNETCORE_ENVIRONMENT: Production
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+  NATS__Url: "nats://nats.signalbeam:4222"
+  AzureBlobStorage__ContainerName: "signalbeam-bundles"
+
+# Secret references
+secrets:
+  - secretName: bundle-orchestrator-db
+    envMapping:
+      ConnectionStrings__DefaultConnection: connection-string
+  - secretName: bundle-orchestrator-blob
+    envMapping:
+      AzureBlobStorage__ServiceUri: service-uri
+
+# ServiceMonitor for Prometheus
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+  labels: {}

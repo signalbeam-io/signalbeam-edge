@@ -1,0 +1,41 @@
+replicaCount: 3
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+
+config:
+  ASPNETCORE_ENVIRONMENT: Production
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+  NATS__Url: "nats://nats.signalbeam:4222"
+  AzureBlobStorage__ContainerName: "signalbeam-bundles"
+
+workloadIdentity:
+  enabled: true
+  clientId: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.signalbeam.io
+      paths:
+        - path: /api/bundles
+          pathType: Prefix
+  tls:
+    - secretName: signalbeam-tls
+      hosts:
+        - api.signalbeam.io
