@@ -1,0 +1,18 @@
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+
+apiUrl: "http://api-gateway.signalbeam"
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: app-staging.signalbeam.io
+      paths:
+        - path: /
+          pathType: Prefix
