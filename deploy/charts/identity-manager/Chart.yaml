@@ -1,0 +1,6 @@
+apiVersion: v2
+name: identity-manager
+description: SignalBeam IdentityManager - user authentication, tenant management, and subscriptions
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

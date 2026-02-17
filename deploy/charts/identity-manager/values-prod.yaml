@@ -1,0 +1,24 @@
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+
+config:
+  ASPNETCORE_ENVIRONMENT: Production
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+
+workloadIdentity:
+  enabled: true
+  clientId: ""

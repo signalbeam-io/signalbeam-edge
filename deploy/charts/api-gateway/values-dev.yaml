@@ -1,0 +1,29 @@
+replicaCount: 1
+
+image:
+  tag: "latest"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+
+backends:
+  deviceManager: "http://device-manager.signalbeam"
+  bundleOrchestrator: "http://bundle-orchestrator.signalbeam"
+  telemetryProcessor: "http://telemetry-processor.signalbeam"
+  identityManager: "http://identity-manager.signalbeam"
+  zitadel: "http://zitadel.signalbeam:8080"
+
+serviceMonitor:
+  enabled: false

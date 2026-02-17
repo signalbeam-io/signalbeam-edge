@@ -1,0 +1,42 @@
+replicaCount: 3
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 65
+  targetMemoryUtilizationPercentage: 75
+
+config:
+  ASPNETCORE_ENVIRONMENT: Production
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+
+backends:
+  deviceManager: "http://device-manager.signalbeam"
+  bundleOrchestrator: "http://bundle-orchestrator.signalbeam"
+  telemetryProcessor: "http://telemetry-processor.signalbeam"
+  identityManager: "http://identity-manager.signalbeam"
+  zitadel: "http://zitadel.signalbeam:8080"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.signalbeam.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: signalbeam-api-tls
+      hosts:
+        - api.signalbeam.io

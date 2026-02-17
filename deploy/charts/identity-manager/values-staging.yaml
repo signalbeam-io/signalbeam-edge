@@ -1,0 +1,15 @@
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+
+config:
+  ASPNETCORE_ENVIRONMENT: Staging
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.signalbeam:4317"
+
+workloadIdentity:
+  enabled: true
+  clientId: ""
