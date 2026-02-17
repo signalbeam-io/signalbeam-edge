@@ -1,0 +1,6 @@
+apiVersion: v2
+name: device-manager
+description: SignalBeam DeviceManager - device registration, state management, and monitoring
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
