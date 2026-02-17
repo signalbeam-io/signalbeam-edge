@@ -1,0 +1,32 @@
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 300m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+
+apiUrl: "http://api-gateway.signalbeam"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: app.signalbeam.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: signalbeam-web-tls
+      hosts:
+        - app.signalbeam.io
