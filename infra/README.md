@@ -4,7 +4,7 @@ Terraform + Terragrunt configuration for provisioning the SignalBeam Edge dev en
 
 ## Architecture
 
-10 Terraform modules wired together by Terragrunt with the following dependency graph:
+11 Terraform modules wired together by Terragrunt with the following dependency graph:
 
 ```
 Phase 1: resource-group
@@ -12,6 +12,7 @@ Phase 2: networking, monitoring, container-registry, managed-identity, dns  (par
 Phase 3: key-vault, storage  (depend on networking + managed-identity)
 Phase 4: postgresql  (depends on networking + key-vault)
 Phase 5: aks-cluster  (depends on networking + ACR + monitoring + managed-identity + key-vault)
+Phase 6: nats  (depends on aks-cluster — deploys into K8s via Helm)
 ```
 
 ## Resources Provisioned
@@ -28,6 +29,7 @@ Phase 5: aks-cluster  (depends on networking + ACR + monitoring + managed-identi
 | storage | Blob account + containers: `signalbeam-bundles`, `device-bundles` | ~$2/mo |
 | dns | DNS zone `dev.signalbeam.io` | ~$0.50/mo |
 | aks-cluster | AKS 1x B4ms, workload identity, Calico, Container Insights | ~$120/mo |
+| nats | NATS 3-node cluster with JetStream (10Gi file storage), Prometheus exporter | ~$0 (runs on AKS) |
 | **Total** | | **~$142/mo** |
 
 ## Prerequisites
@@ -157,6 +159,13 @@ az keyvault secret list --vault-name sb-kv-dev-weu -o table
 
 # DNS nameservers (point registrar NS records here)
 az network dns zone show -g sb-rg-dev-weu -n dev.signalbeam.io --query nameServers -o tsv
+
+# NATS cluster healthy
+kubectl -n signalbeam get pods -l app.kubernetes.io/name=nats
+kubectl -n signalbeam exec -it nats-0 -- nats server check jetstream
+
+# JetStream streams created
+kubectl -n signalbeam exec -it nats-0 -- nats stream ls
 ```
 
 ## Ongoing Changes
@@ -213,7 +222,8 @@ infra/
 │   ├── postgresql/                      # Flexible Server + databases
 │   ├── storage/                         # Blob account + containers
 │   ├── dns/                             # Azure DNS zone
-│   └── aks-cluster/                     # AKS with workload identity
+│   ├── aks-cluster/                     # AKS with workload identity
+│   └── nats/                            # NATS cluster with JetStream (Helm)
 └── terragrunt/
     ├── terragrunt.hcl                   # Root config: backend, provider, inputs
     └── dev/
@@ -227,5 +237,41 @@ infra/
         ├── postgresql/terragrunt.hcl
         ├── storage/terragrunt.hcl
         ├── dns/terragrunt.hcl
-        └── aks-cluster/terragrunt.hcl
+        ├── aks-cluster/terragrunt.hcl
+        └── nats/terragrunt.hcl
 ```
+
+## NATS Architecture
+
+NATS is deployed as a 3-node cluster with JetStream enabled for persistent messaging. It serves as the message broker for all inter-service communication.
+
+### Deployment
+
+- **Helm chart:** `nats/nats` from `nats-io.github.io/k8s/helm/charts/`
+- **Replicas:** 3 (clustered for HA)
+- **JetStream storage:** 10Gi file-based per node
+- **Monitoring:** HTTP monitor on port 8222, Prometheus exporter with PodMonitor
+- **Service endpoint:** `nats://nats.signalbeam:4222`
+
+### JetStream Streams
+
+| Stream | Subjects | Retention | Max Age | Replicas |
+|--------|----------|-----------|---------|----------|
+| DEVICE_EVENTS | `signalbeam.devices.events.>` | Limits | 30d | 3 |
+| BUNDLE_ASSIGNMENTS | `signalbeam.bundles.assignments.>`, `signalbeam.bundles.rollouts.>` | Limits | 7d | 3 |
+| TELEMETRY_METRICS | `signalbeam.telemetry.metrics.>` | Limits | 3d | 3 |
+| DEVICE_STATUS | `signalbeam.devices.status.>` | Limits | 7d | 3 |
+
+### Subject Hierarchy
+
+```
+signalbeam.devices.heartbeat.<deviceId>      # Core NATS (ephemeral, no stream)
+signalbeam.devices.events.<eventType>        # → DEVICE_EVENTS stream
+signalbeam.devices.commands.<deviceId>       # Core NATS request/reply
+signalbeam.devices.status.<deviceId>         # → DEVICE_STATUS stream
+signalbeam.bundles.assignments.<deviceId>    # → BUNDLE_ASSIGNMENTS stream
+signalbeam.bundles.rollouts.<rolloutId>      # → BUNDLE_ASSIGNMENTS stream
+signalbeam.telemetry.metrics.<deviceId>      # → TELEMETRY_METRICS stream
+```
+
+Heartbeats and commands use Core NATS (ephemeral pub/sub, request/reply). All other subjects are persisted in JetStream streams for reliable delivery and replay.
