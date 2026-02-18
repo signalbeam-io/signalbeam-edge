@@ -1,36 +1,43 @@
 # Deploy NATS with JetStream to AKS using the official Helm chart.
+# Providers (helm, kubernetes) must be configured by the caller.
+
+locals {
+  parsed_kubeconfig = yamldecode(var.kube_config_raw)
+
+  kube_config = {
+    host                   = local.parsed_kubeconfig.clusters[0].cluster.server
+    client_certificate     = base64decode(local.parsed_kubeconfig.users[0].user.client-certificate-data)
+    client_key             = base64decode(local.parsed_kubeconfig.users[0].user.client-key-data)
+    cluster_ca_certificate = base64decode(local.parsed_kubeconfig.clusters[0].cluster.certificate-authority-data)
+  }
+
+  common_labels = {
+    "app.kubernetes.io/managed-by" = "terraform"
+    "signalbeam.io/environment"    = var.environment
+    "signalbeam.io/project"        = var.project
+  }
+}
 
 provider "helm" {
   kubernetes {
     host                   = local.kube_config.host
-    client_certificate     = base64decode(local.kube_config.client_certificate)
-    client_key             = base64decode(local.kube_config.client_key)
-    cluster_ca_certificate = base64decode(local.kube_config.cluster_ca_certificate)
+    client_certificate     = local.kube_config.client_certificate
+    client_key             = local.kube_config.client_key
+    cluster_ca_certificate = local.kube_config.cluster_ca_certificate
   }
 }
 
 provider "kubernetes" {
   host                   = local.kube_config.host
-  client_certificate     = base64decode(local.kube_config.client_certificate)
-  client_key             = base64decode(local.kube_config.client_key)
-  cluster_ca_certificate = base64decode(local.kube_config.cluster_ca_certificate)
-}
-
-locals {
-  kube_config = yamldecode(var.kube_config_raw).clusters[0].cluster != null ? {
-    host                   = yamldecode(var.kube_config_raw).clusters[0].cluster.server
-    client_certificate     = yamldecode(var.kube_config_raw).users[0].user.client-certificate-data
-    client_key             = yamldecode(var.kube_config_raw).users[0].user.client-key-data
-    cluster_ca_certificate = yamldecode(var.kube_config_raw).clusters[0].cluster.certificate-authority-data
-  } : {}
+  client_certificate     = local.kube_config.client_certificate
+  client_key             = local.kube_config.client_key
+  cluster_ca_certificate = local.kube_config.cluster_ca_certificate
 }
 
 resource "kubernetes_namespace" "nats" {
   metadata {
-    name = var.namespace
-    labels = {
-      "app.kubernetes.io/managed-by" = "terraform"
-    }
+    name   = var.namespace
+    labels = local.common_labels
   }
 
   lifecycle {
@@ -126,25 +133,32 @@ resource "kubernetes_job" "nats_stream_init" {
   metadata {
     name      = "nats-stream-init"
     namespace = kubernetes_namespace.nats.metadata[0].name
-    labels = {
-      "app.kubernetes.io/name"       = "nats-stream-init"
-      "app.kubernetes.io/managed-by" = "terraform"
-    }
+    labels    = merge(local.common_labels, { "app.kubernetes.io/name" = "nats-stream-init" })
   }
 
   spec {
     backoff_limit = 5
     template {
       metadata {
-        labels = {
-          "app.kubernetes.io/name" = "nats-stream-init"
-        }
+        labels = merge(local.common_labels, { "app.kubernetes.io/name" = "nats-stream-init" })
       }
       spec {
         restart_policy = "OnFailure"
         container {
           name  = "nats-stream-init"
           image = "natsio/nats-box:0.14.5"
+
+          resources {
+            requests = {
+              cpu    = "50m"
+              memory = "64Mi"
+            }
+            limits = {
+              cpu    = "100m"
+              memory = "128Mi"
+            }
+          }
+
           command = ["/bin/sh", "-c", <<-EOT
             set -e
             NATS_URL="nats://nats.${var.namespace}:4222"
