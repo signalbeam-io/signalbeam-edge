@@ -5,10 +5,10 @@ Follow this end-to-end process when building features. Each step has a correspon
 ## Workflow Overview
 
 ```
-PRD → Issues → Branch → Implement → Verify → Review → PR
- │       │        │          │          │        │      │
-/prd  /create   /start    /add-*    /check   /code   /complete
-      -tasks    -work               -arch   -review  -task
+PRD → Issues → Branch → Implement → Verify → Review → Docs → PR
+ │       │        │          │          │        │       │      │
+/prd  /create   /start    /add-*    /check   /code   /docs  /complete
+      -tasks    -work               -arch   -review         -task
                                     /lint
                                     /run-tests
 ```
@@ -123,7 +123,30 @@ Plan → Issues → Branch → Implement → Verify → PR
 - **Standard workflow:** Changes touch application code (`src/`, `web/`, `tests/`)
 - **Both:** If a feature needs app code + infra changes, use standard workflow with `/infra-lint` for validation
 
-## 8. Diagnose (`/diagnose`)
+## 8. Document (`/docs`)
+
+Keep documentation in sync with code changes:
+
+```bash
+/docs service device-manager    # Full service doc (endpoints, events, config)
+/docs api device-manager        # API endpoint reference only
+/docs architecture              # Update technical architecture overview
+/docs domain                    # Update domain model (entities, value objects, events)
+/docs runbook device-manager    # Operational runbook (health, alerts, troubleshooting)
+/docs quickstart                # Update getting started guide
+/docs all                       # Detect stale docs and regenerate
+/docs                           # Auto-detect what needs updating
+```
+
+**When to run:**
+- After adding/modifying endpoints → `/docs api {service}`
+- After adding entities or events → `/docs domain`
+- After changing infra/deploy → `/docs architecture`
+- Before a release → `/docs all`
+
+Output paths follow `docs/services/{service-name}/`, `docs/architecture/`, or `docs/quickstart.md`. Generated sections are marked with `<!-- BEGIN GENERATED -->` / `<!-- END GENERATED -->` so manual content is preserved on regeneration.
+
+## 9. Diagnose (`/diagnose`)
 
 When something goes wrong:
 - Structured evidence gathering
@@ -153,6 +176,7 @@ When something goes wrong:
 | `/task-check` | Verify acceptance criteria |
 | `/complete-task` | Full completion workflow |
 | `/create-pr` | Create pull request |
+| `/docs` | Generate/update documentation from code |
 | `/diagnose` | Investigate problems |
 | `/infra-plan` | Plan infrastructure changes |
 | `/add-terraform-module` | Scaffold Terraform module |
