@@ -42,7 +42,7 @@
     "react-hook-form": "^7.69.0",
     "react-router-dom": "^6.26.2",
     "recharts": "^3.6.0",
-    "tailwind-merge": "^2.5.4",
+    "tailwind-merge": "^3.5.0",
     "zod": "^3.25.76",
     "zustand": "^5.0.1"
   },
