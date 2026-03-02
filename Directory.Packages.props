@@ -77,7 +77,7 @@
     <PackageVersion Include="System.Text.Json" Version="9.0.0" />
   </ItemGroup>
   <ItemGroup Label="Health Checks">
-    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
     <PackageVersion Include="AspNetCore.HealthChecks.AzureBlobStorage" Version="8.0.1" />
   </ItemGroup>
