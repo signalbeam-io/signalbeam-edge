@@ -10,7 +10,7 @@
   <ItemGroup Label="Data Access">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.3" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
     <PackageVersion Include="Dapper" Version="2.1.44" />
   </ItemGroup>
   <ItemGroup Label="Cloud-Native Integrations">
@@ -83,12 +83,12 @@
   </ItemGroup>
   <ItemGroup Label=".NET Aspire">
     <PackageVersion Include="Aspire.Hosting" Version="9.1.0" />
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.1.0" />
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="9.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="9.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="9.1.0" />
-    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.1.0" />
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.1.0" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.1.2" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.1.2" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.1.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.1.2" />
+    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.1.2" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="9.1.0" />
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="9.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
