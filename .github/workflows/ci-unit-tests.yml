@@ -1,0 +1,100 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "web/**"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "web/**"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet-unit-tests:
+    name: .NET Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore src/SignalBeam.sln
+
+      - name: Build
+        run: dotnet build src/SignalBeam.sln --no-restore
+
+      - name: Run unit tests
+        run: |
+          dotnet test tests/SignalBeam.Domain.Tests/SignalBeam.Domain.Tests.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test tests/SignalBeam.Shared.Infrastructure.Tests/SignalBeam.Shared.Infrastructure.Tests.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test tests/SignalBeam.DeviceManager.Tests.Unit/SignalBeam.DeviceManager.Tests.Unit.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test tests/SignalBeam.TelemetryProcessor.Infrastructure.Tests/SignalBeam.TelemetryProcessor.Infrastructure.Tests.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test tests/SignalBeam.IdentityManager.Application.Tests/SignalBeam.IdentityManager.Application.Tests.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test tests/SignalBeam.EdgeAgent.Tests.Unit/SignalBeam.EdgeAgent.Tests.Unit.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test tests/SignalBeam.BundleOrchestrator.Tests.Unit/SignalBeam.BundleOrchestrator.Tests.Unit.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: coverage/**/coverage.cobertura.xml
+
+  dotnet-format:
+    name: .NET Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Check formatting
+        run: dotnet format src/SignalBeam.sln --verify-no-changes
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Type check
+        run: npm run type-check
+        working-directory: web
+
+      - name: Run tests
+        run: npm test -- --run
+        working-directory: web
