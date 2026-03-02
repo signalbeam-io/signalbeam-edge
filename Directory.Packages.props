@@ -70,8 +70,8 @@
     <PackageVersion Include="Polly.Extensions" Version="8.5.0" />
   </ItemGroup>
   <ItemGroup Label="Validation">
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
-    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageVersion Include="FluentValidation" Version="12.1.1" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
   </ItemGroup>
   <ItemGroup Label="Serialization">
     <PackageVersion Include="System.Text.Json" Version="9.0.0" />
