@@ -133,7 +133,7 @@ jobs:
           echo "PACKAGE_FILE=${PACKAGE_DIR}.deb" >> $GITHUB_ENV
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.PACKAGE_NAME }}_${{ steps.version.outputs.VERSION }}_${{ matrix.deb_arch }}
           path: ${{ env.PACKAGE_NAME }}_${{ steps.version.outputs.VERSION }}_${{ matrix.deb_arch }}.deb
