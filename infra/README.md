@@ -4,7 +4,7 @@ Terraform + Terragrunt configuration for provisioning the SignalBeam Edge dev en
 
 ## Architecture
 
-11 Terraform modules wired together by Terragrunt with the following dependency graph:
+17 Terraform modules wired together by Terragrunt with the following dependency graph:
 
 ```
 Phase 1: resource-group
@@ -12,7 +12,9 @@ Phase 2: networking, monitoring, container-registry, managed-identity, dns  (par
 Phase 3: key-vault, storage  (depend on networking + managed-identity)
 Phase 4: postgresql  (depends on networking + key-vault)
 Phase 5: aks-cluster  (depends on networking + ACR + monitoring + managed-identity + key-vault)
-Phase 6: nats  (depends on aks-cluster — deploys into K8s via Helm)
+Phase 6: cert-manager, ingress-nginx, nats, kube-prometheus-stack  (depend on aks-cluster)
+Phase 7: loki, tempo  (depend on kube-prometheus-stack for monitoring namespace)
+Phase 8: otel-collector  (depends on loki + tempo + kube-prometheus-stack)
 ```
 
 ## Resources Provisioned
@@ -30,6 +32,12 @@ Phase 6: nats  (depends on aks-cluster — deploys into K8s via Helm)
 | dns | DNS zone `dev.signalbeam.io` | ~$0.50/mo |
 | aks-cluster | AKS 1x B4ms, workload identity, Calico, Container Insights | ~$120/mo |
 | nats | NATS 3-node cluster with JetStream (10Gi file storage), Prometheus exporter | ~$0 (runs on AKS) |
+| cert-manager | TLS certificate management with Let's Encrypt ClusterIssuers | ~$0 (runs on AKS) |
+| ingress-nginx | NGINX Ingress Controller (2 replicas) with Azure LoadBalancer | ~$0 (runs on AKS) |
+| kube-prometheus-stack | Prometheus Operator, Prometheus (20Gi), Grafana (5Gi), AlertManager | ~$0 (runs on AKS) |
+| loki | Log aggregation, single-binary mode (10Gi) | ~$0 (runs on AKS) |
+| tempo | Distributed tracing backend (10Gi) | ~$0 (runs on AKS) |
+| otel-collector | OpenTelemetry Collector (2 replicas), routes to Tempo/Prometheus/Loki | ~$0 (runs on AKS) |
 | **Total** | | **~$142/mo** |
 
 ## Prerequisites
@@ -166,6 +174,23 @@ kubectl -n signalbeam exec -it nats-0 -- nats server check jetstream
 
 # JetStream streams created
 kubectl -n signalbeam exec -it nats-0 -- nats stream ls
+
+# Ingress controller running with external IP
+kubectl -n ingress-nginx get svc ingress-nginx-controller
+
+# cert-manager ready
+kubectl -n cert-manager get pods
+kubectl get clusterissuer
+
+# Prometheus, Grafana, AlertManager running
+kubectl -n monitoring get pods
+
+# Loki and Tempo running
+kubectl -n monitoring get pods -l app.kubernetes.io/name=loki
+kubectl -n monitoring get pods -l app.kubernetes.io/name=tempo
+
+# OTEL Collector running
+kubectl -n signalbeam get pods -l app.kubernetes.io/name=otel-collector
 ```
 
 ## Ongoing Changes
@@ -223,7 +248,13 @@ infra/
 │   ├── storage/                         # Blob account + containers
 │   ├── dns/                             # Azure DNS zone
 │   ├── aks-cluster/                     # AKS with workload identity
-│   └── nats/                            # NATS cluster with JetStream (Helm)
+│   ├── nats/                            # NATS cluster with JetStream (Helm)
+│   ├── cert-manager/                    # TLS cert management + Let's Encrypt
+│   ├── ingress-nginx/                   # NGINX Ingress Controller
+│   ├── kube-prometheus-stack/           # Prometheus + Grafana + AlertManager
+│   ├── loki/                            # Log aggregation
+│   ├── tempo/                           # Distributed tracing
+│   └── otel-collector/                  # OpenTelemetry Collector
 └── terragrunt/
     ├── terragrunt.hcl                   # Root config: backend, provider, inputs
     └── dev/
@@ -238,7 +269,13 @@ infra/
         ├── storage/terragrunt.hcl
         ├── dns/terragrunt.hcl
         ├── aks-cluster/terragrunt.hcl
-        └── nats/terragrunt.hcl
+        ├── nats/terragrunt.hcl
+        ├── cert-manager/terragrunt.hcl
+        ├── ingress-nginx/terragrunt.hcl
+        ├── kube-prometheus-stack/terragrunt.hcl
+        ├── loki/terragrunt.hcl
+        ├── tempo/terragrunt.hcl
+        └── otel-collector/terragrunt.hcl
 ```
 
 ## NATS Architecture
@@ -275,3 +312,42 @@ signalbeam.telemetry.metrics.<deviceId>      # → TELEMETRY_METRICS stream
 ```
 
 Heartbeats and commands use Core NATS (ephemeral pub/sub, request/reply). All other subjects are persisted in JetStream streams for reliable delivery and replay.
+
+## Ingress & TLS
+
+- **Ingress Controller:** NGINX (`ingress-nginx`) with Azure LoadBalancer, 2 replicas
+- **TLS:** cert-manager with Let's Encrypt ClusterIssuers (`letsencrypt-prod`, `letsencrypt-staging`)
+- **DNS01 Validation:** Azure DNS via workload identity (federated credentials provisioned in AKS module)
+- **IngressClass:** `nginx` (set as default)
+
+All production Helm values reference `ingressClassName: nginx` and `cert-manager.io/cluster-issuer: letsencrypt-prod`.
+
+## Observability Stack
+
+The observability pipeline collects traces, metrics, and logs from all microservices:
+
+```
+Microservices → OTEL Collector → Tempo (traces)
+                               → Prometheus (metrics)
+                               → Loki (logs)
+                               → Grafana (dashboards)
+```
+
+### Components
+
+| Component | Namespace | Endpoint | Purpose |
+|-----------|-----------|----------|---------|
+| OTEL Collector | `signalbeam` | `otel-collector.signalbeam:4317` (gRPC) | Receives OTLP telemetry, routes to backends |
+| Prometheus | `monitoring` | `kube-prometheus-stack-prometheus:9090` | Metrics storage, ServiceMonitor scraping |
+| Grafana | `monitoring` | `kube-prometheus-stack-grafana:80` | Dashboards (Loki + Tempo + Prometheus datasources pre-configured) |
+| Loki | `monitoring` | `loki.monitoring:3100` | Log aggregation (single-binary, 7d retention) |
+| Tempo | `monitoring` | `tempo.monitoring:3100` | Distributed tracing (7d retention) |
+| AlertManager | `monitoring` | `kube-prometheus-stack-alertmanager:9093` | Alert routing |
+
+### Data Flow
+
+- **Traces:** Microservices → OTLP gRPC → OTEL Collector → Tempo
+- **Metrics:** OTEL Collector → Prometheus remote write; Prometheus also scrapes ServiceMonitors directly
+- **Logs:** Microservices → OTLP gRPC → OTEL Collector → Loki
+
+All microservice Helm charts define ServiceMonitors that Prometheus Operator auto-discovers.
