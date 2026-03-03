@@ -47,7 +47,14 @@ git fetch origin main
 git checkout -b {branch-name} origin/main
 ```
 
-## After Starting
+## After Starting — Automatic Implementation
 
-- Print the issue acceptance criteria as a checklist so the user knows what to build.
-- Remind the user of the development workflow: Domain → Application → Infrastructure → Endpoints → Tests.
+Once the branch is created, **do not stop**. Immediately continue with implementation:
+
+1. **Analyze the issue** — Parse acceptance criteria, identify affected services, and determine which layers need changes (Domain, Application, Infrastructure, Endpoints, Frontend, Tests).
+2. **Create a task list** — Use TodoWrite to track each implementation step derived from the issue.
+3. **Implement** — Follow the layer order: Domain → Application → Infrastructure → Endpoints → Frontend → Tests. Use the appropriate scaffolding skills (`/add-entity`, `/add-command`, `/add-query`, `/add-event-handler`, `/add-migration`, `/add-feature`) where they apply. Commit logically after each meaningful change.
+4. **Verify as you go** — Run tests and architecture checks between steps. Fix issues before moving on.
+5. **When done** — Run `/complete-task` to go through the full completion workflow (build, lint, tests, review, PR).
+
+**Do not ask the user what to do next.** Read the issue, plan the work, and start building. Only ask clarifying questions if the issue has genuine ambiguity that blocks implementation.
