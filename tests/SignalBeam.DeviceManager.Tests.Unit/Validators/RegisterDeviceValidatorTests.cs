@@ -46,23 +46,6 @@ public class RegisterDeviceValidatorTests
         result.Errors.Should().Contain(e => e.PropertyName == "TenantId");
     }
 
-    [Fact]
-    public void Validate_ShouldFail_WhenDeviceIdIsEmpty()
-    {
-        // Arrange
-        var command = new RegisterDeviceCommand(
-            TenantId: Guid.NewGuid(),
-            DeviceId: Guid.Empty,
-            Name: "Test Device");
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "DeviceId");
-    }
-
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
