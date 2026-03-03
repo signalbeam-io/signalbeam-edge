@@ -15,8 +15,8 @@
   </ItemGroup>
   <ItemGroup Label="Cloud-Native Integrations">
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.22.2" />
-    <PackageVersion Include="NATS.Client.Core" Version="2.5.3" />
-    <PackageVersion Include="NATS.Client.JetStream" Version="2.5.3" />
+    <PackageVersion Include="NATS.Client.Core" Version="2.7.2" />
+    <PackageVersion Include="NATS.Client.JetStream" Version="2.7.2" />
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
     <PackageVersion Include="Azure.Identity" Version="1.13.1" />
   </ItemGroup>
