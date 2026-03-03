@@ -37,7 +37,8 @@ public class DeviceHeartbeatRepositoryTests : IAsyncLifetime
             .Options;
 
         _context = new TelemetryDbContext(options);
-        await _context.Database.MigrateAsync();
+        // Create schema and tables from model
+        await _context.Database.EnsureCreatedAsync();
 
         _repository = new DeviceHeartbeatRepository(_context);
     }
@@ -203,7 +204,7 @@ public class DeviceHeartbeatRepositoryTests : IAsyncLifetime
         );
 
         // Assert
-        count.Should().Be(10); // 5 hours * 2 heartbeats per hour
+        count.Should().Be(11); // baseTime + 0, 30, 60, ..., 300 minutes (inclusive)
     }
 
     [Fact]
