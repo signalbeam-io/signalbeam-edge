@@ -69,9 +69,9 @@ public class AlertConfiguration : IEntityTypeConfiguration<Alert>
         // DeviceId value object conversion (nullable)
         builder.Property(a => a.DeviceId)
             .HasColumnName("device_id")
-            .HasConversion(
-                v => v!.Value,
-                v => new DeviceId(v));
+            .HasConversion<Guid?>(
+                v => v.HasValue ? v.Value.Value : null,
+                v => v.HasValue ? new DeviceId(v.Value) : null);
 
         builder.Property(a => a.RolloutId)
             .HasColumnName("rollout_id");
