@@ -1,0 +1,24 @@
+name: Build Telemetry Processor
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/TelemetryProcessor/**'
+      - 'src/Shared/**'
+      - 'src/SignalBeam.ServiceDefaults/**'
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'src/TelemetryProcessor/**'
+      - 'src/Shared/**'
+      - 'src/SignalBeam.ServiceDefaults/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: telemetry-processor
+      dockerfile: ./src/TelemetryProcessor/Dockerfile
+      context: .
