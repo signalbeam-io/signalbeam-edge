@@ -83,7 +83,7 @@ jobs:
 
           # Copy documentation
           cp src/EdgeAgent/README.md ${PACKAGE_DIR}/usr/share/doc/${{ env.PACKAGE_NAME }}/
-          cp src/EdgeAgent/package/INSTALL.md ${PACKAGE_DIR}/usr/share/doc/${{ env.PACKAGE_NAME }}/
+
 
           # Create copyright
           cat > ${PACKAGE_DIR}/usr/share/doc/${{ env.PACKAGE_NAME }}/copyright <<EOF
@@ -249,7 +249,6 @@ jobs:
 
           ## Documentation
 
-          - [Installation Guide](src/EdgeAgent/package/INSTALL.md)
           - [systemd Service](src/EdgeAgent/systemd/README.md)
           - [Main README](src/EdgeAgent/README.md)
           EOF
