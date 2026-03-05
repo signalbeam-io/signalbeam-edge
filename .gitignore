@@ -411,3 +411,8 @@ AGENTS.md
 infra/terragrunt/dev/*/.terragrunt*
 infra/terragrunt/dev/*/.terraform*
 .zitadel/
+
+# Workflow engine state
+.claude/.workflow-state.json
+tools/workflow-engine/dist/
+tools/workflow-engine/node_modules/

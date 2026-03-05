@@ -1,0 +1,10 @@
+{
+  "solution": "src/SignalBeam.sln",
+  "services": ["DeviceManager", "BundleOrchestrator", "TelemetryProcessor", "IdentityManager"],
+  "helmCharts": [
+    "deploy/charts/signalbeam-infrastructure",
+    "deploy/charts/signalbeam-platform"
+  ],
+  "frontendDir": "web",
+  "infraDir": "infra"
+}
