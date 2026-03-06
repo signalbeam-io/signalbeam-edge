@@ -1,7 +1,7 @@
 ---
 name: task-check
-description: QA check to verify implementation matches GitHub issue requirements
-allowed-tools: Bash, Read, Glob, Grep
+description: QA check to verify implementation matches GitHub issue requirements. Use to validate that all acceptance criteria from the linked issue are met before creating a PR.
+allowed-tools: Bash, Read, Glob, Grep, mcp__github-mcp-server__get_issue
 user-invocable: true
 ---
 
@@ -34,13 +34,13 @@ fi
 
 ### Step 2: Fetch Issue Details
 
-```bash
-# Fetch issue with all details
-gh issue view $ISSUE --json number,title,body,labels,state
+Use MCP for structured issue data:
 
-# Also fetch any linked PRs or references
-gh issue view $ISSUE --json comments
 ```
+mcp__github-mcp-server__get_issue(owner: "signalbeam-io", repo: "signalbeam-edge", issue_number: $ISSUE)
+```
+
+This returns structured JSON with number, title, body, labels, state, and comments — no CLI output parsing needed.
 
 ### Step 3: Parse Acceptance Criteria
 

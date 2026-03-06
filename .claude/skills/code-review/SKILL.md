@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review code changes for security, architecture, and quality issues
+description: Review code changes for security, architecture, and quality issues. Use for deep PR-level review — checks OWASP vulnerabilities, hexagonal architecture violations, code smells, and test gaps. For a quick architecture-only check, use /check-architecture instead.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: true
 ---
@@ -192,6 +192,20 @@ Things done well in this change:
 - **Critical (Block):** Security vulnerabilities, data loss risks, architecture violations
 - **Warning (Should Fix):** Code smells, missing tests, convention violations
 - **Suggestion (Nice to Have):** Style improvements, refactoring opportunities
+
+## Relationship to /check-architecture
+
+`/code-review` and `/check-architecture` have complementary scopes:
+
+| Aspect | `/check-architecture` | `/code-review` |
+|--------|----------------------|----------------|
+| Speed | Fast (local checks) | Thorough (full diff analysis) |
+| Security | No | Yes (OWASP Top 10) |
+| Architecture | Layer deps, Result pattern, CQRS, entities, migrations | Same + circular deps, anemic models |
+| Quality | No | Yes (code smells, naming, testing gaps) |
+| When | During development, quick verification | Before PR, as gate in /complete-task |
+
+Use `/check-architecture` for quick feedback while coding. Use `/code-review` for the final gate before a PR.
 
 ## Integration with /complete-task
 

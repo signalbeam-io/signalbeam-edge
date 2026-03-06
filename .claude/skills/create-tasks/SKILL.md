@@ -1,7 +1,7 @@
 ---
 name: create-tasks
-description: Create GitHub issues from a feature plan or PRD — automatically determines single issue vs epic + task issues
-allowed-tools: Bash, Read, Glob, AskUserQuestion
+description: Create GitHub issues from a feature plan or PRD — automatically determines single issue vs epic + task issues. Use after /prd or /plan-feature to push tasks to GitHub, or whenever the user wants to create structured issue(s) for a feature.
+allowed-tools: Bash, Read, Glob, AskUserQuestion, mcp__github-mcp-server__create_issue, mcp__github-mcp-server__update_issue, mcp__github-mcp-server__get_issue
 user-invocable: true
 ---
 
@@ -75,10 +75,21 @@ Create? [Yes / Modify / Cancel]
 
 ### Step 4a: Single Issue Path
 
-Create one issue with all tasks as a checklist:
+Create one issue with all tasks as a checklist using MCP:
 
-```bash
-gh issue create --title "{Feature Title}" --label "{labels}" --body "$(cat <<'EOF'
+```
+mcp__github-mcp-server__create_issue(
+  owner: "signalbeam-io",
+  repo: "signalbeam-edge",
+  title: "{Feature Title}",
+  labels: ["{labels}"],
+  body: "..."
+)
+```
+
+Issue body format:
+
+```markdown
 ## Summary
 {description}
 
@@ -119,13 +130,21 @@ Only include layer sections that have tasks. Skip empty sections.
 
 ### Step 4b: Epic + Tasks Path
 
-**Create the epic:**
+**Create the epic** using MCP:
 
-```bash
-gh issue create \
-  --title "Epic: {Feature Title}" \
-  --label "epic,feature,{labels}" \
-  --body "$(cat <<'EOF'
+```
+mcp__github-mcp-server__create_issue(
+  owner: "signalbeam-io",
+  repo: "signalbeam-edge",
+  title: "Epic: {Feature Title}",
+  labels: ["epic", "feature", "{labels}"],
+  body: "..."
+)
+```
+
+Epic body format:
+
+```markdown
 ## Summary
 {summary}
 
@@ -147,13 +166,21 @@ EOF
 )"
 ```
 
-**Create each task issue:**
+**Create each task issue** using MCP:
 
-```bash
-gh issue create \
-  --title "[{Layer}] {Task Title}" \
-  --label "{layer-label},{service-labels}" \
-  --body "$(cat <<'EOF'
+```
+mcp__github-mcp-server__create_issue(
+  owner: "signalbeam-io",
+  repo: "signalbeam-edge",
+  title: "[{Layer}] {Task Title}",
+  labels: ["{layer-label}", "{service-labels}"],
+  body: "..."
+)
+```
+
+Task body format:
+
+```markdown
 ## Parent Epic
 #{epic-number}
 
@@ -177,11 +204,13 @@ EOF
 
 **Update epic with task links:**
 
-```bash
-gh issue edit {epic-number} --body "$(cat <<'EOF'
-{updated body with - [ ] #{taskN} — {title} links}
-EOF
-)"
+```
+mcp__github-mcp-server__update_issue(
+  owner: "signalbeam-io",
+  repo: "signalbeam-edge",
+  issue_number: {epic-number},
+  body: "{updated body with - [ ] #{taskN} — {title} links}"
+)
 ```
 
 ## Label Mapping

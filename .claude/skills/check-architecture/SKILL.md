@@ -1,6 +1,6 @@
 ---
 name: check-architecture
-description: Verify hexagonal architecture layer rules, Result pattern usage, and coding conventions
+description: Verify hexagonal architecture layer rules, Result pattern usage, and coding conventions. Use as a quick local check during development — fast and focused on architecture rules only. For full security + quality review, use /code-review instead.
 allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
 ---
@@ -108,6 +108,10 @@ Any pending changes are a **FAIL** — entity/configuration changes must always 
 
 ### Summary: {PASS | FAIL}
 ```
+
+## Relationship to /code-review
+
+This skill is the **fast, local check** — run it during development for quick feedback. For the **thorough PR-level review** (security, quality, test gaps), use `/code-review` or let `/complete-task` run it as a subagent.
 
 ## Related Skills
 

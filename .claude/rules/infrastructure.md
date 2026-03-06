@@ -30,6 +30,24 @@ paths:
 - Review generated migrations before committing — verify only expected changes are included
 - Skipping migrations causes `PendingModelChangesWarning` runtime errors
 
+## Zero-Downtime Migration Patterns
+When modifying existing schemas in production, use the **expand/contract** pattern to avoid downtime:
+
+**Adding a column:** Safe — add as nullable or with a default value. Backfill data in a separate migration if needed.
+
+**Renaming a column:** Unsafe as a single step. Instead:
+1. **Expand:** Add new column, deploy code that writes to both old and new
+2. **Migrate:** Backfill new column from old column
+3. **Contract:** Remove reads from old column, then drop it in a later migration
+
+**Dropping a column:** Unsafe — remove all code references first, deploy, then drop the column in a subsequent migration.
+
+**Adding a non-nullable column to existing table:** Add as nullable first with a default, backfill, then alter to non-nullable.
+
+**Index changes:** Adding indexes is safe (may be slow on large tables — consider `CREATE INDEX CONCURRENTLY` via raw SQL migration). Dropping unused indexes is safe.
+
+For simple additive changes (new tables, new nullable columns, new indexes), a single migration is fine. Use expand/contract only when modifying or removing existing schema that production code depends on.
+
 ## DI Registration Pattern
 - Expose a single `AddInfrastructure(this IServiceCollection services, IConfiguration configuration)` extension method
 - Register DbContext with Npgsql: `services.AddDbContext<TContext>(options => options.UseNpgsql(...))`

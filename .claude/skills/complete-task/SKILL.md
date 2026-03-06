@@ -1,6 +1,6 @@
 ---
 name: complete-task
-description: Complete current task with all quality gates, code review, QA check, and submit PR
+description: Complete current task with all quality gates, code review, QA check, and submit PR. Use when implementation is done and you want to run the full verification pipeline (build, lint, tests, review, QA) and create the pull request.
 allowed-tools: Bash, Read, Glob, Grep, Task, Skill
 user-invocable: true
 ---
@@ -123,7 +123,7 @@ If tests fail, STOP and report failures.
 
 ### Phase 3: Quality Review (Parallel Subagents)
 
-Launch TWO subagents in parallel using the Task tool. Each subagent uses the detailed instructions from its `.claude/subagents/*.md` file.
+Launch TWO subagents in parallel using the Task tool. Each reads its instructions from `.claude/subagents/` on startup.
 
 **Subagent 1: `reviewer`** — Code review for security, architecture, and quality issues. Uses the `reviewer` subagent definition. The subagent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
 
@@ -148,6 +148,26 @@ Maximum fix iterations reached. Manual intervention required.
 Remaining issues:
 {list issues}
 ```
+
+### Phase 4.5: Documentation Check (Optional)
+
+Before creating the PR, check if documentation should be updated:
+
+```bash
+# Check if endpoints or entities were added/modified
+CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+HAS_ENDPOINTS=$(echo "$CHANGED_FILES" | grep -c "Endpoints/" || true)
+HAS_ENTITIES=$(echo "$CHANGED_FILES" | grep -c "Domain/Entities/" || true)
+HAS_EVENTS=$(echo "$CHANGED_FILES" | grep -c "Domain/Events/" || true)
+HAS_INFRA=$(echo "$CHANGED_FILES" | grep -cE "(infra/|deploy/)" || true)
+```
+
+If endpoints, entities, events, or infrastructure changed, suggest running `/docs` for the affected areas:
+- New/changed endpoints → `/docs api {service}`
+- New/changed entities or events → `/docs domain`
+- Infrastructure changes → `/docs architecture`
+
+This is advisory, not blocking — note it in the PR output if docs may need updating.
 
 ### Phase 5: Create PR
 

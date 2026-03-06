@@ -1,6 +1,6 @@
 ---
 name: add-terraform-module
-description: Scaffold a new Terraform module with variables, main, and outputs
+description: Scaffold a new Terraform module with variables, main, and outputs. Use when provisioning a new Azure resource (database, cache, storage, etc.) that needs its own Terraform module and Terragrunt wiring.
 allowed-tools: Write, Read, Glob, Grep
 user-invocable: true
 ---

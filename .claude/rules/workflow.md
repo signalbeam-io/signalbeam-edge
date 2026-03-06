@@ -86,6 +86,19 @@ Run verification checks during development:
 | `/run-tests` | Unit and integration tests | After each change |
 | `/lint` | Format, ESLint, Helm, Terraform | Before PR |
 
+### Lint Responsibility Boundaries
+
+Formatting is handled at three levels — understand which does what:
+
+| Level | What | When | Auto-fix? |
+|-------|------|------|-----------|
+| **Hooks** (`format-on-save.sh`) | Format individual files after Edit/Write | Automatic on every edit | Yes |
+| **Hooks** (`pre-commit-lint.sh`) | Format staged files before commit | Automatic on git commit | Yes (re-stages) |
+| **`/lint`** | Full codebase verification | Explicit, before PR | Optional (`--fix`) |
+| **`/infra-lint`** | Terraform + Helm only | Explicit, infra-only changes | Optional (`--fix`) |
+
+Hooks handle day-to-day formatting automatically. The `/lint` skill is for explicit verification that nothing was missed across the full codebase — run it before creating a PR or when the `/complete-task` workflow runs it as a gate.
+
 ## 7. Complete Task (`/complete-task`)
 
 When implementation is done, run the full completion workflow:
@@ -129,6 +142,8 @@ Plan → Issues → Branch → Implement → Verify → PR
 - **Both:** If a feature needs app code + infra changes, use standard workflow with `/infra-lint` for validation
 
 ## 8. Document (`/docs`)
+
+The `/complete-task` workflow detects when endpoints, entities, events, or infrastructure changed and suggests which docs to update. You can also run `/docs` proactively.
 
 Keep documentation in sync with code changes:
 
@@ -183,6 +198,7 @@ When something goes wrong:
 | `/create-pr` | Create pull request |
 | `/docs` | Generate/update documentation from code |
 | `/diagnose` | Investigate problems |
+| `/smoke-test` | Browser smoke test running app |
 | `/infra-plan` | Plan infrastructure changes |
 | `/add-terraform-module` | Scaffold Terraform module |
 | `/add-helm-chart` | Scaffold Helm chart |
@@ -194,12 +210,13 @@ When something goes wrong:
 
 These specialized agents run in isolated contexts:
 
-| Subagent | Purpose |
-|----------|---------|
-| `reviewer` | Security, architecture, quality review |
-| `verifier` | Acceptance criteria verification |
-| `investigator` | Evidence gathering for diagnosis |
-| `analyzer` | Codebase analysis for new features |
+| Subagent | Purpose | Model |
+|----------|---------|-------|
+| `reviewer` | Security, architecture, quality review (deep PR gate) | Sonnet |
+| `verifier` | Acceptance criteria verification | Sonnet |
+| `investigator` | Evidence gathering for diagnosis | Sonnet |
+| `analyzer` | Codebase analysis for new features | Haiku |
+| `doc-checker` | Detect stale docs relative to code changes | Haiku |
 
 ## Pre-PR Checklist
 
@@ -215,3 +232,4 @@ Before `/complete-task` or `/create-pr`:
 - [ ] Terraform validates and format is clean
 - [ ] No uncommitted changes
 - [ ] Commits are logically organized
+- [ ] Documentation updated if endpoints, entities, or events changed (advisory)

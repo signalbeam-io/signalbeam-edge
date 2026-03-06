@@ -1,12 +1,14 @@
 ---
 name: add-entity
-description: Scaffold a new domain entity with value object ID, aggregate root, factory method, and domain event
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: Scaffold a new domain entity with value object ID, aggregate root, factory method, and domain event. Use whenever the user wants to add a new domain concept, database table, persisted object, or aggregate root to the system.
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 ---
 
 # Add Domain Entity
 
 When the user asks to add a new entity, scaffold following the project's domain-driven design patterns.
+
+If the entity involves non-trivial EF Core configuration (owned types, complex value conversions, table splitting), use context7 to look up the current EF Core docs for the specific pattern before writing the configuration.
 
 ## 1. Value Object ID (`Domain/ValueObjects/{Entity}Id.cs`)
 

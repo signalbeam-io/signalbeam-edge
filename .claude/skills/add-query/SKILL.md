@@ -1,7 +1,7 @@
 ---
 name: add-query
-description: Scaffold a new CQRS query with handler and GET endpoint following project conventions
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: Scaffold a new CQRS query with handler and GET endpoint following project conventions. Use whenever the user wants to add a read endpoint, GET route, list/detail view, or search/filter capability to a microservice.
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 ---
 
 # Add CQRS Query

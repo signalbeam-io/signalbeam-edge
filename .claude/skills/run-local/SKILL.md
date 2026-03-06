@@ -1,6 +1,6 @@
 ---
 name: run-local
-description: Start the local development environment using .NET Aspire AppHost
+description: Start the local development environment using .NET Aspire AppHost. Use to spin up all services locally for manual testing — runs PostgreSQL, NATS, Valkey, and all microservices via Aspire.
 allowed-tools: Bash
 user-invocable: true
 ---
@@ -62,7 +62,18 @@ Frontend available at `http://localhost:5173`.
 - **Build failure**: Run `dotnet build src/SignalBeam.sln` first to see errors
 - **Docker containers stuck**: Run `docker compose down` in `src/SignalBeam.AppHost/` to clean up
 
+## Post-Launch Verification
+
+After the services start, optionally verify they're working using Playwright:
+
+1. Navigate to the Aspire dashboard at `https://localhost:15888` using `mcp__playwright__browser_navigate`
+2. Take a snapshot with `mcp__playwright__browser_snapshot` to confirm it loaded
+3. Check `mcp__playwright__browser_console_messages` for any errors
+
+This is optional — only do it if the user asks to verify, or if there were recent issues with the local setup.
+
 ## Related Skills
 
+- `/smoke-test` to verify the running app in the browser
 - `/run-tests` to run tests after verifying locally
 - `/diagnose` if the local environment has issues

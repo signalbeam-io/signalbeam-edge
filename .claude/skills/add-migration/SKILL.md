@@ -1,6 +1,6 @@
 ---
 name: add-migration
-description: Create an EF Core migration for a specific microservice
+description: Create an EF Core migration for a specific microservice. Use after adding or modifying entities, DbSets, or entity configurations — migration creation is mandatory for any schema change.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: true
 ---
