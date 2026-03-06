@@ -1,6 +1,6 @@
 ---
 name: create-tasks
-description: Create GitHub issues from a feature plan or PRD — automatically determines single issue vs epic + task issues
+description: Create GitHub issues from a feature plan or PRD — automatically determines single issue vs epic + task issues. Use after /prd or /plan-feature to push tasks to GitHub, or whenever the user wants to create structured issue(s) for a feature.
 allowed-tools: Bash, Read, Glob, AskUserQuestion
 user-invocable: true
 ---

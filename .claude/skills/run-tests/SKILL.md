@@ -1,6 +1,6 @@
 ---
 name: run-tests
-description: Run .NET tests for the project - unit tests, integration tests, or all
+description: Run .NET tests for the project — unit tests, integration tests, or all. Use to verify changes haven't broken anything, or to run specific test projects for a service.
 allowed-tools: Bash
 user-invocable: true
 ---

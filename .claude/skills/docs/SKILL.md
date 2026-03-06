@@ -1,6 +1,6 @@
 ---
 name: docs
-description: Generate or update project documentation from code — API docs, service docs, architecture docs, or runbooks
+description: Generate or update project documentation from code — API docs, service docs, architecture docs, or runbooks. Use after adding endpoints, entities, events, or infrastructure changes, or when documentation may be stale.
 allowed-tools: Bash, Read, Glob, Grep, Write, Edit
 user-invocable: true
 ---

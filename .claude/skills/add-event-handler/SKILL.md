@@ -1,6 +1,6 @@
 ---
 name: add-event-handler
-description: Scaffold a WolverineFx event handler for domain events or integration events
+description: Scaffold a WolverineFx event handler for domain events or integration events. Use whenever the user wants to react to domain events, publish to NATS, send notifications, update read models, or add async side effects.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 user-invocable: true
 ---

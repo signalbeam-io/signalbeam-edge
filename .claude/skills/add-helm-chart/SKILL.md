@@ -1,6 +1,6 @@
 ---
 name: add-helm-chart
-description: Scaffold a new Helm chart with standard templates and values
+description: Scaffold a new Helm chart with standard templates and values. Use when deploying a new microservice or component to Kubernetes and it needs its own chart.
 allowed-tools: Bash, Write, Read, Glob
 user-invocable: true
 ---

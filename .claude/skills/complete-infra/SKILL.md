@@ -1,6 +1,6 @@
 ---
 name: complete-infra
-description: Complete infrastructure task — lint, validate, review, and submit PR
+description: Complete infrastructure task — lint, validate, review, and submit PR. Use when an infrastructure-only branch is ready for submission — runs Terraform/Helm validation and creates the PR, skipping .NET/frontend checks.
 allowed-tools: Bash, Read, Glob, Grep, Task, Skill
 user-invocable: true
 ---

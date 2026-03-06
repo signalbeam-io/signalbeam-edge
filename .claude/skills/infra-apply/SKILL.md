@@ -1,6 +1,6 @@
 ---
 name: infra-apply
-description: Run terraform plan for review and optionally apply infrastructure changes
+description: Run terraform plan for review and optionally apply infrastructure changes. Use when the user wants to preview or deploy infrastructure — always shows the plan before any apply.
 allowed-tools: Bash, Read, Glob
 user-invocable: true
 ---

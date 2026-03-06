@@ -1,6 +1,6 @@
 ---
 name: prd
-description: Generate a Product Requirements Document through guided discovery questions and codebase analysis
+description: Generate a Product Requirements Document through guided discovery questions and codebase analysis. Use for complex features that need structured requirements, success metrics, and technical planning before implementation.
 allowed-tools: Bash, Read, Glob, Grep, Task, AskUserQuestion, Write
 user-invocable: true
 ---

@@ -1,6 +1,6 @@
 ---
 name: add-feature
-description: Scaffold a new frontend feature module with page, components, API service, and hooks
+description: Scaffold a new frontend feature module with page, components, API service, and hooks. Use whenever the user wants to add a new page, dashboard section, UI module, or frontend feature to the React app.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 user-invocable: true
 ---
@@ -111,14 +111,23 @@ export function {Feature}Overview() {
 
 ## 4. Add Route
 
-Remind the user to add the route in `web/src/routes/`:
+Find the router configuration file and add the route automatically:
+
+```bash
+# Find the router file
+grep -rl "createBrowserRouter\|RouteObject\|path:" web/src/routes/ web/src/App.tsx 2>/dev/null | head -1
+```
+
+Read the router file, then add the import and route entry:
 
 ```tsx
 import { {Feature}Page } from '@/features/{feature}/pages/{feature}-page'
 
-// Add to router config:
+// Add to the routes array alongside existing routes:
 { path: '/{feature}', element: <{Feature}Page /> }
 ```
+
+If the router structure is unclear or uses a pattern you don't recognize, show the user what to add and where instead of guessing.
 
 ## Checklist
 

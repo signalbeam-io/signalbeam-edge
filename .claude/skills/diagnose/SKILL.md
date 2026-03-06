@@ -1,6 +1,6 @@
 ---
 name: diagnose
-description: Investigate and diagnose problems using structured evidence gathering and hypothesis testing
+description: Investigate and diagnose problems using structured evidence gathering and hypothesis testing. Use whenever something is broken, failing, or behaving unexpectedly — build errors, test failures, runtime exceptions, deployment issues, or performance problems.
 allowed-tools: Bash, Read, Glob, Grep, Task, WebSearch
 user-invocable: true
 ---

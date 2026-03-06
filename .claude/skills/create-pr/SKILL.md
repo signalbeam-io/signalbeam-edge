@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Create a pull request with a structured description linking to the GitHub issue
+description: Create a pull request with a structured description linking to the GitHub issue. Use when ready to push and open a PR — auto-detects changed services/layers and generates a structured PR body with test plan.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: true
 ---
@@ -23,7 +23,12 @@ Create a pull request for the current branch with a structured description.
 
 2. **Analyze changes:**
    - Identify which layers were modified (Domain, Application, Infrastructure, Host, Frontend, Tests).
-   - Summarize what was added, changed, or removed.
+   - Detect affected services by checking paths against known service directories:
+     ```bash
+     git diff origin/main...HEAD --name-only | grep -oP 'src/\K[^/]+' | sort -u
+     ```
+   - Detect what was added vs changed vs removed from the diff stat.
+   - Check if documentation may need updating (new endpoints, entities, or events).
 
 3. **Push and create PR:**
    - Push the branch to origin with `-u` flag.
@@ -36,6 +41,9 @@ Create a pull request for the current branch with a structured description.
 {1-3 bullet points describing what this PR does}
 
 Closes #{issue-number}
+
+## Affected Services
+{List only services that were actually modified, e.g.: DeviceManager, BundleOrchestrator, Frontend}
 
 ## Changes
 - **Domain:** {changes or "No changes"}

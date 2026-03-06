@@ -1,6 +1,6 @@
 ---
 name: infra-lint
-description: Lint Terraform, Terragrunt, and Helm charts only
+description: Lint Terraform, Terragrunt, and Helm charts only — skips .NET and frontend. Use for infrastructure-only changes when /lint would be overkill.
 allowed-tools: Bash
 user-invocable: true
 ---

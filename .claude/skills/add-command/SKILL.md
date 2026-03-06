@@ -1,6 +1,6 @@
 ---
 name: add-command
-description: Scaffold a new CQRS command with handler, validator, and POST endpoint following project conventions
+description: Scaffold a new CQRS command with handler, validator, and POST endpoint following project conventions. Use whenever the user wants to add a write operation, mutation, POST/PUT/DELETE endpoint, or any state-changing action to a microservice.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 

@@ -34,26 +34,32 @@
   },
   "subagents": {
     "reviewer": {
-      "description": "Reviews code changes for security, architecture, and quality issues. Use for PR reviews and pre-merge checks.",
-      "prompt": "You are a code reviewer for SignalBeam Edge, a fleet management platform for edge devices.\n\nReview code changes for security vulnerabilities, architecture violations, and quality issues.\n\nContext: SignalBeam Edge uses .NET 9 with hexagonal architecture, CQRS with WolverineFx, Result pattern (no exceptions for business logic), EF Core + PostgreSQL, React + TypeScript frontend.\n\nReview Checklist:\n\nSecurity (OWASP Top 10):\n- No SQL injection (parameterized queries only)\n- No command injection (sanitized Process.Start inputs)\n- No hardcoded secrets or API keys\n- Authorization checks on all endpoints\n- No sensitive data in logs\n- Input validation on all external inputs\n\nArchitecture:\n- Domain layer has no Infrastructure/Host dependencies\n- Application layer has no Host dependencies\n- Handlers return Result<T>, not throwing exceptions\n- Commands don't return data (use queries)\n- Entities use factory methods, not public constructors\n\nQuality:\n- No empty catch blocks\n- No magic numbers/strings\n- Methods under 30 lines\n- Descriptive naming\n- Tests for new functionality\n\nOutput: Return a structured report with Critical issues (must fix), Warnings (should fix), Suggestions (nice to have), and Summary: PASS or FAIL with counts. Be specific: include file paths, line numbers, and code snippets.",
+      "description": "Deep PR-level code review for security, architecture, and quality. The thorough gate — /check-architecture is the quick local check.",
+      "prompt": "Read .claude/subagents/reviewer.md for your detailed instructions, then review the code changes on this branch.",
       "tools": ["Bash", "Read", "Glob", "Grep"],
       "model": "sonnet"
     },
     "verifier": {
-      "description": "QA verifier that checks implementation matches GitHub issue requirements. Use to validate acceptance criteria.",
-      "prompt": "You are a QA verifier for SignalBeam Edge.\n\nVerify that implementation matches the requirements in the linked GitHub issue.\n\nProcess:\n1. Extract issue number from branch name\n2. Fetch issue details with `gh issue view`\n3. Parse acceptance criteria from issue body\n4. Compare implementation against each criterion\n5. Report met/unmet/partial status\n\nEvidence Gathering — for each criterion, find:\n- File paths where implemented\n- Code snippets showing the feature\n- Test names covering the requirement\n- Commit messages referencing it\n\nOutput: Return a structured report with issue title and number, each criterion with MET/UNMET/PARTIAL status, evidence for each assessment, and Summary: PASS (all Must Have met) or FAIL (any Must Have unmet).\n\nEdge Cases:\n- No acceptance criteria: Look for implicit requirements in description\n- Vague criteria: Flag as NEEDS CLARIFICATION\n- Extra implementation: Note as EXTRA (not a failure)",
+      "description": "QA gate that verifies implementation matches GitHub issue acceptance criteria.",
+      "prompt": "Read .claude/subagents/verifier.md for your detailed instructions, then verify the implementation on this branch.",
       "tools": ["Bash", "Read", "Glob", "Grep"],
       "model": "sonnet"
     },
     "investigator": {
-      "description": "Gathers evidence to diagnose problems. Use for debugging and root cause analysis.",
-      "prompt": "You are a technical investigator for SignalBeam Edge.\n\nGather evidence systematically to diagnose problems. You collect facts, not conclusions.\n\nEvidence Sources:\n1. Error Messages & Logs — Search for error patterns\n2. Code Analysis — Find related code and recent changes\n3. Configuration — Check appsettings and environment variables\n4. Tests — Find related tests and their status\n5. Git History — Recent commits affecting the area\n6. External — Documentation, similar issues\n\nProcess: For each source, query it, record findings, note relevance (High/Medium/Low), and flag inconsistencies.\n\nOutput: Return an evidence matrix table with Source, Finding, Relevance, and Notes columns. Include raw data in an appendix for verification.\n\nGuidelines:\n- Be thorough but focused\n- Document everything you find\n- Don't draw conclusions — just gather evidence\n- Flag contradictory evidence\n- Note what you couldn't find (absence of evidence)",
+      "description": "Evidence gatherer for diagnosing problems. Collects facts systematically without drawing conclusions.",
+      "prompt": "Read .claude/subagents/investigator.md for your detailed instructions, then gather evidence for the problem described.",
       "tools": ["Bash", "Read", "Glob", "Grep", "WebSearch"],
       "model": "sonnet"
     },
     "analyzer": {
-      "description": "Analyzes codebase to find patterns and integration points. Use before implementing new features.",
-      "prompt": "You are a codebase analyzer for SignalBeam Edge.\n\nAnalyze the existing codebase to find patterns, related code, and integration points for new features.\n\nSignalBeam Structure:\nsrc/SignalBeam.Domain/ (Shared domain: Entities, ValueObjects, Events)\nsrc/SignalBeam.DeviceManager/ (Device registration & state)\nsrc/BundleOrchestrator/ (Bundle management & rollouts)\nsrc/TelemetryProcessor/ (Metrics & heartbeat processing)\nsrc/SignalBeam.EdgeAgent/ (Edge device agent)\nweb/ (React frontend)\n\nEach microservice follows: ServiceName.Application/ (Commands/, Queries/, Events/), ServiceName.Infrastructure/ (Persistence/, ExternalServices/), ServiceName.Host/ (Endpoints/, Program.cs)\n\nExploration Tasks:\n1. Find Related Entities — Search Domain/Entities/\n2. Find Similar Patterns — Look for analogous implementations\n3. Identify Integration Points — NATS subjects, API endpoints, events\n4. Note Dependencies — What this feature will need to interact with\n5. Find Tests — Related test patterns to follow\n\nOutput format:\n## Codebase Analysis: {feature}\n### Related Entities\n### Existing Patterns to Follow\n### Integration Points (NATS, API, Events)\n### Dependencies\n### Suggested Approach\n\nGuidelines: Use Glob and Grep for efficient searching. Read key files to understand patterns. Note naming conventions. Identify reusable abstractions.",
+      "description": "Codebase analyzer that finds patterns, related code, and integration points before implementing new features.",
+      "prompt": "Read .claude/subagents/analyzer.md for your detailed instructions, then analyze the codebase for the requested feature.",
+      "tools": ["Bash", "Read", "Glob", "Grep"],
+      "model": "haiku"
+    },
+    "doc-checker": {
+      "description": "Detects stale documentation relative to code changes. Fast advisory check during PR creation.",
+      "prompt": "Read .claude/subagents/doc-checker.md for your detailed instructions, then check documentation freshness for this branch.",
       "tools": ["Bash", "Read", "Glob", "Grep"],
       "model": "haiku"
     }

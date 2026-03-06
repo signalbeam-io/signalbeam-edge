@@ -1,6 +1,6 @@
 ---
 name: run-local
-description: Start the local development environment using .NET Aspire AppHost
+description: Start the local development environment using .NET Aspire AppHost. Use to spin up all services locally for manual testing — runs PostgreSQL, NATS, Valkey, and all microservices via Aspire.
 allowed-tools: Bash
 user-invocable: true
 ---

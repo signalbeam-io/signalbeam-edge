@@ -1,6 +1,6 @@
 ---
 name: task-check
-description: QA check to verify implementation matches GitHub issue requirements
+description: QA check to verify implementation matches GitHub issue requirements. Use to validate that all acceptance criteria from the linked issue are met before creating a PR.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: true
 ---
