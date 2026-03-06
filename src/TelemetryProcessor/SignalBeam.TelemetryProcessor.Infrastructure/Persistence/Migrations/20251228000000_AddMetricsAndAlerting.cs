@@ -15,6 +15,7 @@ public partial class AddMetricsAndAlerting : Migration
         // =====================================================
         migrationBuilder.CreateTable(
             name: "device_health_scores",
+            schema: "telemetry_processor",
             columns: table => new
             {
                 id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -38,23 +39,26 @@ public partial class AddMetricsAndAlerting : Migration
         // Indexes for device_health_scores
         migrationBuilder.CreateIndex(
             name: "ix_device_health_scores_device_id",
+            schema: "telemetry_processor",
             table: "device_health_scores",
             column: "device_id");
 
         migrationBuilder.CreateIndex(
             name: "ix_device_health_scores_timestamp",
+            schema: "telemetry_processor",
             table: "device_health_scores",
             column: "timestamp");
 
         migrationBuilder.CreateIndex(
             name: "ix_device_health_scores_total_score",
+            schema: "telemetry_processor",
             table: "device_health_scores",
             column: "total_score");
 
         // Convert to TimescaleDB hypertable for time-series optimization
         migrationBuilder.Sql(@"
             SELECT create_hypertable(
-                'device_health_scores',
+                'telemetry_processor.device_health_scores',
                 'timestamp',
                 chunk_time_interval => INTERVAL '1 day',
                 if_not_exists => TRUE
@@ -63,7 +67,7 @@ public partial class AddMetricsAndAlerting : Migration
 
         // Add compression policy (compress data older than 7 days)
         migrationBuilder.Sql(@"
-            ALTER TABLE device_health_scores SET (
+            ALTER TABLE telemetry_processor.device_health_scores SET (
                 timescaledb.compress,
                 timescaledb.compress_segmentby = 'device_id',
                 timescaledb.compress_orderby = 'timestamp DESC'
@@ -72,7 +76,7 @@ public partial class AddMetricsAndAlerting : Migration
 
         migrationBuilder.Sql(@"
             SELECT add_compression_policy(
-                'device_health_scores',
+                'telemetry_processor.device_health_scores',
                 INTERVAL '7 days',
                 if_not_exists => TRUE
             );
@@ -81,7 +85,7 @@ public partial class AddMetricsAndAlerting : Migration
         // Add retention policy (drop data older than 90 days)
         migrationBuilder.Sql(@"
             SELECT add_retention_policy(
-                'device_health_scores',
+                'telemetry_processor.device_health_scores',
                 INTERVAL '90 days',
                 if_not_exists => TRUE
             );
@@ -92,6 +96,7 @@ public partial class AddMetricsAndAlerting : Migration
         // =====================================================
         migrationBuilder.CreateTable(
             name: "alerts",
+            schema: "telemetry_processor",
             columns: table => new
             {
                 id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -118,33 +123,39 @@ public partial class AddMetricsAndAlerting : Migration
         // Indexes for alerts
         migrationBuilder.CreateIndex(
             name: "ix_alerts_tenant_id",
+            schema: "telemetry_processor",
             table: "alerts",
             column: "tenant_id");
 
         migrationBuilder.CreateIndex(
             name: "ix_alerts_status",
+            schema: "telemetry_processor",
             table: "alerts",
             column: "status");
 
         migrationBuilder.CreateIndex(
             name: "ix_alerts_created_at",
+            schema: "telemetry_processor",
             table: "alerts",
             column: "created_at");
 
         migrationBuilder.CreateIndex(
             name: "ix_alerts_device_id",
+            schema: "telemetry_processor",
             table: "alerts",
             column: "device_id",
             filter: "device_id IS NOT NULL");
 
         migrationBuilder.CreateIndex(
             name: "ix_alerts_type_severity",
+            schema: "telemetry_processor",
             table: "alerts",
             columns: new[] { "type", "severity" });
 
         // Composite index for finding active alerts by device and type
         migrationBuilder.CreateIndex(
             name: "ix_alerts_device_type_status",
+            schema: "telemetry_processor",
             table: "alerts",
             columns: new[] { "device_id", "type", "status" },
             filter: "device_id IS NOT NULL AND status = 'Active'");
@@ -154,6 +165,7 @@ public partial class AddMetricsAndAlerting : Migration
         // =====================================================
         migrationBuilder.CreateTable(
             name: "alert_notifications",
+            schema: "telemetry_processor",
             columns: table => new
             {
                 id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -170,6 +182,7 @@ public partial class AddMetricsAndAlerting : Migration
                 table.ForeignKey(
                     name: "fk_alert_notifications_alerts_alert_id",
                     column: x => x.alert_id,
+                    principalSchema: "telemetry_processor",
                     principalTable: "alerts",
                     principalColumn: "id",
                     onDelete: ReferentialAction.Cascade);
@@ -179,16 +192,19 @@ public partial class AddMetricsAndAlerting : Migration
         // Indexes for alert_notifications
         migrationBuilder.CreateIndex(
             name: "ix_alert_notifications_alert_id",
+            schema: "telemetry_processor",
             table: "alert_notifications",
             column: "alert_id");
 
         migrationBuilder.CreateIndex(
             name: "ix_alert_notifications_sent_at",
+            schema: "telemetry_processor",
             table: "alert_notifications",
             column: "sent_at");
 
         migrationBuilder.CreateIndex(
             name: "ix_alert_notifications_success",
+            schema: "telemetry_processor",
             table: "alert_notifications",
             column: "success");
     }
@@ -197,8 +213,8 @@ public partial class AddMetricsAndAlerting : Migration
     protected override void Down(MigrationBuilder migrationBuilder)
     {
         // Drop tables in reverse order due to foreign key constraints
-        migrationBuilder.DropTable(name: "alert_notifications");
-        migrationBuilder.DropTable(name: "alerts");
-        migrationBuilder.DropTable(name: "device_health_scores");
+        migrationBuilder.DropTable(name: "alert_notifications", schema: "telemetry_processor");
+        migrationBuilder.DropTable(name: "alerts", schema: "telemetry_processor");
+        migrationBuilder.DropTable(name: "device_health_scores", schema: "telemetry_processor");
     }
 }

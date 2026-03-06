@@ -6,32 +6,32 @@ SignalBeam Edge is a platform for onboarding, monitoring, and updating fleets of
 
 ---
 
-**🚀 New to SignalBeam?** → **[Start Here: 5-Minute Quick Start Guide](docs/quickstart.md)**
+**New to SignalBeam?** → **[Start Here: 5-Minute Quick Start Guide](docs/quickstart.md)**
 
 Fully automated setup with zero manual configuration!
 
 ---
 
-## 🎯 Product Focus
+## Product Focus
 
 - **Radical simplicity**: device → group → bundle → status
 - **First-class fleet visibility** with clear rollout outcomes
 - **Built for teams** managing ~5–200 devices without an IoT platform team
 - **Open, opinionated stack** that integrates with existing tooling
 
-## ⚡ Quick Start
+## Quick Start
 
 **New to SignalBeam?** Get up and running in under 5 minutes with fully automated setup:
 
-👉 **[Read the Quick Start Guide](docs/quickstart.md)** 👈
+**[Read the Quick Start Guide](docs/quickstart.md)**
 
 The Quick Start guide includes:
-- ✅ **Zero-configuration** Zitadel setup (fully automated via API)
-- ✅ One-command backend startup with .NET Aspire
-- ✅ Automatic frontend configuration
-- ✅ No manual steps in Zitadel console required!
+- **Zero-configuration** Zitadel setup (fully automated via API)
+- One-command backend startup with .NET Aspire
+- Automatic frontend configuration
+- No manual steps in Zitadel console required
 
-## 🏗️ Architecture at a Glance
+## Architecture at a Glance
 
 ### Core Components
 
@@ -51,9 +51,9 @@ The Quick Start guide includes:
 - **Storage**: Azure Blob Storage for bundle artifacts
 - **Orchestration**: .NET Aspire for local development
 
-## 🚀 Detailed Setup
+## Detailed Setup
 
-> **📘 For step-by-step instructions with automated Zitadel configuration, see [QUICKSTART.md](docs/quickstart.md)**
+> For step-by-step instructions with automated Zitadel configuration, see [QUICKSTART.md](docs/quickstart.md)
 
 ### Prerequisites
 
@@ -114,7 +114,7 @@ cd src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host
 dotnet run
 ```
 
-## 📖 Core Workflows (MVP)
+## Core Workflows (MVP)
 
 ### 1. Device Registration
 - Edge agent registers device with tenant + device ID
@@ -143,9 +143,9 @@ dotnet run
 - Automatically starts/stops containers to match desired state
 - Reports deployment status and errors back to cloud
 
-## 🎨 Features
+## Features
 
-### ✅ Implemented (MVP)
+### Implemented (MVP)
 
 - [x] Device registration and authentication
 - [x] Device grouping and tagging
@@ -161,7 +161,7 @@ dotnet run
 - [x] API key authentication for devices
 - [x] JWT authentication for users (ready for OIDC)
 
-### 🚧 In Progress / Planned
+### In Progress / Planned
 
 - [ ] Advanced rollout strategies (canary, blue/green)
 - [ ] Device-level logs aggregation
@@ -172,7 +172,7 @@ dotnet run
 - [ ] mTLS for device-to-cloud communication
 - [ ] Air-gapped deployment support
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Backend (.NET 9)
 - **Framework**: .NET 9, C# 14, ASP.NET Core Minimal APIs
@@ -201,7 +201,7 @@ dotnet run
 - **NATS**: Message broker and event streaming
 - **Azure Blob Storage**: Bundle artifact storage
 
-## 📚 Documentation
+## Documentation
 
 ### Getting Started
 - **[Quick Start Guide](docs/quickstart.md)** - 5-minute automated setup (recommended for first-time users)
@@ -227,7 +227,7 @@ dotnet run
 - [Deployment Guide](docs/operations/deployment.md) - Production deployment
 - [Monitoring](docs/operations/monitoring.md) - Observability and metrics
 
-## 🧪 Testing
+## Testing
 
 ### Run All Tests
 ```bash
@@ -251,7 +251,7 @@ cd web
 npm test
 ```
 
-## 🔐 Security
+## Security
 
 ### Authentication & Authorization
 - **Devices**: API key authentication
@@ -265,7 +265,7 @@ npm test
 - HTTPS enforced in production
 - Secrets managed via Azure Key Vault or environment variables
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - Development workflow
@@ -273,17 +273,17 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - Testing requirements
 - Documentation standards
 
-## 📄 License
+## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [.NET 9](https://dot.net) and [.NET Aspire](https://learn.microsoft.com/aspire)
 - UI components from [shadcn/ui](https://ui.shadcn.com/)
 - Inspired by the need for simple, effective edge device management
 
-## 📞 Support
+## Support
 
 - **Documentation**: [docs/](docs/)
 - **Issues**: [GitHub Issues](https://github.com/signalbeam-io/signalbeam-edge/issues)

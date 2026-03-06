@@ -1,0 +1,24 @@
+name: Build Device Manager
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/DeviceManager/**'
+      - 'src/Shared/**'
+      - 'src/SignalBeam.ServiceDefaults/**'
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'src/DeviceManager/**'
+      - 'src/Shared/**'
+      - 'src/SignalBeam.ServiceDefaults/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: device-manager
+      dockerfile: ./src/DeviceManager/Dockerfile
+      context: .

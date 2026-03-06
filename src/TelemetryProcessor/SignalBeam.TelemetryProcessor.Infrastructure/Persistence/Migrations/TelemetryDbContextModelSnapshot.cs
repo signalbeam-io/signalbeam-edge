@@ -19,6 +19,203 @@ partial class TelemetryDbContextModelSnapshot : ModelSnapshot
 
         NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+        modelBuilder.Entity("SignalBeam.Domain.Entities.Alert", b =>
+            {
+                b.Property<Guid>("Id")
+                    .HasColumnType("uuid")
+                    .HasColumnName("id");
+
+                b.Property<DateTimeOffset?>("AcknowledgedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("acknowledged_at");
+
+                b.Property<string>("AcknowledgedBy")
+                    .HasMaxLength(255)
+                    .HasColumnType("character varying(255)")
+                    .HasColumnName("acknowledged_by");
+
+                b.Property<DateTimeOffset>("CreatedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("created_at");
+
+                b.Property<string>("Description")
+                    .IsRequired()
+                    .HasColumnType("text")
+                    .HasColumnName("description");
+
+                b.Property<Guid?>("DeviceId")
+                    .HasColumnType("uuid")
+                    .HasColumnName("device_id");
+
+                b.Property<DateTimeOffset?>("ResolvedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("resolved_at");
+
+                b.Property<Guid?>("RolloutId")
+                    .HasColumnType("uuid")
+                    .HasColumnName("rollout_id");
+
+                b.Property<string>("Severity")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("character varying(20)")
+                    .HasColumnName("severity");
+
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("character varying(20)")
+                    .HasColumnName("status")
+                    .HasDefaultValue("Active");
+
+                b.Property<Guid>("TenantId")
+                    .HasColumnType("uuid")
+                    .HasColumnName("tenant_id");
+
+                b.Property<string>("Title")
+                    .IsRequired()
+                    .HasMaxLength(255)
+                    .HasColumnType("character varying(255)")
+                    .HasColumnName("title");
+
+                b.Property<string>("Type")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("character varying(50)")
+                    .HasColumnName("type");
+
+                b.HasKey("Id");
+
+                b.HasIndex("CreatedAt")
+                    .IsDescending()
+                    .HasDatabaseName("ix_alerts_created_at");
+
+                b.HasIndex("DeviceId")
+                    .HasDatabaseName("ix_alerts_device_id")
+                    .HasFilter("device_id IS NOT NULL");
+
+                b.HasIndex("Status")
+                    .HasDatabaseName("ix_alerts_status");
+
+                b.HasIndex("TenantId")
+                    .HasDatabaseName("ix_alerts_tenant_id");
+
+                b.HasIndex("Type", "Severity")
+                    .HasDatabaseName("ix_alerts_type_severity");
+
+                b.HasIndex("DeviceId", "Type", "Status")
+                    .HasDatabaseName("ix_alerts_device_type_status")
+                    .HasFilter("device_id IS NOT NULL AND status = 'Active'");
+
+                b.ToTable("alerts", "telemetry_processor", t =>
+                {
+                    t.HasComment("System alerts for monitoring and notifications");
+                });
+            });
+
+        modelBuilder.Entity("SignalBeam.Domain.Entities.AlertNotification", b =>
+            {
+                b.Property<Guid>("Id")
+                    .HasColumnType("uuid")
+                    .HasColumnName("id");
+
+                b.Property<Guid>("AlertId")
+                    .HasColumnType("uuid")
+                    .HasColumnName("alert_id");
+
+                b.Property<string>("Channel")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("character varying(50)")
+                    .HasColumnName("channel");
+
+                b.Property<string>("Error")
+                    .HasColumnType("text")
+                    .HasColumnName("error");
+
+                b.Property<string>("Recipient")
+                    .IsRequired()
+                    .HasColumnType("text")
+                    .HasColumnName("recipient");
+
+                b.Property<DateTimeOffset>("SentAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("sent_at");
+
+                b.Property<bool>("Success")
+                    .HasColumnType("boolean")
+                    .HasColumnName("success");
+
+                b.HasKey("Id");
+
+                b.HasIndex("AlertId")
+                    .HasDatabaseName("ix_alert_notifications_alert_id");
+
+                b.HasIndex("SentAt")
+                    .IsDescending()
+                    .HasDatabaseName("ix_alert_notifications_sent_at");
+
+                b.HasIndex("Success")
+                    .HasDatabaseName("ix_alert_notifications_success");
+
+                b.ToTable("alert_notifications", "telemetry_processor", t =>
+                {
+                    t.HasComment("Alert notification delivery records");
+                });
+            });
+
+        modelBuilder.Entity("SignalBeam.Domain.Entities.DeviceHealthScore", b =>
+            {
+                b.Property<Guid>("Id")
+                    .HasColumnType("uuid")
+                    .HasColumnName("id");
+
+                b.Property<DateTimeOffset>("Timestamp")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("timestamp");
+
+                b.Property<Guid>("DeviceId")
+                    .HasColumnType("uuid")
+                    .HasColumnName("device_id");
+
+                b.Property<int>("HeartbeatScore")
+                    .HasColumnType("integer")
+                    .HasColumnName("heartbeat_score");
+
+                b.Property<int>("ReconciliationScore")
+                    .HasColumnType("integer")
+                    .HasColumnName("reconciliation_score");
+
+                b.Property<int>("ResourceScore")
+                    .HasColumnType("integer")
+                    .HasColumnName("resource_score");
+
+                b.Property<int>("TotalScore")
+                    .HasColumnType("integer")
+                    .HasColumnName("total_score");
+
+                b.HasKey("Id", "Timestamp");
+
+                b.HasIndex("DeviceId")
+                    .HasDatabaseName("ix_device_health_scores_device_id");
+
+                b.HasIndex("Timestamp")
+                    .IsDescending()
+                    .HasDatabaseName("ix_device_health_scores_timestamp");
+
+                b.HasIndex("TotalScore")
+                    .HasDatabaseName("ix_device_health_scores_total_score");
+
+                b.HasIndex("DeviceId", "Timestamp")
+                    .IsDescending(false, true)
+                    .HasDatabaseName("ix_device_health_scores_device_timestamp");
+
+                b.ToTable("device_health_scores", "telemetry_processor", t =>
+                {
+                    t.HasComment("TimescaleDB hypertable for device health scores");
+                });
+            });
+
         modelBuilder.Entity("SignalBeam.Domain.Entities.DeviceHeartbeat", b =>
             {
                 b.Property<Guid>("Id")
@@ -125,6 +322,15 @@ partial class TelemetryDbContextModelSnapshot : ModelSnapshot
                 {
                     t.HasComment("TimescaleDB hypertable for device metrics");
                 });
+            });
+
+        modelBuilder.Entity("SignalBeam.Domain.Entities.AlertNotification", b =>
+            {
+                b.HasOne("SignalBeam.Domain.Entities.Alert", null)
+                    .WithMany()
+                    .HasForeignKey("AlertId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
             });
 #pragma warning restore 612, 618
     }

@@ -14,10 +14,6 @@ public class RegisterDeviceValidator : AbstractValidator<RegisterDeviceCommand>
             .NotEmpty()
             .WithMessage("TenantId is required.");
 
-        RuleFor(x => x.DeviceId)
-            .NotEmpty()
-            .WithMessage("DeviceId is required.");
-
         RuleFor(x => x.Name)
             .NotEmpty()
             .WithMessage("Device name is required.")

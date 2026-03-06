@@ -1,0 +1,24 @@
+name: Build Identity Manager
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/IdentityManager/**'
+      - 'src/Shared/**'
+      - 'src/SignalBeam.ServiceDefaults/**'
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'src/IdentityManager/**'
+      - 'src/Shared/**'
+      - 'src/SignalBeam.ServiceDefaults/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: identity-manager
+      dockerfile: ./src/IdentityManager/Dockerfile
+      context: .
