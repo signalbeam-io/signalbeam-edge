@@ -1,12 +1,14 @@
 ---
 name: add-command
 description: Scaffold a new CQRS command with handler, validator, and POST endpoint following project conventions. Use whenever the user wants to add a write operation, mutation, POST/PUT/DELETE endpoint, or any state-changing action to a microservice.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 ---
 
 # Add CQRS Command
 
 When the user asks to add a new command, scaffold the following files in the correct microservice. Ask which service if ambiguous.
+
+If the command involves non-trivial FluentValidation rules (async validators, cross-field validation, collection rules) or WolverineFx middleware, use context7 to look up the current docs before writing.
 
 ## 1. Command Record (`Application/Commands/{CommandName}.cs`)
 

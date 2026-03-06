@@ -1,7 +1,7 @@
 ---
 name: start-work
 description: Create a feature branch from a GitHub issue and set up the working context. Use whenever starting implementation on a new issue — creates the branch, fetches requirements, and begins building automatically.
-allowed-tools: Bash, Read
+allowed-tools: Bash, Read, mcp__github-mcp-server__get_issue
 user-invocable: true
 ---
 
@@ -35,10 +35,15 @@ Examples:
 
 ## Commands
 
-```bash
-# Fetch issue
-gh issue view {issue} --json title,body,labels
+Fetch the issue using MCP for structured data:
 
+```
+mcp__github-mcp-server__get_issue(owner: "signalbeam-io", repo: "signalbeam-edge", issue_number: {issue})
+```
+
+This returns structured JSON with title, body, labels, and state — no CLI parsing needed.
+
+```bash
 # Check working tree
 git status --short
 

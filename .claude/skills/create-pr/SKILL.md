@@ -1,7 +1,7 @@
 ---
 name: create-pr
 description: Create a pull request with a structured description linking to the GitHub issue. Use when ready to push and open a PR — auto-detects changed services/layers and generates a structured PR body with test plan.
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep, mcp__github-mcp-server__create_pull_request
 user-invocable: true
 ---
 
@@ -71,12 +71,19 @@ Closes #{issue-number}
 ```bash
 # Push branch
 git push -u origin HEAD
+```
 
-# Create PR
-gh pr create --title "{title}" --body "$(cat <<'EOF'
-{body}
-EOF
-)"
+Create the PR using MCP for structured creation:
+
+```
+mcp__github-mcp-server__create_pull_request(
+  owner: "signalbeam-io",
+  repo: "signalbeam-edge",
+  title: "{title}",
+  body: "{body}",
+  head: "{branch-name}",
+  base: "main"
+)
 ```
 
 ## Guidelines

@@ -72,7 +72,15 @@ git log --oneline -- {file path}
 git blame {file} -L {start},{end}
 ```
 
-### 6. External Context
+### 6. Library Documentation (context7)
+When the error involves a specific library, look up its docs:
+
+1. `mcp__context7__resolve-library-id` with the library name
+2. `mcp__context7__query-docs` with the library ID and the error message or pattern
+
+Key libraries: EF Core, WolverineFx, FluentValidation, Polly, NATS.Net, TanStack Query, Zustand
+
+### 7. External Context
 - Search GitHub issues for similar problems
 - Check documentation for expected behavior
 - Search online for error messages

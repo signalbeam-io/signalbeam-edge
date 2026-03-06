@@ -70,6 +70,18 @@ Search `tests/` for how similar features are tested. Note the test structure, fi
 {Brief recommendation based on existing patterns — which service to put it in, which patterns to follow, what to reuse}
 ```
 
+## Library Documentation
+
+When the feature involves non-trivial library usage, look up current docs using context7:
+
+1. `mcp__context7__resolve-library-id` with the library name (e.g., "wolverinefx", "efcore", "tanstack-query")
+2. `mcp__context7__query-docs` with the library ID and a specific question
+
+This is especially valuable when:
+- The feature uses a library pattern you haven't seen in the existing codebase
+- The library might have a built-in feature for what the user wants to build
+- You need to suggest the right API for a specific use case
+
 ## Guidelines
 
 - Use Glob and Grep for efficient searching — don't read every file

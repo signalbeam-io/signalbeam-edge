@@ -48,13 +48,13 @@
     "investigator": {
       "description": "Evidence gatherer for diagnosing problems. Collects facts systematically without drawing conclusions.",
       "prompt": "Read .claude/subagents/investigator.md for your detailed instructions, then gather evidence for the problem described.",
-      "tools": ["Bash", "Read", "Glob", "Grep", "WebSearch"],
+      "tools": ["Bash", "Read", "Glob", "Grep", "WebSearch", "mcp__context7__resolve-library-id", "mcp__context7__query-docs"],
       "model": "sonnet"
     },
     "analyzer": {
       "description": "Codebase analyzer that finds patterns, related code, and integration points before implementing new features.",
       "prompt": "Read .claude/subagents/analyzer.md for your detailed instructions, then analyze the codebase for the requested feature.",
-      "tools": ["Bash", "Read", "Glob", "Grep"],
+      "tools": ["Bash", "Read", "Glob", "Grep", "mcp__context7__resolve-library-id", "mcp__context7__query-docs"],
       "model": "haiku"
     },
     "doc-checker": {

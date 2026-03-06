@@ -1,7 +1,7 @@
 ---
 name: diagnose
 description: Investigate and diagnose problems using structured evidence gathering and hypothesis testing. Use whenever something is broken, failing, or behaving unexpectedly — build errors, test failures, runtime exceptions, deployment issues, or performance problems.
-allowed-tools: Bash, Read, Glob, Grep, Task, WebSearch
+allowed-tools: Bash, Read, Glob, Grep, Task, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs
 user-invocable: true
 ---
 
@@ -76,6 +76,7 @@ dotnet test --filter "{test pattern}" --no-build
 - Search for similar issues in GitHub issues
 - Search for related error messages online
 - Check documentation for expected behavior
+- Use context7 to look up library docs when the error involves a specific library (EF Core, WolverineFx, FluentValidation, Polly, NATS.Net, TanStack Query) — this often reveals known issues or correct usage patterns faster than web search
 
 ### Phase 3: Hypothesis Generation
 

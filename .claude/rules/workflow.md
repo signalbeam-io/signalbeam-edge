@@ -198,6 +198,7 @@ When something goes wrong:
 | `/create-pr` | Create pull request |
 | `/docs` | Generate/update documentation from code |
 | `/diagnose` | Investigate problems |
+| `/smoke-test` | Browser smoke test running app |
 | `/infra-plan` | Plan infrastructure changes |
 | `/add-terraform-module` | Scaffold Terraform module |
 | `/add-helm-chart` | Scaffold Helm chart |
