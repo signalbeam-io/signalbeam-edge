@@ -1,28 +1,12 @@
-import type { WorkflowContext } from "../types.js";
-import { loadConfig } from "../config.js";
+import type { GitInfo } from "../types.js";
 import * as git from "../util/git.js";
 
-export function buildContext(
-  workflowId: string,
-  repoRoot: string,
-  args: Record<string, string | boolean> = {},
-): WorkflowContext {
-  const branch = git.currentBranch(repoRoot);
-  const issueNumber =
-    typeof args.issue === "string"
-      ? parseInt(args.issue, 10)
-      : git.extractIssueNumber(branch);
-
+export function buildGitInfo(repoRoot: string): GitInfo {
   return {
-    workflowId,
-    issueNumber,
-    branch,
-    repoRoot,
-    currentStep: "",
-    retryCount: 0,
-    stepResults: {},
+    branch: git.currentBranch(repoRoot),
+    workingTreeClean: git.isCleanTree(repoRoot),
+    headCommit: git.headCommit(repoRoot),
+    hasCommitsVsDefault: git.hasCommitsVsDefault(repoRoot),
     changedFiles: git.changedFiles(repoRoot),
-    args,
-    config: loadConfig(repoRoot),
   };
 }

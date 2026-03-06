@@ -54,3 +54,13 @@ export function getUsername(cwd: string): string {
   const { stdout } = git("config user.name", { cwd });
   return stdout.toLowerCase().replace(/\s+/g, "");
 }
+
+export function headCommit(cwd: string): string {
+  const { stdout } = git("rev-parse HEAD", { cwd });
+  return stdout;
+}
+
+export function hasCommitsVsDefault(cwd: string, base = "origin/main"): boolean {
+  const { stdout } = git(`log ${base}..HEAD --oneline`, { cwd });
+  return stdout.trim() !== "";
+}

@@ -1,0 +1,5 @@
+{
+  "name": "workflow-engine",
+  "version": "0.1.0",
+  "description": "Hook-driven state machine for deterministic development workflows with Claude agent teams"
+}

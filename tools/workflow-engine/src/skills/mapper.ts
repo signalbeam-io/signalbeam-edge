@@ -1,20 +1,12 @@
 import type { SkillDefinition } from "../types.js";
-import { injectRules } from "../rules/injector.js";
 
-export function buildSystemPrompt(
-  repoRoot: string,
-  skill: SkillDefinition,
-  changedFiles: string[],
-): string {
-  const rules = injectRules(repoRoot, changedFiles);
-  const parts: string[] = [];
-
-  parts.push(skill.body);
-
-  if (rules.length > 0) {
-    parts.push("---\n\n# Applicable Rules\n");
-    parts.push(rules.join("\n\n---\n\n"));
-  }
-
-  return parts.join("\n\n");
+/**
+ * Build the system prompt from a skill definition.
+ *
+ * Only returns the skill body. Rules are NOT injected here —
+ * Claude Code handles rule injection natively via `paths:` frontmatter
+ * in `.claude/rules/*.md`. Adding them here would duplicate context.
+ */
+export function buildSystemPrompt(skill: SkillDefinition): string {
+  return skill.body;
 }

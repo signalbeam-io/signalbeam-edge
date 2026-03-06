@@ -1,3 +1,8 @@
+---
+paths:
+  - "**"
+---
+
 # Development Workflow
 
 Follow this end-to-end process when building features. Each step has a corresponding skill.

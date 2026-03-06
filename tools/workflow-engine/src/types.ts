@@ -1,6 +1,91 @@
-export type StepKind = "deterministic" | "agent";
-export type StepStatus = "pending" | "running" | "passed" | "failed" | "skipped";
-export type WorkflowStatus = "idle" | "running" | "completed" | "failed" | "paused";
+// ── Result types ──
+
+export type PreconditionResult =
+  | { pass: true }
+  | { pass: false; reason: string };
+
+export function pass(): PreconditionResult {
+  return { pass: true };
+}
+
+export function fail(reason: string): PreconditionResult {
+  return { pass: false, reason };
+}
+
+// ── State machine ──
+
+export type StateName =
+  | "PREFLIGHT"
+  | "BUILDING"
+  | "LINTING"
+  | "TESTING"
+  | "REVIEWING"
+  | "VERIFYING"
+  | "FIXING"
+  | "CREATING_PR"
+  | "BLOCKED"
+  | "COMPLETE";
+
+export type StageType = "gate" | "agent" | "terminal";
+
+export interface StateDefinition {
+  emoji: string;
+  stageType: StageType;
+  /** Skill name from .claude/skills/ — loaded at runtime, not duplicated */
+  skill: string | null;
+  canTransitionTo: StateName[];
+  allowedOperations: string[];
+  transitionGuard: (ctx: GuardContext) => PreconditionResult;
+  onEntry?: (state: WorkflowState, ctx: GuardContext) => WorkflowState;
+}
+
+export interface GuardContext {
+  state: WorkflowState;
+  config: ProjectConfig;
+  gitInfo: GitInfo;
+  from: StateName;
+}
+
+export interface GitInfo {
+  branch: string;
+  workingTreeClean: boolean;
+  headCommit: string;
+  hasCommitsVsDefault: boolean;
+  changedFiles: string[];
+}
+
+// ── Workflow state (persisted) ──
+
+export interface WorkflowState {
+  state: StateName;
+  issueNumber: number | null;
+  branch: string;
+  prNumber: number | null;
+  fixAttempts: number;
+  gateResults: Record<string, GateResult>;
+  reviewApproved: boolean | null;
+  reviewReport: string;
+  verifyPassed: boolean | null;
+  verifyReport: string;
+  developerDone: boolean;
+  activeAgents: string[];
+  eventLog: WorkflowEvent[];
+  args: Record<string, string | boolean>;
+}
+
+export interface GateResult {
+  passed: boolean;
+  output: string;
+  duration_ms: number;
+}
+
+export interface WorkflowEvent {
+  op: string;
+  at: string;
+  detail: Record<string, unknown>;
+}
+
+// ── Step result (reused by gate runners) ──
 
 export interface StepResult {
   status: "passed" | "failed" | "skipped";
@@ -9,68 +94,7 @@ export interface StepResult {
   duration_ms: number;
 }
 
-export interface StepDefinition {
-  id: string;
-  name: string;
-  kind: StepKind;
-  skill?: string;
-  tools?: string[];
-  run: (ctx: WorkflowContext) => Promise<StepResult>;
-  canRetry: boolean;
-  dependsOn?: string[];
-}
-
-export interface Transition {
-  from: string;
-  to: string | string[];
-  guard?: (ctx: WorkflowContext) => boolean;
-}
-
-export interface WorkflowDefinition {
-  id: string;
-  steps: StepDefinition[];
-  transitions: Transition[];
-  initialStep: string;
-  maxRetries: number;
-}
-
-export interface WorkflowContext {
-  workflowId: string;
-  issueNumber: number | null;
-  branch: string;
-  repoRoot: string;
-  currentStep: string;
-  retryCount: number;
-  stepResults: Record<string, StepResult>;
-  changedFiles: string[];
-  args: Record<string, string | boolean>;
-  config: ProjectConfig;
-}
-
-export interface StateFile {
-  version: 1;
-  active: {
-    workflowId: string;
-    context: WorkflowContext;
-    status: WorkflowStatus;
-    startedAt: string;
-    updatedAt: string;
-  } | null;
-  history: Array<{
-    workflowId: string;
-    branch: string;
-    status: string;
-    completedAt: string;
-  }>;
-}
-
-export interface SkillDefinition {
-  name: string;
-  description: string;
-  allowedTools: string[];
-  userInvocable: boolean;
-  body: string;
-}
+// ── Shell ──
 
 export interface ShellResult {
   exitCode: number;
@@ -78,15 +102,42 @@ export interface ShellResult {
   stderr: string;
 }
 
+// ── Project config ──
+
 export interface ProjectConfig {
-  /** Path to the .sln file relative to repo root (e.g. "src/MyApp.sln") */
   solution: string;
-  /** Service names that have EF Core DbContexts for migration checks */
   services: string[];
-  /** Helm chart paths relative to repo root */
   helmCharts: string[];
-  /** Frontend directory relative to repo root (e.g. "web") */
   frontendDir: string;
-  /** Infrastructure directory relative to repo root (e.g. "infra") */
   infraDir: string;
+}
+
+// ── Hook I/O ──
+
+export const EXIT_ALLOW = 0;
+export const EXIT_BLOCK = 2;
+export const EXIT_ERROR = 1;
+
+export interface HookInput {
+  hook_event_name: string;
+  session_id: string;
+  tool_name?: string;
+  tool_input?: Record<string, unknown>;
+  agent_name?: string;
+  transcript_path?: string;
+}
+
+export interface OperationResult {
+  output: string;
+  exitCode: number;
+}
+
+// ── Skill (kept for rule injection) ──
+
+export interface SkillDefinition {
+  name: string;
+  description: string;
+  allowedTools: string[];
+  userInvocable: boolean;
+  body: string;
 }

@@ -1,48 +1,62 @@
-import { readFileSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { StateFile } from "../types.js";
+import type { WorkflowState, WorkflowEvent } from "../types.js";
 
-const STATE_FILENAME = ".workflow-state.json";
-
-function statePath(repoRoot: string): string {
-  return join(repoRoot, ".claude", STATE_FILENAME);
+function statePath(sessionId: string): string {
+  return `/tmp/workflow-engine-state-${sessionId}.json`;
 }
 
-export function loadState(repoRoot: string): StateFile | null {
+export function createInitialState(): WorkflowState {
+  return {
+    state: "PREFLIGHT",
+    issueNumber: null,
+    branch: "",
+    prNumber: null,
+    fixAttempts: 0,
+    gateResults: {},
+    reviewApproved: null,
+    reviewReport: "",
+    verifyPassed: null,
+    verifyReport: "",
+    developerDone: false,
+    activeAgents: [],
+    eventLog: [],
+    args: {},
+  };
+}
+
+export function sessionExists(sessionId: string): boolean {
+  return existsSync(statePath(sessionId));
+}
+
+export function loadWorkflowState(sessionId: string): WorkflowState | null {
   try {
-    const raw = readFileSync(statePath(repoRoot), "utf-8");
-    return JSON.parse(raw) as StateFile;
+    const raw = readFileSync(statePath(sessionId), "utf-8");
+    return JSON.parse(raw) as WorkflowState;
   } catch {
     return null;
   }
 }
 
-export function saveState(repoRoot: string, state: StateFile): void {
-  const path = statePath(repoRoot);
+export function saveWorkflowState(sessionId: string, state: WorkflowState): void {
+  const path = statePath(sessionId);
   const tmpPath = path + ".tmp";
-
-  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(tmpPath, JSON.stringify(state, null, 2), "utf-8");
   renameSync(tmpPath, path);
 }
 
-export function clearActive(repoRoot: string): void {
-  const state = loadState(repoRoot);
-  if (!state) return;
-
-  if (state.active) {
-    state.history.push({
-      workflowId: state.active.workflowId,
-      branch: state.active.context.branch,
-      status: state.active.status,
-      completedAt: new Date().toISOString(),
-    });
-    state.active = null;
-  }
-
-  saveState(repoRoot, state);
-}
-
-export function initState(): StateFile {
-  return { version: 1, active: null, history: [] };
+export function appendEvent(
+  state: WorkflowState,
+  op: string,
+  detail: Record<string, unknown> = {},
+): WorkflowState {
+  const event: WorkflowEvent = {
+    op,
+    at: new Date().toISOString(),
+    detail,
+  };
+  return {
+    ...state,
+    eventLog: [...state.eventLog, event],
+  };
 }
