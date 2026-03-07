@@ -285,6 +285,12 @@ For simple features, use a condensed format:
 - {exclusions}
 ```
 
+## When NOT to Use
+
+- **Simple bug fixes or small enhancements** — skip directly to `/create-tasks` or `/start-work`
+- **Features with ≤ 3 tasks in a single service** — use `/plan-feature` for a lighter-weight breakdown
+- **Infrastructure-only changes** — use `/infra-plan` instead
+
 ## Guidelines
 
 - PRDs are living documents — they can be updated as understanding evolves

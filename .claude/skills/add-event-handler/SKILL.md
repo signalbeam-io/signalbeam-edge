@@ -99,6 +99,25 @@ public record {Name}IntegrationEvent(
 - Use `ILogger` for observability, not `Console.WriteLine`
 - For NATS subjects, follow the hierarchy in CLAUDE.md
 
+## Output
+
+After scaffolding, report:
+```
+## Scaffolded: {EventName}Handler
+
+Files created:
+- `src/{Service}/{Service}.Application/Events/{EventName}Handler.cs`
+{if integration event:}
+- `src/{Service}/{Service}.Application/Events/{Name}IntegrationEvent.cs`
+
+Next: Run `/run-tests` to verify handler registration.
+```
+
+## Error Handling
+
+- **Event class not found:** Suggest running `/add-entity` first to create the entity and its domain events.
+- **NATS publisher interface missing:** Check if `INatsPublisher` is registered in the service's DI. If not, it may need to be added to the Infrastructure layer.
+
 ## Related Skills
 
 - `/add-entity` to create the domain entity and events first

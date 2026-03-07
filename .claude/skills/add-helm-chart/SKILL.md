@@ -63,9 +63,36 @@ helm lint deploy/charts/{chart-name}
 helm template test deploy/charts/{chart-name} > /dev/null
 ```
 
+## Output
+
+After scaffolding, report:
+```
+## Scaffolded: {chart-name} Helm chart
+
+Files created:
+- `deploy/charts/{chart-name}/Chart.yaml`
+- `deploy/charts/{chart-name}/values.yaml`
+- `deploy/charts/{chart-name}/templates/_helpers.tpl`
+- `deploy/charts/{chart-name}/templates/deployment.yaml`
+- `deploy/charts/{chart-name}/templates/service.yaml`
+- `deploy/charts/{chart-name}/templates/configmap.yaml`
+- `deploy/charts/{chart-name}/templates/ingress.yaml`
+- `deploy/charts/{chart-name}/templates/hpa.yaml`
+
+Validation: helm lint {PASS/FAIL}
+
+Next: Customize `values.yaml` for the specific service, then run `/infra-lint helm`.
+```
+
+## Error Handling
+
+- **Chart directory already exists:** Warn the user and ask whether to overwrite or extend the existing chart.
+- **Helm not installed:** Suggest installing with `brew install helm`.
+- **Lint fails after scaffolding:** Review template syntax — common issues are missing `{{- include }}` helpers or incorrect indentation.
+
 ## After Scaffolding
 
-Report what was created and remind to:
+Remind to:
 - Customize `values.yaml` for the specific service
 - Add environment-specific value overrides if needed
 - Update any umbrella chart dependencies if applicable

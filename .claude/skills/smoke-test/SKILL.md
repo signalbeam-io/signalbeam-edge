@@ -115,6 +115,12 @@ mcp__playwright__browser_close
 - If auth is required and no credentials are available, note which routes redirected to login
 - Don't fail on warnings, only on errors
 
+## Error Handling
+
+- **Services not running:** STOP and suggest `/run-local` before retrying.
+- **Playwright not available:** Suggest installing with `npx playwright install` or skip browser tests and fall back to `curl`-based health checks only.
+- **Auth required:** Note which routes redirected to login and report as "SKIPPED (auth required)" rather than "FAIL".
+
 ## Related Skills
 
 - `/run-local` to start the environment first

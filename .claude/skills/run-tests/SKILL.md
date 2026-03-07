@@ -56,11 +56,33 @@ dotnet test src/tests/SignalBeam.EdgeAgent.Tests.Integration/
 dotnet test <path> --verbosity normal --logger "console;verbosity=detailed"
 ```
 
-## After Running
+## Output
 
-- Report pass/fail counts
-- For failures, show the test name, expected vs actual, and the relevant source location
-- Suggest fixes for failing tests if the failures are related to recent changes
+After running, report in this format:
+```
+## Test Results
+
+- Scope: {Unit | Integration | All}
+- Passed: {count}
+- Failed: {count}
+- Skipped: {count}
+- Duration: {time}
+
+### Failures (if any)
+| Test | Expected | Actual | Location |
+|------|----------|--------|----------|
+| {test name} | {expected} | {actual} | {file:line} |
+
+### Summary: {PASS | FAIL}
+```
+
+For failures, suggest fixes if the failures are related to recent changes.
+
+## Error Handling
+
+- **Docker not running (integration tests):** Warn and suggest starting Docker. Do not attempt integration tests without Docker.
+- **Build errors:** Run `dotnet build` first to surface compilation issues before testing.
+- **Test project not found:** List available test projects under `src/tests/` and ask which to run.
 
 ## Related Skills
 

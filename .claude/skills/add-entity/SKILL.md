@@ -2,6 +2,7 @@
 name: add-entity
 description: Scaffold a new domain entity with value object ID, aggregate root, factory method, and domain event. Use whenever the user wants to add a new domain concept, database table, persisted object, or aggregate root to the system.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
+user-invocable: true
 ---
 
 # Add Domain Entity
@@ -9,6 +10,17 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-libra
 When the user asks to add a new entity, scaffold following the project's domain-driven design patterns.
 
 If the entity involves non-trivial EF Core configuration (owned types, complex value conversions, table splitting), use context7 to look up the current EF Core docs for the specific pattern before writing the configuration.
+
+## Arguments
+
+- `{Entity}` — Entity name in PascalCase (e.g., `DeviceGroup`, `RolloutPolicy`)
+- `{Service}` — Target microservice that owns this entity (e.g., `DeviceManager`, `BundleOrchestrator`). Ask if ambiguous.
+
+## Prerequisites
+
+- The target microservice must exist under `src/` with Infrastructure and Host projects
+- The shared Domain project must exist at `src/Shared/SignalBeam.Domain/`
+- EF Core tools must be installed (`dotnet tool list -g | grep ef`)
 
 ## 1. Value Object ID (`Domain/ValueObjects/{Entity}Id.cs`)
 
@@ -156,6 +168,31 @@ Review the generated migration to verify only expected changes are included. Thi
 - [ ] DbSet added to DbContext
 - [ ] **EF Core migration created** for the new table
 - [ ] No framework dependencies in Domain layer
+
+## Output
+
+After scaffolding, report:
+```
+## Scaffolded: {Entity}
+
+Files created/modified:
+- `src/Shared/SignalBeam.Domain/ValueObjects/{Entity}Id.cs`
+- `src/Shared/SignalBeam.Domain/Entities/{Entity}.cs`
+- `src/Shared/SignalBeam.Domain/Events/{Entity}CreatedEvent.cs`
+- `src/{Service}/{Service}.Application/` — Repository interfaces
+- `src/{Service}/{Service}.Infrastructure/Persistence/Configurations/{Entity}Configuration.cs`
+- `src/{Service}/{Service}.Infrastructure/Persistence/{Service}DbContext.cs` (modified)
+- Migration: `src/{Service}/{Service}.Infrastructure/Persistence/Migrations/{timestamp}_Add{Entity}.cs`
+
+Next: Run `/add-command` or `/add-query` to create endpoints for this entity.
+```
+
+## Error Handling
+
+- **DbContext not found:** Search for `*DbContext.cs` in the Infrastructure project. If none exists, the service may not have persistence set up yet — warn the user.
+- **EF Core tools not installed:** Run `dotnet tool install --global dotnet-ef` and retry.
+- **Migration fails:** Check that the entity configuration is correct and the DbSet was added. Read the error output for hints.
+- **Value object ID already exists:** The entity name may conflict with an existing one. Check `src/Shared/SignalBeam.Domain/ValueObjects/` before creating.
 
 ## Related Skills
 

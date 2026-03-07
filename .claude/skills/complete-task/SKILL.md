@@ -208,6 +208,12 @@ Reason: {error details}
 {Specific failure output}
 ```
 
+## When NOT to Use
+
+- **Infrastructure-only changes** (only `infra/`, `deploy/`, `.github/workflows/`) — use `/complete-infra` instead, which skips .NET build/tests and frontend lint
+- **Work in progress** — this skill expects all implementation to be complete and committed
+- **Exploratory changes** — if you're still figuring out the approach, run `/check-architecture` and `/run-tests` individually instead
+
 ## Guidelines
 
 - This skill is idempotent — safe to run multiple times
