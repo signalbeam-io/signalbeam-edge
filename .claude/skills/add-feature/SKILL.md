@@ -145,6 +145,27 @@ If the router structure is unclear or uses a pattern you don't recognize, show t
 - Use barrel exports where the project already does
 - If using unfamiliar TanStack Query patterns (infinite queries, optimistic updates, prefetching), use context7 to look up the current API
 
+## Output
+
+After scaffolding, report:
+```
+## Scaffolded: {Feature} frontend feature
+
+Files created:
+- `web/src/api/services/{feature}.api.ts`
+- `web/src/features/{feature}/pages/{feature}-page.tsx`
+- `web/src/features/{feature}/components/{feature}-overview.tsx`
+- Route added to `{router-file}`
+
+Next: Run `cd web && npm run dev` to preview, or `/smoke-test` to verify.
+```
+
+## Error Handling
+
+- **Router file not found:** Show the route snippet and ask the user where to add it.
+- **API client (`apiRequest`) doesn't exist:** Check `web/src/api/client.ts` — if the pattern differs, adapt to the existing API client setup.
+- **Feature directory already exists:** Warn the user and ask whether to overwrite or extend.
+
 ## Related Skills
 
 - `/add-query` to create the backend API endpoint this feature calls

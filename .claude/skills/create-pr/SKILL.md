@@ -13,6 +13,12 @@ Create a pull request for the current branch with a structured description.
 
 - `{issue}` — GitHub issue number to link (optional). If not provided, attempt to extract from the branch name.
 
+## Prerequisites
+
+- You must be on a feature branch (not main)
+- All changes should be committed (warn if working tree is dirty)
+- Branch should have at least one commit ahead of main
+
 ## Process
 
 1. **Gather context:**
@@ -85,6 +91,12 @@ mcp__github-mcp-server__create_pull_request(
   base: "main"
 )
 ```
+
+## Error Handling
+
+- **No commits ahead of main:** Warn the user — there's nothing to PR.
+- **Push fails (no upstream):** Use `git push -u origin HEAD` to set the upstream.
+- **PR already exists:** Check with `gh pr list --head {branch}` and report the existing PR URL instead of creating a duplicate.
 
 ## Guidelines
 

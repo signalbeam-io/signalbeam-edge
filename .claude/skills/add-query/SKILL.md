@@ -2,11 +2,23 @@
 name: add-query
 description: Scaffold a new CQRS query with handler and GET endpoint following project conventions. Use whenever the user wants to add a read endpoint, GET route, list/detail view, or search/filter capability to a microservice.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
+user-invocable: true
 ---
 
 # Add CQRS Query
 
 When the user asks to add a new query, scaffold the following files in the correct microservice. Ask which service if ambiguous.
+
+## Arguments
+
+- `{Name}` — Query name in PascalCase (e.g., `GetDeviceById`, `ListBundles`)
+- `{Service}` — Target microservice (e.g., `DeviceManager`, `BundleOrchestrator`). Ask if ambiguous.
+
+## Prerequisites
+
+- The target microservice must exist under `src/`
+- The entity and its query repository interface should exist (if not, run `/add-entity` first)
+- An Endpoints file should exist at `Host/Endpoints/` (if not, create one)
 
 ## 1. Query Record (`Application/Queries/{QueryName}.cs`)
 
@@ -96,6 +108,27 @@ For list endpoints, use `[FromQuery]` for pagination:
 - [ ] Endpoint has OpenAPI metadata
 - [ ] Pagination supported for list queries
 - [ ] CancellationToken propagated
+
+## Output
+
+After scaffolding, report:
+```
+## Scaffolded: {Name}Query
+
+Files created/modified:
+- `src/{Service}/{Service}.Application/Queries/{Name}Query.cs`
+- `src/{Service}/{Service}.Application/Queries/{Name}Handler.cs`
+- `src/{Service}/{Service}.Application/Contracts/{Name}Response.cs`
+- `src/{Service}/{Service}.Host/Endpoints/{Domain}Endpoints.cs` (modified)
+
+Next: Run `/run-tests` to verify, or `/add-feature` to create the frontend calling this query.
+```
+
+## Error Handling
+
+- **Endpoints file doesn't exist:** Create a new `{Domain}Endpoints.cs` with the route group boilerplate.
+- **Query repository interface missing:** Create it in the Domain layer alongside the command repository.
+- **Entity doesn't exist:** Suggest running `/add-entity` first before proceeding.
 
 ## Related Skills
 

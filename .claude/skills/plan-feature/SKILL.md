@@ -1,6 +1,6 @@
 ---
 name: plan-feature
-description: Break down a feature into a structured plan with acceptance criteria, affected services, and implementation tasks. Use for simple features that don't need a full PRD — or when the user describes what they want to build and needs a task breakdown.
+description: Break down a feature into a structured plan with acceptance criteria, affected services, and implementation tasks. Use for simple features that don't need a full PRD — or when the user describes what they want to build and needs a task breakdown. For complex features needing full requirements, success metrics, and technical planning, use /prd instead.
 allowed-tools: Read, Glob, Grep, Bash, WebSearch
 user-invocable: true
 ---
@@ -61,6 +61,21 @@ One-paragraph description of the feature and the problem it solves.
 ## Out of Scope
 - Anything explicitly excluded from this feature.
 ```
+
+## Output
+
+After planning, report in the plan format above, then:
+```
+Plan complete. Next steps:
+- Run `/create-tasks` to push to GitHub
+- Or run `/start-work {issue}` if an issue already exists
+```
+
+## When NOT to Use
+
+- **Complex features needing full requirements** — use `/prd` for structured discovery, success metrics, and technical planning
+- **Infrastructure-only changes** — use `/infra-plan` instead
+- **Bug fixes with a clear issue** — skip planning and go straight to `/start-work`
 
 ## Guidelines
 

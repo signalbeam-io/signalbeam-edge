@@ -63,3 +63,28 @@ Once the branch is created, **do not stop**. Immediately continue with implement
 5. **When done** — Run `/complete-task` to go through the full completion workflow (build, lint, tests, review, PR).
 
 **Do not ask the user what to do next.** Read the issue, plan the work, and start building. Only ask clarifying questions if the issue has genuine ambiguity that blocks implementation.
+
+## Output
+
+After branch creation, report:
+```
+## Ready to Work
+
+- Branch: `{branch-name}`
+- Issue: #{issue} — {title}
+- Labels: {labels}
+
+### Acceptance Criteria
+{parsed AC from issue}
+
+### Implementation Plan
+{task list derived from issue analysis}
+
+Starting implementation...
+```
+
+## Error Handling
+
+- **Dirty working tree:** List the uncommitted files and ask the user to commit or stash before proceeding.
+- **Issue not found:** Verify the issue number and repo. Suggest checking with `gh issue view {number}`.
+- **Branch already exists:** Ask the user if they want to check it out instead of creating a new one.

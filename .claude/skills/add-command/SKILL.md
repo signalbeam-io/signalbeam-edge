@@ -2,6 +2,7 @@
 name: add-command
 description: Scaffold a new CQRS command with handler, validator, and POST endpoint following project conventions. Use whenever the user wants to add a write operation, mutation, POST/PUT/DELETE endpoint, or any state-changing action to a microservice.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
+user-invocable: true
 ---
 
 # Add CQRS Command
@@ -9,6 +10,17 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-libra
 When the user asks to add a new command, scaffold the following files in the correct microservice. Ask which service if ambiguous.
 
 If the command involves non-trivial FluentValidation rules (async validators, cross-field validation, collection rules) or WolverineFx middleware, use context7 to look up the current docs before writing.
+
+## Arguments
+
+- `{Name}` — Command name in PascalCase (e.g., `RegisterDevice`, `AssignBundle`)
+- `{Service}` — Target microservice (e.g., `DeviceManager`, `BundleOrchestrator`). Ask if ambiguous.
+
+## Prerequisites
+
+- The target microservice must exist under `src/`
+- An Endpoints file should exist at `Host/Endpoints/` (if not, create one)
+- If the command operates on an entity that doesn't exist yet, run `/add-entity` first
 
 ## 1. Command Record (`Application/Commands/{CommandName}.cs`)
 
@@ -94,6 +106,28 @@ services.AddScoped<{Name}Handler>();
 - [ ] Endpoint has OpenAPI metadata (WithName, WithSummary, Produces)
 - [ ] Handler registered in DI
 - [ ] CancellationToken propagated through all async calls
+
+## Output
+
+After scaffolding, report:
+```
+## Scaffolded: {Name}Command
+
+Files created/modified:
+- `src/{Service}/{Service}.Application/Commands/{Name}Command.cs`
+- `src/{Service}/{Service}.Application/Commands/{Name}Handler.cs`
+- `src/{Service}/{Service}.Application/Validators/{Name}Validator.cs`
+- `src/{Service}/{Service}.Host/Endpoints/{Domain}Endpoints.cs` (modified)
+- `src/{Service}/{Service}.Host/Program.cs` or DI registration (modified)
+
+Next: Run `/run-tests` to verify, or `/add-query` if you also need a read endpoint.
+```
+
+## Error Handling
+
+- **Endpoints file doesn't exist:** Create a new `{Domain}Endpoints.cs` with the route group boilerplate.
+- **DI registration file not found:** Add `services.AddScoped<{Name}Handler>()` directly to `Program.cs`.
+- **Namespace conflicts:** Check existing commands in the folder before creating — prompt the user if a similar command already exists.
 
 ## Related Skills
 

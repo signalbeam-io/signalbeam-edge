@@ -92,9 +92,30 @@ inputs = {
 
 Add additional dependencies based on what the module needs.
 
+## Output
+
+After scaffolding, report:
+```
+## Scaffolded: {module-name} Terraform module
+
+Files created:
+- `infra/terraform/modules/{module-name}/variables.tf`
+- `infra/terraform/modules/{module-name}/main.tf`
+- `infra/terraform/modules/{module-name}/outputs.tf`
+- `infra/terragrunt/dev/{module-name}/terragrunt.hcl`
+
+Next: Add resource definitions in `main.tf`, then run `/infra-lint` to validate.
+```
+
+## Error Handling
+
+- **Module directory already exists:** Warn the user and ask whether to overwrite or extend.
+- **Terraform not installed:** Suggest installing with `brew install terraform`.
+- **Terragrunt root config not found:** Check that `infra/terragrunt/terragrunt.hcl` exists as the root config.
+
 ## After Scaffolding
 
-Report what was created and remind to:
+Remind to:
 - Add module-specific resource definitions in `main.tf`
 - Add any needed dependencies in `terragrunt.hcl`
 - Run `/infra-lint` to validate

@@ -79,6 +79,13 @@ dotnet ef database update \
 - Show a summary of schema changes (tables created/altered, columns added/removed)
 - Warn about any potentially destructive changes
 
+## Error Handling
+
+- **EF Core tools not installed:** Run `dotnet tool install --global dotnet-ef` and retry.
+- **No pending model changes:** The migration will be empty — warn the user and skip creation.
+- **Startup project can't build:** Run `dotnet build` on the Host project first to surface errors.
+- **Migration includes unexpected changes:** Warn about potential schema drift. Suggest verifying entity configurations match the intended changes.
+
 ## Related Skills
 
 - `/add-entity` to create the entity and EF Core configuration first
