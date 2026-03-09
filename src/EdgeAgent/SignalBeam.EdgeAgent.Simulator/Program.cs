@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Net.Http.Json;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace SignalBeam.EdgeAgent.Simulator;
@@ -37,6 +38,11 @@ public class Program
         var useDeviceAuthOption = new Option<bool>("--use-device-auth", () => false)
         {
             Description = "Use device-specific authentication (requires approval workflow)."
+        };
+
+        var useMtlsOption = new Option<bool>("--use-mtls", () => false)
+        {
+            Description = "Request and use mTLS certificate after device approval (requires --use-device-auth)."
         };
 
         var credentialsPathOption = new Option<string?>("--credentials-path")
@@ -103,6 +109,7 @@ public class Program
         rootCommand.AddOption(bundleOrchestratorUrlOption);
         rootCommand.AddOption(apiKeyOption);
         rootCommand.AddOption(useDeviceAuthOption);
+        rootCommand.AddOption(useMtlsOption);
         rootCommand.AddOption(credentialsPathOption);
         rootCommand.AddOption(waitForApprovalOption);
         rootCommand.AddOption(approvalCheckIntervalOption);
@@ -122,6 +129,7 @@ public class Program
             var bundleOrchestratorUrl = context.ParseResult.GetValueForOption(bundleOrchestratorUrlOption);
             var apiKey = context.ParseResult.GetValueForOption(apiKeyOption);
             var useDeviceAuth = context.ParseResult.GetValueForOption(useDeviceAuthOption);
+            var useMtls = context.ParseResult.GetValueForOption(useMtlsOption);
             var credentialsPath = context.ParseResult.GetValueForOption(credentialsPathOption);
             var waitForApproval = context.ParseResult.GetValueForOption(waitForApprovalOption);
             var approvalCheckInterval = context.ParseResult.GetValueForOption(approvalCheckIntervalOption);
@@ -169,10 +177,25 @@ public class Program
                     waitForApproval,
                     approvalCheckInterval);
 
-                deviceClient = CreateClientWithDeviceAuth(resolvedDeviceManagerUrl);
-                bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
-                    ? null
-                    : CreateClientWithDeviceAuth(resolvedBundleUrl);
+                if (useMtls)
+                {
+                    await RequestCertificateAsync(
+                        resolvedDeviceManagerUrl,
+                        effectiveDeviceId,
+                        effectiveCredentialsPath);
+
+                    deviceClient = CreateClientWithMtls(resolvedDeviceManagerUrl);
+                    bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
+                        ? null
+                        : CreateClientWithMtls(resolvedBundleUrl);
+                }
+                else
+                {
+                    deviceClient = CreateClientWithDeviceAuth(resolvedDeviceManagerUrl);
+                    bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
+                        ? null
+                        : CreateClientWithDeviceAuth(resolvedBundleUrl);
+                }
             }
             else
             {
@@ -706,6 +729,147 @@ public class Program
         return client;
     }
 
+    private static async Task RequestCertificateAsync(
+        string deviceManagerUrl,
+        Guid deviceId,
+        string credentialsPath)
+    {
+        if (_deviceCredentials == null)
+        {
+            throw new InvalidOperationException("Device credentials not initialized.");
+        }
+
+        // If we already have a valid certificate, skip
+        if (!string.IsNullOrEmpty(_deviceCredentials.ClientCertificatePath)
+            && File.Exists(_deviceCredentials.ClientCertificatePath)
+            && _deviceCredentials.CertificateExpiresAt > DateTimeOffset.UtcNow)
+        {
+            Console.WriteLine($"Using existing certificate (serial: {_deviceCredentials.CertificateSerialNumber}, expires: {_deviceCredentials.CertificateExpiresAt:O}).");
+            return;
+        }
+
+        Console.WriteLine("Requesting mTLS certificate...");
+
+        using var client = new HttpClient { BaseAddress = new Uri(deviceManagerUrl.TrimEnd('/')) };
+        if (!string.IsNullOrEmpty(_deviceCredentials.ApiKey))
+        {
+            client.DefaultRequestHeaders.Add("X-API-Key", _deviceCredentials.ApiKey);
+        }
+
+        var response = await client.PostAsync($"/api/certificates/{deviceId}/issue", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Certificate issuance failed: {response.StatusCode} {content}");
+        }
+
+        var certResponse = await response.Content.ReadFromJsonAsync<IssueCertificateSimResponse>(JsonOptions);
+        if (certResponse == null)
+        {
+            throw new InvalidOperationException("Certificate issuance returned empty response.");
+        }
+
+        // Save certificate files
+        var certsDir = Path.Combine(Path.GetDirectoryName(credentialsPath) ?? ".", $"sim-credentials-{deviceId}", "certs");
+        Directory.CreateDirectory(certsDir);
+
+        var certPath = Path.Combine(certsDir, "client-cert.pem");
+        var keyPath = Path.Combine(certsDir, "client-key.pem");
+        var caPath = Path.Combine(certsDir, "ca-cert.pem");
+
+        await File.WriteAllTextAsync(certPath, certResponse.CertificatePem);
+        await File.WriteAllTextAsync(keyPath, certResponse.PrivateKeyPem);
+        await File.WriteAllTextAsync(caPath, certResponse.CaCertificatePem);
+
+        // Set restrictive permissions on private key (Unix only)
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            File.SetUnixFileMode(certPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+
+        // Update credentials
+        _deviceCredentials.ClientCertificatePath = certPath;
+        _deviceCredentials.ClientPrivateKeyPath = keyPath;
+        _deviceCredentials.CaCertificatePath = caPath;
+        _deviceCredentials.CertificateSerialNumber = certResponse.SerialNumber;
+        _deviceCredentials.CertificateExpiresAt = certResponse.ExpiresAt;
+
+        await SaveCredentialsAsync(credentialsPath);
+
+        Console.WriteLine($"Certificate issued successfully:");
+        Console.WriteLine($"  Serial:  {certResponse.SerialNumber}");
+        Console.WriteLine($"  Expires: {certResponse.ExpiresAt:O}");
+        Console.WriteLine($"  Cert:    {certPath}");
+        Console.WriteLine($"  Key:     {keyPath}");
+        Console.WriteLine($"  CA:      {caPath}");
+    }
+
+    private static HttpClient CreateClientWithMtls(string baseUrl)
+    {
+        if (_deviceCredentials == null
+            || string.IsNullOrEmpty(_deviceCredentials.ClientCertificatePath)
+            || string.IsNullOrEmpty(_deviceCredentials.ClientPrivateKeyPath))
+        {
+            throw new InvalidOperationException("Certificate not available. Run with --use-mtls after device approval.");
+        }
+
+        var certPem = File.ReadAllText(_deviceCredentials.ClientCertificatePath);
+        var keyPem = File.ReadAllText(_deviceCredentials.ClientPrivateKeyPath);
+        var clientCert = X509Certificate2.CreateFromPem(certPem, keyPem);
+
+        var handler = new HttpClientHandler();
+        handler.ClientCertificates.Add(clientCert);
+
+        // If CA cert exists, add custom validation
+        if (!string.IsNullOrEmpty(_deviceCredentials.CaCertificatePath)
+            && File.Exists(_deviceCredentials.CaCertificatePath))
+        {
+            var caCertPem = File.ReadAllText(_deviceCredentials.CaCertificatePath);
+            var caCert = X509Certificate2.CreateFromPem(caCertPem);
+
+            handler.ServerCertificateCustomValidationCallback = (_, cert, chain, errors) =>
+            {
+                if (errors == System.Net.Security.SslPolicyErrors.None)
+                    return true;
+
+                if (chain != null)
+                {
+                    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                    chain.ChainPolicy.CustomTrustStore.Add(caCert);
+                    return chain.Build(new X509Certificate2(cert!));
+                }
+
+                return false;
+            };
+        }
+
+        var client = new HttpClient(handler)
+        {
+            BaseAddress = new Uri(baseUrl.TrimEnd('/'))
+        };
+
+        // Also set API key header as fallback
+        if (!string.IsNullOrEmpty(_deviceCredentials.ApiKey))
+        {
+            client.DefaultRequestHeaders.Add("X-API-Key", _deviceCredentials.ApiKey);
+        }
+
+        Console.WriteLine($"HttpClient configured with mTLS certificate (serial: {_deviceCredentials.CertificateSerialNumber}).");
+        return client;
+    }
+
+    private record IssueCertificateSimResponse(
+        Guid DeviceId,
+        string CertificatePem,
+        string PrivateKeyPem,
+        string CaCertificatePem,
+        string SerialNumber,
+        string Fingerprint,
+        DateTimeOffset IssuedAt,
+        DateTimeOffset ExpiresAt);
+
     private record DeviceCredentials
     {
         public Guid DeviceId { get; set; }
@@ -713,6 +877,11 @@ public class Program
         public string? ApiKey { get; set; }
         public DateTimeOffset? ApiKeyExpiresAt { get; set; }
         public string RegistrationStatus { get; set; } = "Pending";
+        public string? ClientCertificatePath { get; set; }
+        public string? ClientPrivateKeyPath { get; set; }
+        public string? CaCertificatePath { get; set; }
+        public string? CertificateSerialNumber { get; set; }
+        public DateTimeOffset? CertificateExpiresAt { get; set; }
     }
 
     private record GetRegistrationStatusResponse(
