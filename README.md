@@ -41,6 +41,7 @@ The Quick Start guide includes:
 | **DeviceManager** | `src/DeviceManager/` | Core API for device identity, grouping, status, and bundle assignment |
 | **BundleOrchestrator** | `src/BundleOrchestrator/` | Coordinates bundle rollouts and deployment state tracking |
 | **TelemetryProcessor** | `src/TelemetryProcessor/` | Ingests and processes metrics/telemetry from devices |
+| **IdentityManager** | `src/IdentityManager/` | Tenant management, API key management, device quotas |
 | **Web UI** | `web/` | React + TypeScript dashboard for fleet management |
 
 ### Infrastructure Stack
@@ -163,19 +164,19 @@ dotnet run
 
 ### In Progress / Planned
 
+- [x] mTLS for device-to-cloud communication
+- [x] Prometheus metrics export
+- [x] Grafana dashboard templates
 - [ ] Advanced rollout strategies (canary, blue/green)
 - [ ] Device-level logs aggregation
 - [ ] Alert rules and notifications
 - [ ] RBAC for multi-user teams
-- [ ] Prometheus metrics export
-- [ ] Grafana dashboard templates
-- [ ] mTLS for device-to-cloud communication
 - [ ] Air-gapped deployment support
 
 ## Technology Stack
 
 ### Backend (.NET 9)
-- **Framework**: .NET 9, C# 14, ASP.NET Core Minimal APIs
+- **Framework**: .NET 9, C# 13, ASP.NET Core Minimal APIs
 - **Architecture**: Hexagonal (Ports & Adapters) with CQRS
 - **Database**: Entity Framework Core + PostgreSQL + TimescaleDB
 - **Messaging**: NATS with JetStream
@@ -216,6 +217,7 @@ dotnet run
 
 ### Features
 - [Rollout Management](docs/features/rollouts.md) - Bundle deployment and tracking
+- [Device Authentication](docs/features/device-authentication.md) - API keys, mTLS, certificate lifecycle
 - [Device Management](docs/features/devices.md) - Device lifecycle and grouping
 
 ### Development
@@ -254,15 +256,17 @@ npm test
 ## Security
 
 ### Authentication & Authorization
-- **Devices**: API key authentication
-- **Users**: JWT-based authentication (OIDC-ready)
+- **Devices**: Dual authentication — mTLS certificates (enterprise) or API keys (standard)
+- **Users**: JWT-based authentication via Zitadel (OIDC)
 - **API Gateway**: Rate limiting per tenant
-- **Production**: Support for Azure AD, Zitadel, or any OIDC provider
+- **Certificate Authority**: Built-in CA with Azure Key Vault integration for production
 
 ### Best Practices
+- mTLS certificates with automatic renewal (30-day threshold)
 - API keys rotatable per device
 - JWT tokens with short expiration
 - HTTPS enforced in production
+- CA private keys stored in Azure Key Vault (production) or in-memory (development)
 - Secrets managed via Azure Key Vault or environment variables
 
 ## Contributing
