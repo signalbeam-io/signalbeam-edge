@@ -9,16 +9,23 @@ namespace SignalBeam.DeviceManager.Infrastructure.CertificateAuthority;
 /// <summary>
 /// Azure Key Vault-backed CA key store for production environments.
 /// Stores the CA certificate and private key as Key Vault secrets.
+/// Private key cache has a TTL to minimize time key material is in memory.
 /// </summary>
 public class AzureKeyVaultCaKeyStore : ICaKeyStore
 {
+    private static readonly TimeSpan PrivateKeyCacheTtl = TimeSpan.FromMinutes(5);
+
     private readonly SecretClient _secretClient;
     private readonly ILogger<AzureKeyVaultCaKeyStore> _logger;
     private readonly AzureKeyVaultOptions _options;
 
-    // Cache to avoid repeated Key Vault calls
+    // CA certificate is public and can be cached indefinitely
     private string? _cachedCertificatePem;
+
+    // Private key cache with TTL to minimize exposure in memory
     private string? _cachedPrivateKeyPem;
+    private DateTimeOffset _privateKeyCacheExpiry = DateTimeOffset.MinValue;
+    private readonly object _cacheLock = new();
 
     public AzureKeyVaultCaKeyStore(
         ILogger<AzureKeyVaultCaKeyStore> logger,
@@ -27,13 +34,7 @@ public class AzureKeyVaultCaKeyStore : ICaKeyStore
         _logger = logger;
         _options = options.Value;
 
-        var credential = _options.UseManagedIdentity
-            ? new DefaultAzureCredential()
-            : new DefaultAzureCredential(new DefaultAzureCredentialOptions
-            {
-                ExcludeManagedIdentityCredential = false
-            });
-
+        var credential = new DefaultAzureCredential();
         _secretClient = new SecretClient(new Uri(_options.VaultUri), credential);
     }
 
@@ -60,18 +61,21 @@ public class AzureKeyVaultCaKeyStore : ICaKeyStore
     {
         _logger.LogInformation("Storing CA certificate and private key in Azure Key Vault");
 
-        // Store CA certificate
         await _secretClient.SetSecretAsync(
             new KeyVaultSecret(_options.CaCertSecretName, certificatePem),
             cancellationToken);
 
-        // Store CA private key
         await _secretClient.SetSecretAsync(
             new KeyVaultSecret(_options.CaKeySecretName, privateKeyPem),
             cancellationToken);
 
         _cachedCertificatePem = certificatePem;
-        _cachedPrivateKeyPem = privateKeyPem;
+
+        lock (_cacheLock)
+        {
+            _cachedPrivateKeyPem = privateKeyPem;
+            _privateKeyCacheExpiry = DateTimeOffset.UtcNow.Add(PrivateKeyCacheTtl);
+        }
 
         _logger.LogInformation("CA key material stored in Azure Key Vault successfully");
     }
@@ -93,17 +97,26 @@ public class AzureKeyVaultCaKeyStore : ICaKeyStore
 
     public async Task<string> GetCaPrivateKeyAsync(CancellationToken cancellationToken = default)
     {
-        if (_cachedPrivateKeyPem != null)
-            return _cachedPrivateKeyPem;
+        lock (_cacheLock)
+        {
+            if (_cachedPrivateKeyPem != null && DateTimeOffset.UtcNow < _privateKeyCacheExpiry)
+                return _cachedPrivateKeyPem;
+        }
 
         var response = await _secretClient.GetSecretAsync(
             _options.CaKeySecretName,
             cancellationToken: cancellationToken);
 
-        _cachedPrivateKeyPem = response.Value.Value
+        var privateKey = response.Value.Value
             ?? throw new InvalidOperationException("CA private key secret is empty in Key Vault.");
 
-        return _cachedPrivateKeyPem;
+        lock (_cacheLock)
+        {
+            _cachedPrivateKeyPem = privateKey;
+            _privateKeyCacheExpiry = DateTimeOffset.UtcNow.Add(PrivateKeyCacheTtl);
+        }
+
+        return privateKey;
     }
 }
 

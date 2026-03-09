@@ -163,15 +163,17 @@ public class CertificateRenewalBackgroundService : BackgroundService
         var certTempPath = credentials.ClientCertificatePath + ".tmp";
         var keyTempPath = credentials.ClientPrivateKeyPath + ".tmp";
 
-        await File.WriteAllTextAsync(certTempPath, renewResponse.CertificatePem);
-        await File.WriteAllTextAsync(keyTempPath, renewResponse.PrivateKeyPem);
-
-        // Set restrictive permissions on private key (Unix only)
+        // Create files with restrictive permissions BEFORE writing sensitive content (Unix only)
         if (!OperatingSystem.IsWindows())
         {
+            await File.WriteAllTextAsync(keyTempPath, string.Empty);
             File.SetUnixFileMode(keyTempPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            await File.WriteAllTextAsync(certTempPath, string.Empty);
             File.SetUnixFileMode(certTempPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
+
+        await File.WriteAllTextAsync(certTempPath, renewResponse.CertificatePem);
+        await File.WriteAllTextAsync(keyTempPath, renewResponse.PrivateKeyPem);
 
         // Atomic move
         File.Move(certTempPath, credentials.ClientCertificatePath, overwrite: true);

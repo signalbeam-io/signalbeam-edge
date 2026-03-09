@@ -89,14 +89,15 @@ public static class DependencyInjection
         })
         .AddHttpMessageHandler<DeviceApiKeyHandler>(); // Keep API key as fallback
 
-        // Named HTTP client for certificate renewal operations
+        // Named HTTP client for certificate renewal operations (with API key auth)
         services.AddHttpClient("CloudClient", (serviceProvider, client) =>
         {
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
             var cloudUrl = configuration["Agent:CloudUrl"] ?? "https://api.signalbeam.com";
             client.BaseAddress = new Uri(cloudUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<DeviceApiKeyHandler>();
 
         return services;
     }

@@ -778,16 +778,18 @@ public class Program
         var keyPath = Path.Combine(certsDir, "client-key.pem");
         var caPath = Path.Combine(certsDir, "ca-cert.pem");
 
+        // Create files with restrictive permissions BEFORE writing sensitive content (Unix only)
+        if (!OperatingSystem.IsWindows())
+        {
+            await File.WriteAllTextAsync(keyPath, string.Empty);
+            File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            await File.WriteAllTextAsync(certPath, string.Empty);
+            File.SetUnixFileMode(certPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+
         await File.WriteAllTextAsync(certPath, certResponse.CertificatePem);
         await File.WriteAllTextAsync(keyPath, certResponse.PrivateKeyPem);
         await File.WriteAllTextAsync(caPath, certResponse.CaCertificatePem);
-
-        // Set restrictive permissions on private key (Unix only)
-        if (!OperatingSystem.IsWindows())
-        {
-            File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            File.SetUnixFileMode(certPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        }
 
         // Update credentials
         _deviceCredentials.ClientCertificatePath = certPath;
