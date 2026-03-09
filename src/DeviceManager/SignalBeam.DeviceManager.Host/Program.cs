@@ -2,6 +2,7 @@ using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Application.Validators;
 using SignalBeam.DeviceManager.Host.Endpoints;
+using SignalBeam.DeviceManager.Host.Metrics;
 using SignalBeam.DeviceManager.Host.Middleware;
 using SignalBeam.DeviceManager.Infrastructure;
 using FluentValidation;
@@ -168,6 +169,9 @@ builder.Services.AddScoped<GetDevicesByRegistrationStatusHandler>();
 // Note: ICertificateGenerator and ICertificateAuthorityService are registered in DependencyInjection.cs
 builder.Services.AddScoped<SignalBeam.Shared.Infrastructure.Authentication.IDeviceCertificateValidator,
     SignalBeam.DeviceManager.Infrastructure.Authentication.DeviceCertificateValidator>();
+
+// Register certificate metrics
+builder.Services.AddSingleton<CertificateMetrics>();
 
 // Register certificate command and query handlers
 builder.Services.AddScoped<IssueCertificateHandler>();

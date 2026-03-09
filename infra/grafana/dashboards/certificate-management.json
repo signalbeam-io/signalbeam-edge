@@ -1,0 +1,141 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Certificate management metrics for SignalBeam mTLS",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Authentication Method Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (method) (increase(signalbeam_authentication_method_total{result=\"success\"}[24h]))",
+          "legendFormat": "{{ method }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "title": "Certificate Issuance Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(signalbeam_certificates_issued_total[1h])",
+          "legendFormat": "Issued"
+        },
+        {
+          "expr": "rate(signalbeam_certificates_renewed_total[1h])",
+          "legendFormat": "Renewed"
+        },
+        {
+          "expr": "rate(signalbeam_certificates_revoked_total[1h])",
+          "legendFormat": "Revoked"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "title": "Certificates Expiring Soon",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "signalbeam_certificates_expiring_count",
+          "legendFormat": "{{ threshold }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Certificate Validation Failures",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(signalbeam_authentication_method_total{method=\"certificate\",result=\"failure\"}[5m])",
+          "legendFormat": "Certificate failures/s"
+        },
+        {
+          "expr": "rate(signalbeam_authentication_method_total{method=\"apikey\",result=\"failure\"}[5m])",
+          "legendFormat": "API key failures/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "title": "Certificate Renewal Success Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(signalbeam_certificates_renewed_total[1h])",
+          "legendFormat": "Renewals/hr"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "title": "Certificate Validation Duration (p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(signalbeam_certificates_validation_duration_bucket[5m]))",
+          "legendFormat": "p99"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(signalbeam_certificates_validation_duration_bucket[5m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(signalbeam_certificates_validation_duration_bucket[5m]))",
+          "legendFormat": "p50"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["signalbeam", "certificates", "mtls", "security"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "title": "Certificate Management",
+  "uid": "signalbeam-certificates"
+}

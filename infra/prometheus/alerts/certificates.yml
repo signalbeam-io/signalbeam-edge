@@ -1,0 +1,41 @@
+groups:
+  - name: certificates
+    interval: 1m
+    rules:
+      - alert: CertificatesExpiringSoon
+        expr: signalbeam_certificates_expiring_count{threshold="30d"} > 10
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} certificates expiring within 30 days"
+          description: "Multiple device certificates are approaching expiration"
+
+      - alert: CertificateRenewalStalled
+        expr: >
+          rate(signalbeam_certificates_renewed_total[6h]) == 0
+          and signalbeam_certificates_expiring_count{threshold="30d"} > 0
+        for: 6h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Certificate renewal has stalled"
+          description: "No certificates have been renewed despite pending expirations"
+
+      - alert: HighCertificateValidationFailureRate
+        expr: rate(signalbeam_authentication_method_total{method="certificate",result="failure"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of certificate authentication failures"
+          description: "{{ $value }} failures per second"
+
+      - alert: CertificateAuthorityCriticalError
+        expr: increase(signalbeam_ca_errors_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Certificate Authority experiencing errors"
+          description: "CA service may be unavailable or misconfigured"
