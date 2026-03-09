@@ -11,7 +11,7 @@ Both methods integrate seamlessly with the device registration and approval work
 
 **Status:** ✅ Implemented
 - API Key Authentication (GitHub Issue #214)
-- mTLS Authentication (GitHub Issue #XXX)
+- mTLS Authentication (GitHub Issue #227)
 
 ## Authentication Methods
 
@@ -585,18 +585,29 @@ openssl x509 -in /var/lib/signalbeam-agent/certs/client-cert.pem -text -noout
 
 ### Architecture
 
-**Simplified MVP Implementation:**
-- CA runs as part of DeviceManager service
-- CA private key stored **in-memory** (development/staging only)
-- Root CA certificate generated on first startup
-- 10-year validity for Root CA
+**Two key store implementations:**
 
-**Production Enhancement (TODO):**
-- CA private key stored in **Azure Key Vault**
-- Signing operations performed within Key Vault HSM
-- Private key never leaves Key Vault
-- Managed Identity for authentication
-- Full audit trail via Azure Monitor
+| Mode | Class | When |
+|------|-------|------|
+| **In-Memory** | `InMemoryCaKeyStore` | Development, staging — key regenerated on restart |
+| **Azure Key Vault** | `AzureKeyVaultCaKeyStore` | Production — key stored as Key Vault secret, Managed Identity auth |
+
+CA runs as part of DeviceManager service with `ICaKeyStore` abstraction:
+- Root CA certificate generated on first startup (if not already in key store)
+- 10-year validity for Root CA
+- Auto-selects Key Vault when `AzureKeyVault:VaultUri` is configured
+
+**Azure Key Vault Configuration** (`appsettings.json`):
+```json
+{
+  "AzureKeyVault": {
+    "VaultUri": "https://signalbeam-dev-kv.vault.azure.net/",
+    "UseManagedIdentity": true,
+    "CaKeySecretName": "signalbeam-ca-private-key",
+    "CaCertSecretName": "signalbeam-ca-certificate"
+  }
+}
+```
 
 ### CA Certificate
 
@@ -834,6 +845,12 @@ openssl x509 -in /var/lib/signalbeam-agent/certs/client-cert.pem -noout -enddate
 
 ## Future Enhancements
 
+- [x] ~~Azure Key Vault integration~~ (implemented)
+- [x] ~~Certificate renewal background service~~ (implemented)
+- [x] ~~Prometheus metrics for certificates~~ (implemented)
+- [x] ~~Grafana dashboard for certificate management~~ (implemented)
+- [x] ~~AlertManager rules for certificate alerts~~ (implemented)
+- [x] ~~Simulator mTLS support~~ (implemented)
 - [ ] Intermediate CA support (hierarchical PKI)
 - [ ] Certificate templates for different device types
 - [ ] Automatic API key deprecation after certificate issuance
@@ -841,7 +858,6 @@ openssl x509 -in /var/lib/signalbeam-agent/certs/client-cert.pem -noout -enddate
 - [ ] Certificate Revocation List (CRL) distribution
 - [ ] OCSP (Online Certificate Status Protocol) responder
 - [ ] Email/Slack notifications for expiring certificates
-- [ ] Dashboard alerts for security events
 - [ ] Certificate usage analytics
 - [ ] Rate limiting per device
 - [ ] IP allowlisting per device
