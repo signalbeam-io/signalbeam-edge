@@ -146,6 +146,19 @@ public static class DependencyInjection
             services.AddHostedService<DynamicGroupUpdateService>();
         }
 
+        // Register certificate expiration check service if enabled
+        services.Configure<CertificateExpirationCheckOptions>(
+            configuration.GetSection(CertificateExpirationCheckOptions.SectionName));
+
+        var certExpirationCheckOptions = configuration
+            .GetSection(CertificateExpirationCheckOptions.SectionName)
+            .Get<CertificateExpirationCheckOptions>() ?? new CertificateExpirationCheckOptions();
+
+        if (certExpirationCheckOptions.Enabled)
+        {
+            services.AddHostedService<CertificateExpirationCheckService>();
+        }
+
         return services;
     }
 }

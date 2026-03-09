@@ -5,6 +5,7 @@ using Serilog;
 using SignalBeam.EdgeAgent.Host.Configuration;
 using SignalBeam.EdgeAgent.Host.Services;
 using SignalBeam.EdgeAgent.Infrastructure;
+using SignalBeam.EdgeAgent.Infrastructure.BackgroundServices;
 using Wolverine;
 
 namespace SignalBeam.EdgeAgent.Host;
@@ -41,6 +42,19 @@ public static class HostBuilder
                 // Background services
                 services.AddHostedService<HeartbeatService>();
                 services.AddHostedService<ReconciliationService>();
+
+                // Certificate auto-renewal
+                services.Configure<CertificateRenewalOptions>(
+                    context.Configuration.GetSection(CertificateRenewalOptions.SectionName));
+
+                var certRenewalOptions = context.Configuration
+                    .GetSection(CertificateRenewalOptions.SectionName)
+                    .Get<CertificateRenewalOptions>() ?? new CertificateRenewalOptions();
+
+                if (certRenewalOptions.Enabled)
+                {
+                    services.AddHostedService<CertificateRenewalBackgroundService>();
+                }
             })
             .UseWolverine()
             .Build();
