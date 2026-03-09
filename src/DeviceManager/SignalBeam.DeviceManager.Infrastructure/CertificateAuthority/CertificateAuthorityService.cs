@@ -8,24 +8,24 @@ namespace SignalBeam.DeviceManager.Infrastructure.CertificateAuthority;
 
 /// <summary>
 /// Certificate Authority service for issuing and managing device certificates.
-/// Simplified MVP version - stores CA key in memory/file.
-/// TODO: Enhance with Azure Key Vault for production.
+/// Delegates key storage to ICaKeyStore (in-memory for dev, Azure Key Vault for production).
 /// </summary>
 public class CertificateAuthorityService : ICertificateAuthorityService
 {
     private readonly ICertificateGenerator _certificateGenerator;
+    private readonly ICaKeyStore _caKeyStore;
     private readonly ILogger<CertificateAuthorityService> _logger;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
     private bool _initialized;
-    private string? _caCertificatePem;
-    private string? _caPrivateKeyPem;
 
     public CertificateAuthorityService(
         ICertificateGenerator certificateGenerator,
+        ICaKeyStore caKeyStore,
         ILogger<CertificateAuthorityService> logger)
     {
         _certificateGenerator = certificateGenerator;
+        _caKeyStore = caKeyStore;
         _logger = logger;
     }
 
@@ -40,21 +40,28 @@ public class CertificateAuthorityService : ICertificateAuthorityService
 
             _logger.LogInformation("Initializing Certificate Authority...");
 
-            // For MVP: Generate CA certificate on startup (in-memory)
-            // TODO: In production, load from Azure Key Vault or secure storage
-            var caCert = _certificateGenerator.GenerateRootCaCertificate(
-                "CN=SignalBeam Root CA, O=SignalBeam, C=US",
-                validityDays: 3650); // 10 years
+            var caKeyExists = await _caKeyStore.CaKeyExistsAsync(cancellationToken);
 
-            _caCertificatePem = caCert.CertificatePem;
-            _caPrivateKeyPem = caCert.PrivateKeyPem;
+            if (!caKeyExists)
+            {
+                _logger.LogInformation("No existing CA key found, generating new root CA certificate");
+
+                var caCert = _certificateGenerator.GenerateRootCaCertificate(
+                    "CN=SignalBeam Root CA, O=SignalBeam, C=US",
+                    validityDays: 3650); // 10 years
+
+                await _caKeyStore.StoreCaKeyAsync(
+                    caCert.CertificatePem,
+                    caCert.PrivateKeyPem,
+                    cancellationToken);
+            }
+            else
+            {
+                _logger.LogInformation("Existing CA key found in key store");
+            }
 
             _initialized = true;
-
             _logger.LogInformation("Certificate Authority initialized successfully");
-            _logger.LogWarning(
-                "SECURITY WARNING: CA private key is stored in memory. " +
-                "For production, integrate with Azure Key Vault.");
         }
         finally
         {
@@ -67,36 +74,26 @@ public class CertificateAuthorityService : ICertificateAuthorityService
         int validityDays = 90,
         CancellationToken cancellationToken = default)
     {
-        // Ensure CA is initialized
         await InitializeAsync(cancellationToken);
-
-        if (_caCertificatePem == null || _caPrivateKeyPem == null)
-        {
-            var error = Error.Failure(
-                "CA_NOT_INITIALIZED",
-                "Certificate Authority is not properly initialized.");
-            return Result.Failure<IssuedCertificate>(error);
-        }
 
         try
         {
-            // Generate unique serial number
+            var caCertificatePem = await _caKeyStore.GetCaCertificateAsync(cancellationToken);
+            var caPrivateKeyPem = await _caKeyStore.GetCaPrivateKeyAsync(cancellationToken);
+
             var serialNumber = GenerateSerialNumber();
 
-            // Generate device certificate
             var subject = $"CN=device-{deviceId.Value}, O=SignalBeam";
             var deviceCert = _certificateGenerator.GenerateDeviceCertificate(
                 subject,
                 serialNumber,
                 validityDays);
 
-            // Sign the device certificate with CA private key
             var signedCertPem = _certificateGenerator.SignCertificate(
                 deviceCert.CertificatePem,
-                _caPrivateKeyPem,
-                _caCertificatePem);
+                caPrivateKeyPem,
+                caCertificatePem);
 
-            // Calculate fingerprint of signed certificate
             var fingerprint = _certificateGenerator.CalculateFingerprint(signedCertPem);
 
             var issuedAt = DateTimeOffset.UtcNow;
@@ -111,7 +108,7 @@ public class CertificateAuthorityService : ICertificateAuthorityService
             return Result<IssuedCertificate>.Success(new IssuedCertificate(
                 signedCertPem,
                 deviceCert.PrivateKeyPem,
-                _caCertificatePem,
+                caCertificatePem,
                 serialNumber,
                 fingerprint,
                 issuedAt,
@@ -130,20 +127,12 @@ public class CertificateAuthorityService : ICertificateAuthorityService
 
     public async Task<string> GetCaCertificateAsync(CancellationToken cancellationToken = default)
     {
-        // Ensure CA is initialized
         await InitializeAsync(cancellationToken);
-
-        if (_caCertificatePem == null)
-        {
-            throw new InvalidOperationException("CA certificate is not available.");
-        }
-
-        return _caCertificatePem;
+        return await _caKeyStore.GetCaCertificateAsync(cancellationToken);
     }
 
     private static string GenerateSerialNumber()
     {
-        // Generate cryptographically secure random 20-byte serial number
         var bytes = new byte[20];
         RandomNumberGenerator.Fill(bytes);
         return Convert.ToHexString(bytes);

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SignalBeam.EdgeAgent.Application.Services;
+using SignalBeam.EdgeAgent.Infrastructure.BackgroundServices;
 using SignalBeam.EdgeAgent.Infrastructure.Cloud;
 using SignalBeam.EdgeAgent.Infrastructure.Container;
 using SignalBeam.EdgeAgent.Infrastructure.Metrics;
@@ -87,6 +88,16 @@ public static class DependencyInjection
             return handler;
         })
         .AddHttpMessageHandler<DeviceApiKeyHandler>(); // Keep API key as fallback
+
+        // Named HTTP client for certificate renewal operations (with API key auth)
+        services.AddHttpClient("CloudClient", (serviceProvider, client) =>
+        {
+            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+            var cloudUrl = configuration["Agent:CloudUrl"] ?? "https://api.signalbeam.com";
+            client.BaseAddress = new Uri(cloudUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<DeviceApiKeyHandler>();
 
         return services;
     }

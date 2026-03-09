@@ -46,6 +46,19 @@ public static class MetricNames
     }
 
     /// <summary>
+    /// Certificate metrics.
+    /// </summary>
+    public static class Certificates
+    {
+        public const string IssuedTotal = "signalbeam.certificates.issued.total";
+        public const string RenewedTotal = "signalbeam.certificates.renewed.total";
+        public const string RevokedTotal = "signalbeam.certificates.revoked.total";
+        public const string ExpiringCount = "signalbeam.certificates.expiring.count";
+        public const string ValidationDuration = "signalbeam.certificates.validation.duration";
+        public const string AuthenticationTotal = "signalbeam.authentication.method.total";
+    }
+
+    /// <summary>
     /// HTTP metrics.
     /// </summary>
     public static class Http

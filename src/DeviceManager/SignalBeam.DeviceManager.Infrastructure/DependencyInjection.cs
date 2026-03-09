@@ -61,6 +61,20 @@ public static class DependencyInjection
 
         // Register certificate authority services
         services.AddSingleton<ICertificateGenerator, X509CertificateGenerator>();
+
+        // Register CA key store: Azure Key Vault for production, in-memory for dev
+        var keyVaultUri = configuration.GetValue<string>("AzureKeyVault:VaultUri");
+        if (!string.IsNullOrEmpty(keyVaultUri))
+        {
+            services.Configure<CertificateAuthority.AzureKeyVaultOptions>(
+                configuration.GetSection(CertificateAuthority.AzureKeyVaultOptions.SectionName));
+            services.AddSingleton<ICaKeyStore, CertificateAuthority.AzureKeyVaultCaKeyStore>();
+        }
+        else
+        {
+            services.AddSingleton<ICaKeyStore, CertificateAuthority.InMemoryCaKeyStore>();
+        }
+
         services.AddSingleton<ICertificateAuthorityService, CertificateAuthorityService>();
 
         // Register caching services
@@ -144,6 +158,19 @@ public static class DependencyInjection
         if (dynamicGroupUpdateOptions.Enabled)
         {
             services.AddHostedService<DynamicGroupUpdateService>();
+        }
+
+        // Register certificate expiration check service if enabled
+        services.Configure<CertificateExpirationCheckOptions>(
+            configuration.GetSection(CertificateExpirationCheckOptions.SectionName));
+
+        var certExpirationCheckOptions = configuration
+            .GetSection(CertificateExpirationCheckOptions.SectionName)
+            .Get<CertificateExpirationCheckOptions>() ?? new CertificateExpirationCheckOptions();
+
+        if (certExpirationCheckOptions.Enabled)
+        {
+            services.AddHostedService<CertificateExpirationCheckService>();
         }
 
         return services;
