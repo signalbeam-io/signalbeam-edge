@@ -47,7 +47,7 @@ Ask the user these questions using AskUserQuestion. Group related questions toge
 
 ### Phase 2: Codebase Analysis (unless --skip-analysis)
 
-Use the `analyzer` subagent to analyze the existing codebase:
+Use the `analyzer` agent to analyze the existing codebase:
 
 ```
 Analyze the SignalBeam Edge codebase for implementing "{feature name}".

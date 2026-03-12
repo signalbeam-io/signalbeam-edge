@@ -111,7 +111,7 @@ Any pending changes are a **FAIL** — entity/configuration changes must always 
 
 ## Relationship to /code-review
 
-This skill is the **fast, local check** — run it during development for quick feedback. For the **thorough PR-level review** (security, quality, test gaps), use `/code-review` or let `/complete-task` run it as a subagent.
+This skill is the **fast, local check** — run it during development for quick feedback. For the **thorough PR-level review** (security, quality, test gaps), use `/code-review` or let `/complete-task` run it as an agent.
 
 ## Related Skills
 

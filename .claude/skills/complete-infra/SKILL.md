@@ -77,15 +77,15 @@ If any lint step fails, STOP and report.
 
 ### Phase 2: Infrastructure Review
 
-Launch a subagent to review infrastructure changes:
+Launch an agent to review infrastructure changes:
 
-**Subagent: `reviewer`** — Review `git diff origin/main...HEAD` focusing on:
+**Agent: `reviewer`** — Review `git diff origin/main...HEAD` focusing on:
 - Security: exposed secrets, overly permissive IAM/RBAC, public endpoints
 - Best practices: naming conventions, tagging, resource sizing
 - Dependencies: correct Terragrunt dependency ordering
 - Helm: template correctness, value defaults, resource limits
 
-The subagent should return PASS/FAIL with findings.
+The agent should return PASS/FAIL with findings.
 
 ### Phase 3: Evaluate
 

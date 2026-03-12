@@ -206,12 +206,12 @@ When something goes wrong:
 | `/infra-apply` | Terraform plan/apply |
 | `/complete-infra` | Infra completion workflow |
 
-## Subagents
+## Agents
 
-These specialized agents run in isolated contexts:
+Specialized agents defined in `.claude/agents/` that run in isolated contexts:
 
-| Subagent | Purpose | Model |
-|----------|---------|-------|
+| Agent | Purpose | Model |
+|-------|---------|-------|
 | `reviewer` | Security, architecture, quality review (deep PR gate) | Sonnet |
 | `verifier` | Acceptance criteria verification | Sonnet |
 | `investigator` | Evidence gathering for diagnosis | Sonnet |
