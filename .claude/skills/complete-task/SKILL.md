@@ -7,7 +7,7 @@ user-invocable: true
 
 # Complete Task
 
-Finalize the current feature branch by running all quality gates and creating a PR. This skill orchestrates multiple verification steps and uses subagents for code review and task validation.
+Finalize the current feature branch by running all quality gates and creating a PR. This skill orchestrates multiple verification steps and uses agents for code review and task validation.
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ Finalize the current feature branch by running all quality gates and creating a 
 ```
 [start] → verify-branch → build → lint → unit-tests → integration-tests
     ↓
-  review+qa (parallel subagents)
+  review+qa (parallel agents)
     ↓
   [issues?] → fix → [restart from build]
     ↓
@@ -121,17 +121,17 @@ dotnet test src/SignalBeam.sln --no-build --configuration Release --filter "Cate
 
 If tests fail, STOP and report failures.
 
-### Phase 3: Quality Review (Parallel Subagents)
+### Phase 3: Quality Review (Parallel Agents)
 
-Launch TWO subagents in parallel using the Task tool. Each reads its instructions from `.claude/subagents/` on startup.
+Launch TWO agents in parallel using the Agent tool. Each uses the agent definition from `.claude/agents/`.
 
-**Subagent 1: `reviewer`** — Code review for security, architecture, and quality issues. Uses the `reviewer` subagent definition. The subagent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
+**Agent 1: `reviewer`** — Code review for security, architecture, and quality issues. Uses the `reviewer` agent definition. The agent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
 
-**Subagent 2: `verifier`** — QA verification that implementation matches the GitHub issue acceptance criteria. Uses the `verifier` subagent definition. The subagent should fetch the issue via `gh issue view`, compare against the diff, and return MET/UNMET/PARTIAL status for each criterion with a PASS/FAIL summary.
+**Agent 2: `verifier`** — QA verification that implementation matches the GitHub issue acceptance criteria. Uses the `verifier` agent definition. The agent should fetch the issue via `gh issue view`, compare against the diff, and return MET/UNMET/PARTIAL status for each criterion with a PASS/FAIL summary.
 
 ### Phase 4: Evaluate Results
 
-Collect results from both subagents.
+Collect results from both agents.
 
 **If BOTH pass:**
 - Proceed to Phase 5

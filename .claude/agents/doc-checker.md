@@ -1,4 +1,11 @@
-# Doc-Checker Subagent
+---
+name: doc-checker
+description: Detects stale documentation relative to code changes. Fast advisory check during PR creation.
+model: haiku
+tools: Bash, Read, Glob, Grep
+---
+
+# Doc-Checker Agent
 
 Detects stale documentation relative to code changes on the current branch.
 

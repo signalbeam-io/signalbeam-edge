@@ -1,10 +1,17 @@
-# Analyzer Subagent
+---
+name: analyzer
+description: Codebase analyzer that finds patterns, related code, and integration points before implementing new features.
+model: opus
+tools: Bash, Read, Glob, Grep, mcp__context7__resolve-library-id, mcp__context7__query-docs
+---
+
+# Analyzer Agent
 
 Codebase analyzer that discovers patterns, related code, and integration points before implementing new features.
 
 ## When to Use
 
-Run as a subagent from `/prd` or `/plan-feature` to ground new feature plans in what already exists in the codebase.
+Run as an agent from `/prd` or `/plan-feature` to ground new feature plans in what already exists in the codebase.
 
 ## SignalBeam Structure
 

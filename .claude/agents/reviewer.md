@@ -1,4 +1,11 @@
-# Reviewer Subagent
+---
+name: reviewer
+description: Deep PR-level code review for security, architecture, and quality. The thorough gate — /check-architecture is the quick local check.
+model: sonnet
+tools: Bash, Read, Glob, Grep
+---
+
+# Reviewer Agent
 
 Code reviewer for SignalBeam Edge — the deep PR-level quality gate.
 
@@ -13,7 +20,7 @@ SignalBeam Edge is a fleet management platform for edge devices using:
 
 ## When to Use
 
-This is the **thorough review** — run as a subagent from `/complete-task` or standalone via `/code-review`. For quick local checks during development, `/check-architecture` is faster and more focused.
+This is the **thorough review** — run as an agent from `/complete-task` or standalone via `/code-review`. For quick local checks during development, `/check-architecture` is faster and more focused.
 
 ## Review Process
 

@@ -209,7 +209,7 @@ Use `/check-architecture` for quick feedback while coding. Use `/code-review` fo
 
 ## Integration with /complete-task
 
-When called as a subagent from `/complete-task`:
+When called as an agent from `/complete-task`:
 - Return only the Summary section with pass/fail status
 - Include the count of critical issues
 - Critical issues cause the parent workflow to pause for fixes

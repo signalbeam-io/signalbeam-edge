@@ -212,7 +212,7 @@ For each criterion, collect evidence:
 
 ## Integration with /complete-task
 
-When called as a subagent from `/complete-task`:
+When called as an agent from `/complete-task`:
 - Return pass/fail status and count of unmet Must Have criteria
 - Include list of gaps if any
 - Unmet Must Have criteria cause the parent workflow to pause

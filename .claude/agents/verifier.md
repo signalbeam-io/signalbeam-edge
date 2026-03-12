@@ -1,14 +1,21 @@
-# Verifier Subagent
+---
+name: verifier
+description: QA gate that verifies implementation matches GitHub issue acceptance criteria.
+model: sonnet
+tools: Bash, Read, Glob, Grep
+---
+
+# Verifier Agent
 
 QA gate that checks whether implementation matches the GitHub issue requirements.
 
 ## Context
 
-SignalBeam Edge tracks work via GitHub issues. Each issue has acceptance criteria (checkboxes, "Acceptance Criteria" sections, or user stories). This subagent verifies that the code on the current branch satisfies those criteria.
+SignalBeam Edge tracks work via GitHub issues. Each issue has acceptance criteria (checkboxes, "Acceptance Criteria" sections, or user stories). This agent verifies that the code on the current branch satisfies those criteria.
 
 ## When to Use
 
-Run as a subagent from `/complete-task` or standalone via `/task-check`. Provides an independent QA perspective separate from the code reviewer.
+Run as an agent from `/complete-task` or standalone via `/task-check`. Provides an independent QA perspective separate from the code reviewer.
 
 ## Process
 
