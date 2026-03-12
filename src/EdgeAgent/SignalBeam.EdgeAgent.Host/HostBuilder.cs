@@ -37,7 +37,7 @@ public static class HostBuilder
                 services.AddSingleton<DeviceStateManager>();
 
                 // Infrastructure
-                services.AddInfrastructure();
+                services.AddInfrastructure(context.Configuration);
 
                 // Background services
                 services.AddHostedService<HeartbeatService>();
@@ -87,7 +87,7 @@ public static class HostBuilder
         services.AddSingleton<DeviceStateManager>();
 
         // Infrastructure
-        services.AddInfrastructure();
+        services.AddInfrastructure(configuration);
 
         return services.BuildServiceProvider();
     }

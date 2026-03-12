@@ -1,17 +1,23 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NATS.Client.Core;
+using NATS.Client.JetStream;
 using SignalBeam.EdgeAgent.Application.Services;
 using SignalBeam.EdgeAgent.Infrastructure.BackgroundServices;
 using SignalBeam.EdgeAgent.Infrastructure.Cloud;
 using SignalBeam.EdgeAgent.Infrastructure.Container;
 using SignalBeam.EdgeAgent.Infrastructure.Metrics;
 using SignalBeam.EdgeAgent.Infrastructure.Storage;
+using SignalBeam.Shared.Infrastructure.Messaging;
 
 namespace SignalBeam.EdgeAgent.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         // Register Docker container manager
         services.AddSingleton<IContainerManager, DockerContainerManager>();
@@ -88,6 +94,48 @@ public static class DependencyInjection
             return handler;
         })
         .AddHttpMessageHandler<DeviceApiKeyHandler>(); // Keep API key as fallback
+
+        // Register NATS connection
+        var natsUrl = configuration.GetSection("NATS")["Url"]
+            ?? configuration.GetConnectionString("nats") // Aspire connection string
+            ?? "nats://localhost:4222";
+
+        // Normalize URL scheme (Aspire may provide tcp://)
+        if (natsUrl.StartsWith("tcp://", StringComparison.OrdinalIgnoreCase))
+        {
+            natsUrl = "nats://" + natsUrl["tcp://".Length..];
+        }
+        else if (!natsUrl.StartsWith("nats://", StringComparison.OrdinalIgnoreCase))
+        {
+            natsUrl = "nats://" + natsUrl;
+        }
+
+        services.AddSingleton<NatsConnection>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<NatsConnection>>();
+            var opts = new NatsOpts
+            {
+                Url = natsUrl,
+                Name = "EdgeAgent",
+                ConnectTimeout = TimeSpan.FromSeconds(5)
+            };
+
+            logger.LogInformation("Connecting to NATS at {NatsUrl}", natsUrl);
+            return new NatsConnection(opts);
+        });
+
+        // Register as INatsConnection
+        services.AddSingleton<INatsConnection>(sp => sp.GetRequiredService<NatsConnection>());
+
+        // Register JetStream context
+        services.AddSingleton<INatsJSContext>(sp =>
+        {
+            var connection = sp.GetRequiredService<NatsConnection>();
+            return new NatsJSContext(connection);
+        });
+
+        // Register message publisher
+        services.AddSingleton<IMessagePublisher, NatsMessagePublisher>();
 
         // Named HTTP client for certificate renewal operations (with API key auth)
         services.AddHttpClient("CloudClient", (serviceProvider, client) =>
