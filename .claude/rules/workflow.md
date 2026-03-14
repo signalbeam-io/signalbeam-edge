@@ -85,6 +85,8 @@ Run verification checks during development:
 | `/check-architecture` | Layer violations, Result pattern, pending migrations | Before committing |
 | `/run-tests` | Unit and integration tests | After each change |
 | `/lint` | Format, ESLint, Helm, Terraform | Before PR |
+| `/verify-feature` | Browser verify changed frontend routes | After frontend changes |
+| `/screenshot` | Quick screenshot of a route | Visual confirmation |
 
 ### Lint Responsibility Boundaries
 
@@ -198,6 +200,8 @@ When something goes wrong:
 | `/create-pr` | Create pull request |
 | `/docs` | Generate/update documentation from code |
 | `/diagnose` | Investigate problems |
+| `/screenshot` | Capture screenshot of a URL/route |
+| `/verify-feature` | Browser verify changed frontend routes |
 | `/smoke-test` | Browser smoke test running app |
 | `/infra-plan` | Plan infrastructure changes |
 | `/add-terraform-module` | Scaffold Terraform module |
