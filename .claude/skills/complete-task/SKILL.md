@@ -26,6 +26,8 @@ Finalize the current feature branch by running all quality gates and creating a 
 ```
 [start] → verify-branch → build → lint → unit-tests → integration-tests
     ↓
+  browser-verify (if web/ changed, non-blocking)
+    ↓
   review+qa (parallel agents)
     ↓
   [issues?] → fix → [restart from build]
@@ -121,6 +123,23 @@ dotnet test src/SignalBeam.sln --no-build --configuration Release --filter "Cate
 
 If tests fail, STOP and report failures.
 
+### Phase 2.5: Browser Verification (Conditional)
+
+Only run this phase when frontend files were changed:
+
+```bash
+WEB_CHANGES=$(git diff --name-only origin/main...HEAD | grep -c "^web/" || true)
+```
+
+If `WEB_CHANGES` > 0, check if the frontend is running:
+
+```bash
+curl -sf http://localhost:5173 > /dev/null 2>&1 && echo "Frontend: UP" || echo "Frontend: DOWN"
+```
+
+- **Frontend running:** Invoke `/smoke-test --frontend-only` to verify routes render without errors. Report results as **advisory (WARNING, not FAIL)** — browser verification issues don't block the PR.
+- **Frontend not running:** Skip with advisory note: "Browser verification skipped — frontend not running. Run `/run-local` and `/verify-feature` to test manually."
+
 ### Phase 3: Quality Review (Parallel Agents)
 
 Launch TWO agents in parallel using the Agent tool. Each uses the agent definition from `.claude/agents/`.
@@ -192,6 +211,7 @@ On success:
 - Lint: PASS
 - Unit Tests: PASS ({count} tests)
 - Integration Tests: PASS ({count} tests)
+- Browser Verification: PASS / SKIP (advisory)
 - Code Review: PASS
 - Task Check: PASS ({x}/{y} criteria met)
 

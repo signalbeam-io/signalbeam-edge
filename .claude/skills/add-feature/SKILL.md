@@ -157,7 +157,7 @@ Files created:
 - `web/src/features/{feature}/components/{feature}-overview.tsx`
 - Route added to `{router-file}`
 
-Next: Run `cd web && npm run dev` to preview, or `/smoke-test` to verify.
+Next: Run `cd web && npm run dev` to preview, or `/verify-feature /{feature}` to verify.
 ```
 
 ## Error Handling
