@@ -143,6 +143,7 @@ public static class DependencyInjection
         services.AddSingleton<IMessagePublisher, NatsMessagePublisher>();
 
         // Register NATS publishers for metrics and heartbeats
+        // Singleton: EdgeAgent is a long-running worker process; publishers wrap the singleton NATS connection
         services.AddSingleton<IMetricsPublisher, NatsMetricsPublisher>();
         services.AddSingleton<IHeartbeatPublisher, NatsHeartbeatPublisher>();
 

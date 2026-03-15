@@ -91,4 +91,15 @@ public class NatsHeartbeatPublisherTests
 
         json.Should().Contain("\"ipAddress\":null");
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task PublishHeartbeatAsync_WithInvalidStatus_ThrowsArgumentException(string? status)
+    {
+        // Act & Assert
+        var act = () => _sut.PublishHeartbeatAsync(Guid.NewGuid(), status!);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
 }

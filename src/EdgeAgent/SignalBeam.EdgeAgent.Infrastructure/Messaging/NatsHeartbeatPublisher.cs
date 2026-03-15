@@ -23,6 +23,8 @@ public sealed class NatsHeartbeatPublisher : IHeartbeatPublisher
         string? ipAddress = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(status);
+
         var subject = $"signalbeam.devices.heartbeat.{deviceId}";
 
         var message = new DeviceHeartbeatMessage(
