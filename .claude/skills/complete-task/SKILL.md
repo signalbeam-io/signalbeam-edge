@@ -170,19 +170,21 @@ curl -sf http://localhost:5173 > /dev/null 2>&1 && echo "Frontend: UP" || echo "
 
 ### Phase 4: Parallel Agent Review (Dynamic Composition)
 
-Launch all applicable agents in parallel in a single response. Each agent uses `isolation: "worktree"` for safe parallel reads.
+Launch all applicable agents in parallel in a single response. Each agent uses `isolation: "worktree"` for safe parallel reads and `run_in_background: true` so you can begin drafting the PR summary while agents work.
 
 **Always launch:**
 
-1. **`reviewer`** (isolation: worktree) — Code review for security, architecture, and quality issues. Uses the `reviewer` agent definition. The agent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
+1. **`reviewer`** (isolation: worktree, run_in_background: true) — Code review for security, architecture, and quality issues. Uses the `reviewer` agent definition. The agent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
 
-2. **`verifier`** (isolation: worktree) — QA verification that implementation matches the GitHub issue acceptance criteria. Uses the `verifier` agent definition. The agent should fetch the issue via `gh issue view`, compare against the diff, and return MET/UNMET/PARTIAL status for each criterion with a PASS/FAIL summary.
+2. **`verifier`** (isolation: worktree, run_in_background: true) — QA verification that implementation matches the GitHub issue acceptance criteria. Uses the `verifier` agent definition. The agent should fetch the issue via `gh issue view`, compare against the diff, and return MET/UNMET/PARTIAL status for each criterion with a PASS/FAIL summary.
 
 **Conditionally launch:**
 
-3. **`doc-checker`** (isolation: worktree) — Only if `HAS_ENDPOINTS > 0` OR `HAS_ENTITIES > 0` OR `HAS_EVENTS > 0` OR `HAS_INFRA > 0`. Detects stale documentation relative to code changes.
+3. **`doc-checker`** (isolation: worktree, run_in_background: true) — Only if `HAS_ENDPOINTS > 0` OR `HAS_ENTITIES > 0` OR `HAS_EVENTS > 0` OR `HAS_INFRA > 0`. Detects stale documentation relative to code changes.
 
-4. **`infra-reviewer`** (isolation: worktree) — Only if `HAS_INFRA > 0`. Dedicated Terraform/Helm/CI review using the `infra-reviewer` agent definition.
+4. **`infra-reviewer`** (isolation: worktree, run_in_background: true) — Only if `HAS_INFRA > 0`. Dedicated Terraform/Helm/CI review using the `infra-reviewer` agent definition.
+
+While agents run in the background, begin preparing the PR description (title, summary of changes, test plan). You will be notified as each agent completes — do not poll or sleep. Once all agents have reported back, proceed to Phase 5.
 
 ### Phase 5: Evaluate + Scoped Fix Loop
 
