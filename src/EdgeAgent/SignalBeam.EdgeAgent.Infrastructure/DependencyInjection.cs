@@ -147,6 +147,9 @@ public static class DependencyInjection
         services.AddSingleton<IMetricsPublisher, NatsMetricsPublisher>();
         services.AddSingleton<IHeartbeatPublisher, NatsHeartbeatPublisher>();
 
+        // Register NATS assignment subscriber for bundle push notifications
+        services.AddSingleton<IAssignmentListener, NatsAssignmentSubscriber>();
+
         // Named HTTP client for certificate renewal operations (with API key auth)
         services.AddHttpClient("CloudClient", (serviceProvider, client) =>
         {
