@@ -40,15 +40,26 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.x"
 
+      - name: Determine base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Validate changed modules
         run: |
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD -- 'infra/terraform/modules/')
+          CHANGED=$(git diff --name-only ${{ steps.base.outputs.ref }}..HEAD -- 'infra/terraform/modules/')
           if [ -z "$CHANGED" ]; then
             echo "No Terraform module changes to validate"
             exit 0
@@ -67,15 +78,26 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
           version: "v3.16.0"
 
+      - name: Determine base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Lint charts
         run: |
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD -- 'deploy/charts/')
+          CHANGED=$(git diff --name-only ${{ steps.base.outputs.ref }}..HEAD -- 'deploy/charts/')
           if [ -z "$CHANGED" ]; then
             echo "No Helm chart changes to lint"
             exit 0
