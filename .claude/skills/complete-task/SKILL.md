@@ -21,6 +21,16 @@ Finalize the current feature branch by running all quality gates and creating a 
 - `--skip-integration` — Skip integration tests (faster, for WIP checks)
 - `--auto-fix` — Automatically fix lint issues before proceeding
 
+## Scripts
+
+Reusable bash scripts live in `scripts/` (skill-local) and `.claude/scripts/` (shared):
+
+| Script | Location | Purpose |
+|--------|----------|---------|
+| `preflight.sh` | `.claude/scripts/` | Branch check, clean tree, issue extraction |
+| `detect-changes.sh` | `scripts/` | Change detection flags for gating phases |
+| `check-migrations.sh` | `scripts/` | Pending EF Core migrations check |
+
 ## State Machine
 
 ```
@@ -47,23 +57,10 @@ CRITICAL: Do not skip states. Do not proceed if a gate fails. Maximum 3 fix iter
 
 ### Phase 0: Pre-flight + Change Detection
 
+Run the shared pre-flight script:
+
 ```bash
-# Verify we're on a feature branch
-BRANCH=$(git branch --show-current)
-if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-  echo "ERROR: Cannot complete task on main branch"
-  exit 1
-fi
-
-# Check for uncommitted changes
-if [ -n "$(git status --porcelain)" ]; then
-  echo "ERROR: Working tree is dirty. Commit or stash changes first."
-  exit 1
-fi
-
-# Extract issue number from branch name (e.g., makigjuro/42-feature-name)
-ISSUE=$(echo "$BRANCH" | grep -oE '/[0-9]+' | tr -d '/')
-echo "Issue: #$ISSUE"
+source .claude/scripts/preflight.sh
 ```
 
 If pre-flight fails, STOP and report the issue.
@@ -71,25 +68,10 @@ If pre-flight fails, STOP and report the issue.
 **Change Detection — run immediately after pre-flight:**
 
 ```bash
-CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
-
-HAS_BACKEND=$(echo "$CHANGED_FILES" | grep -c "^src/" || true)
-HAS_FRONTEND=$(echo "$CHANGED_FILES" | grep -c "^web/" || true)
-HAS_INFRA=$(echo "$CHANGED_FILES" | grep -cE "^(infra/|deploy/|\.github/workflows/)" || true)
-HAS_ENDPOINTS=$(echo "$CHANGED_FILES" | grep -c "Endpoints/" || true)
-HAS_ENTITIES=$(echo "$CHANGED_FILES" | grep -c "Domain/Entities/" || true)
-HAS_EVENTS=$(echo "$CHANGED_FILES" | grep -c "Domain/Events/" || true)
-
-echo "Change detection:"
-echo "  Backend:   $([ $HAS_BACKEND -gt 0 ] && echo YES || echo NO)"
-echo "  Frontend:  $([ $HAS_FRONTEND -gt 0 ] && echo YES || echo NO)"
-echo "  Infra:     $([ $HAS_INFRA -gt 0 ] && echo YES || echo NO)"
-echo "  Endpoints: $([ $HAS_ENDPOINTS -gt 0 ] && echo YES || echo NO)"
-echo "  Entities:  $([ $HAS_ENTITIES -gt 0 ] && echo YES || echo NO)"
-echo "  Events:    $([ $HAS_EVENTS -gt 0 ] && echo YES || echo NO)"
+bash .claude/skills/complete-task/scripts/detect-changes.sh
 ```
 
-These flags gate all downstream phases. If a flag is 0, skip its corresponding tracks.
+Parse the output flags (`HAS_BACKEND`, `HAS_FRONTEND`, `HAS_INFRA`, `HAS_ENDPOINTS`, `HAS_ENTITIES`, `HAS_EVENTS`). These gate all downstream phases. If a flag is 0, skip its corresponding tracks.
 
 ### Phase 1: Parallel Build
 
@@ -110,17 +92,10 @@ If either track fails, STOP and report the failure.
 ### Phase 1.5: Pending Migrations Check (if HAS_BACKEND > 0)
 
 ```bash
-for service in DeviceManager BundleOrchestrator TelemetryProcessor IdentityManager; do
-  infra=$(find src -path "*/$service*Infrastructure*.csproj" | head -1)
-  host=$(find src -path "*/$service*Host*.csproj" | head -1)
-  if [ -n "$infra" ] && [ -n "$host" ]; then
-    echo "Checking $service for pending migrations..."
-    dotnet ef migrations has-pending-model-changes --project "$infra" --startup-project "$host" 2>&1 || true
-  fi
-done
+bash .claude/skills/complete-task/scripts/check-migrations.sh
 ```
 
-If any service reports pending changes, STOP and create the migration using `/add-migration` before proceeding.
+If output contains `PENDING_MIGRATIONS=true`, STOP and create the migration using `/add-migration` before proceeding.
 
 ### Phase 2: Parallel Lint + Unit Tests
 

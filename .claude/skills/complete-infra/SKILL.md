@@ -19,24 +19,24 @@ Finalize an infrastructure branch by running infra-specific quality gates and cr
 
 - `{issue}` — GitHub issue number (optional). If not provided, extract from branch name.
 
+## Scripts
+
+Reusable bash scripts live in `scripts/` (skill-local) and `.claude/scripts/` (shared):
+
+| Script | Location | Purpose |
+|--------|----------|---------|
+| `preflight.sh` | `.claude/scripts/` | Branch check, clean tree, issue extraction |
+| `validate-terraform.sh` | `scripts/` | Validate changed Terraform modules |
+| `lint-helm.sh` | `scripts/` | Lint changed Helm charts |
+
 ## Process
 
 ### Phase 0: Pre-flight
 
+Run the shared pre-flight script:
+
 ```bash
-BRANCH=$(git branch --show-current)
-if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-  echo "ERROR: Cannot complete task on main branch"
-  exit 1
-fi
-
-if [ -n "$(git status --porcelain)" ]; then
-  echo "ERROR: Working tree is dirty. Commit or stash changes first."
-  exit 1
-fi
-
-ISSUE=$(echo "$BRANCH" | grep -oE '/[0-9]+' | tr -d '/')
-echo "Issue: #$ISSUE"
+source .claude/scripts/preflight.sh
 ```
 
 ### Phase 1: Parallel Infrastructure Lint
@@ -50,30 +50,12 @@ terraform fmt -check -recursive infra
 
 **Track B: Terraform validate (changed modules only)**
 ```bash
-CHANGED=$(git diff --name-only origin/main...HEAD -- 'infra/terraform/')
-if [ -n "$CHANGED" ]; then
-  for dir in $(echo "$CHANGED" | xargs -I{} dirname {} | sort -u); do
-    echo "=== Validating $dir ==="
-    terraform -chdir="$dir" init -backend=false -input=false 2>/dev/null
-    terraform -chdir="$dir" validate
-  done
-else
-  echo "No Terraform changes to validate"
-fi
+bash .claude/skills/complete-infra/scripts/validate-terraform.sh
 ```
 
 **Track C: Helm lint (if charts changed)**
 ```bash
-HELM_CHANGED=$(git diff --name-only origin/main...HEAD -- 'deploy/charts/')
-if [ -n "$HELM_CHANGED" ]; then
-  for chart in $(echo "$HELM_CHANGED" | cut -d'/' -f1-3 | sort -u); do
-    echo "=== Linting $chart ==="
-    helm lint "$chart"
-    helm template test "$chart" > /dev/null
-  done
-else
-  echo "No Helm changes to lint"
-fi
+bash .claude/skills/complete-infra/scripts/lint-helm.sh
 ```
 
 If any lint track fails, STOP and report.
