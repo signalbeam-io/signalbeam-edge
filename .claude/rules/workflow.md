@@ -101,17 +101,57 @@ Formatting is handled at three levels — understand which does what:
 
 Hooks handle day-to-day formatting automatically. The `/lint` skill is for explicit verification that nothing was missed across the full codebase — run it before creating a PR or when the `/complete-task` workflow runs it as a gate.
 
+### Parallel Execution in Orchestrators
+
+Both `/complete-task` and `/complete-infra` use parallel execution to maximize throughput. Understanding the patterns helps when debugging failures or extending the pipeline.
+
+**Change detection flags** — Phase 0 of `/complete-task` runs `git diff --name-only origin/main...HEAD` and sets flags:
+
+| Flag | Trigger | Gates |
+|------|---------|-------|
+| `HAS_BACKEND` | Files under `src/` | Backend build, lint, unit tests, migrations check |
+| `HAS_FRONTEND` | Files under `web/` | Frontend type-check, lint, browser verification |
+| `HAS_INFRA` | Files under `infra/`, `deploy/`, `.github/workflows/` | Helm lint, Terraform fmt, infra-reviewer agent |
+| `HAS_ENDPOINTS` | Files under `Endpoints/` | doc-checker agent |
+| `HAS_ENTITIES` | Files under `Domain/Entities/` | doc-checker agent |
+| `HAS_EVENTS` | Files under `Domain/Events/` | doc-checker agent |
+
+**Parallel tracks in build and lint phases** — Independent tracks are launched as multiple Bash tool calls in a single response:
+
+- **Build phase:** backend `dotnet build` and frontend `npm run type-check` run in parallel
+- **Lint+test phase:** backend lint+unit-tests, frontend lint, and infra lint run as three parallel tracks
+
+**Dynamic agent composition** — Phase 4 spawns agents based on what changed:
+
+| Agent | When | Purpose |
+|-------|------|---------|
+| `reviewer` | Always | Security, architecture, quality review |
+| `verifier` | Always | Acceptance criteria verification |
+| `doc-checker` | `HAS_ENDPOINTS` or `HAS_ENTITIES` or `HAS_EVENTS` or `HAS_INFRA` | Stale documentation detection |
+| `infra-reviewer` | `HAS_INFRA` | Terraform/Helm/CI-specific review |
+
+**Worktree isolation** — All review agents run with `isolation: "worktree"` so they each get an isolated copy of the repository. This enables safe parallel reads without file contention.
+
+**Scoped fix loop** — When agents report issues:
+1. Fix the issues
+2. Determine which files the fix touched
+3. Re-run only affected tracks (e.g., fix in `src/` re-runs backend build+lint, fix in `web/` re-runs frontend lint)
+4. Re-run only agents that reported issues, not all agents
+5. Max 3 iterations before stopping
+
 ## 7. Complete Task (`/complete-task`)
 
 When implementation is done, run the full completion workflow:
 
-1. **Pre-flight** — Verify on feature branch, clean working tree
-2. **Build & Lint** — Deterministic bash gates
-3. **Tests** — Unit tests, then integration tests
-4. **Code Review** — Subagent checks security, architecture, quality
-5. **Task Check** — Subagent verifies acceptance criteria
-6. **Auto-fix** — If issues found, fix and retry (max 3 iterations)
-7. **Create PR** — Push and create pull request
+1. **Pre-flight + Change Detection** — Verify branch, clean tree, detect what changed
+2. **Parallel Build** — Backend build and frontend type-check in parallel
+3. **Migrations Check** — Pending EF Core migrations (if backend changed)
+4. **Parallel Lint + Unit Tests** — Backend, frontend, and infra lint as parallel tracks
+5. **Integration Tests** — Sequential (needs Docker)
+6. **Browser Verification** — Conditional on frontend changes
+7. **Parallel Agent Review** — Dynamic composition based on change detection, worktree-isolated
+8. **Scoped Fix Loop** — Fix issues, re-run only affected tracks (max 3 iterations)
+9. **Create PR** — Push and create pull request
 
 This replaces manually running `/check-architecture`, `/lint`, `/run-tests`, and `/create-pr`.
 
@@ -221,6 +261,7 @@ Specialized agents defined in `.claude/agents/` that run in isolated contexts:
 | `investigator` | Evidence gathering for diagnosis | Sonnet |
 | `analyzer` | Codebase analysis for new features | Opus |
 | `doc-checker` | Detect stale docs relative to code changes | Haiku |
+| `infra-reviewer` | Terraform/Helm/CI review (infra-specific gate) | Sonnet |
 
 ## Pre-PR Checklist
 
