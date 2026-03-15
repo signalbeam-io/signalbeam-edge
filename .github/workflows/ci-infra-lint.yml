@@ -1,0 +1,90 @@
+name: Infrastructure Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - "deploy/**"
+      - ".github/workflows/ci-infra-lint.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - "deploy/**"
+      - ".github/workflows/ci-infra-lint.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-fmt:
+    name: Terraform Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.x"
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive infra
+
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.x"
+
+      - name: Validate changed modules
+        run: |
+          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD -- 'infra/terraform/modules/')
+          if [ -z "$CHANGED" ]; then
+            echo "No Terraform module changes to validate"
+            exit 0
+          fi
+          for dir in $(echo "$CHANGED" | xargs -I{} dirname {} | sort -u); do
+            if [ -f "$dir/main.tf" ] || [ -f "$dir/variables.tf" ]; then
+              echo "=== Validating $dir ==="
+              terraform -chdir="$dir" init -backend=false -input=false
+              terraform -chdir="$dir" validate
+            fi
+          done
+
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.16.0"
+
+      - name: Lint charts
+        run: |
+          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD -- 'deploy/charts/')
+          if [ -z "$CHANGED" ]; then
+            echo "No Helm chart changes to lint"
+            exit 0
+          fi
+          CHARTS=$(echo "$CHANGED" | cut -d'/' -f1-3 | sort -u)
+          for chart in $CHARTS; do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "=== Linting $chart ==="
+              helm lint "$chart"
+              helm template test "$chart" > /dev/null
+            fi
+          done
