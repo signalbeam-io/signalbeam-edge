@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "signalbeam-validator": {
+      "command": "npx",
+      "args": ["tsx", "tools/signalbeam-validator/src/index.ts"],
+      "env": {
+        "REPO_ROOT": "."
+      }
+    }
+  }
+}

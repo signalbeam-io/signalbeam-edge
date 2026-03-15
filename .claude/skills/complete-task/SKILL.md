@@ -7,7 +7,7 @@ user-invocable: true
 
 # Complete Task
 
-Finalize the current feature branch by running all quality gates and creating a PR. This skill orchestrates multiple verification steps and uses agents for code review and task validation.
+Finalize the current feature branch by running all quality gates and creating a PR. This skill orchestrates multiple verification steps with parallel execution where possible, and dynamically composes review agents based on what changed.
 
 ## Prerequisites
 
@@ -24,13 +24,19 @@ Finalize the current feature branch by running all quality gates and creating a 
 ## State Machine
 
 ```
-[start] → verify-branch → build → lint → unit-tests → integration-tests
+[start] → pre-flight + detect-changes
     ↓
-  browser-verify (if web/ changed, non-blocking)
+  parallel-build (backend || frontend)
     ↓
-  review+qa (parallel agents)
+  pending-migrations (if HAS_BACKEND)
     ↓
-  [issues?] → fix → [restart from build]
+  parallel-lint+tests (backend || frontend || infra)
+    ↓
+  integration-tests → browser-verify
+    ↓
+  parallel-agents (reviewer || verifier || doc-checker? || infra-reviewer?)
+    ↓
+  [issues?] → scoped-fix → [restart affected tracks]
     ↓
   create-pr → [done]
 ```
@@ -39,7 +45,7 @@ CRITICAL: Do not skip states. Do not proceed if a gate fails. Maximum 3 fix iter
 
 ## Process
 
-### Phase 0: Pre-flight Checks
+### Phase 0: Pre-flight + Change Detection
 
 ```bash
 # Verify we're on a feature branch
@@ -62,16 +68,48 @@ echo "Issue: #$ISSUE"
 
 If pre-flight fails, STOP and report the issue.
 
-### Phase 1: Build & Lint (Sequential, Deterministic)
-
-Run these bash commands in order. If any fail, STOP.
-
-**Step 1.1: Pending Migrations Check**
-
-Check for pending model changes that need a migration. This catches missing migrations before they cause runtime errors.
+**Change Detection — run immediately after pre-flight:**
 
 ```bash
-# For each service with a DbContext, check for pending changes
+CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+
+HAS_BACKEND=$(echo "$CHANGED_FILES" | grep -c "^src/" || true)
+HAS_FRONTEND=$(echo "$CHANGED_FILES" | grep -c "^web/" || true)
+HAS_INFRA=$(echo "$CHANGED_FILES" | grep -cE "^(infra/|deploy/|\.github/workflows/)" || true)
+HAS_ENDPOINTS=$(echo "$CHANGED_FILES" | grep -c "Endpoints/" || true)
+HAS_ENTITIES=$(echo "$CHANGED_FILES" | grep -c "Domain/Entities/" || true)
+HAS_EVENTS=$(echo "$CHANGED_FILES" | grep -c "Domain/Events/" || true)
+
+echo "Change detection:"
+echo "  Backend:   $([ $HAS_BACKEND -gt 0 ] && echo YES || echo NO)"
+echo "  Frontend:  $([ $HAS_FRONTEND -gt 0 ] && echo YES || echo NO)"
+echo "  Infra:     $([ $HAS_INFRA -gt 0 ] && echo YES || echo NO)"
+echo "  Endpoints: $([ $HAS_ENDPOINTS -gt 0 ] && echo YES || echo NO)"
+echo "  Entities:  $([ $HAS_ENTITIES -gt 0 ] && echo YES || echo NO)"
+echo "  Events:    $([ $HAS_EVENTS -gt 0 ] && echo YES || echo NO)"
+```
+
+These flags gate all downstream phases. If a flag is 0, skip its corresponding tracks.
+
+### Phase 1: Parallel Build
+
+Launch build commands in parallel using separate Bash tool calls in a single response. Only include tracks where changes were detected.
+
+**Track A (if HAS_BACKEND > 0):**
+```bash
+dotnet build src/SignalBeam.sln --configuration Release --no-restore
+```
+
+**Track B (if HAS_FRONTEND > 0):**
+```bash
+cd web && npm run type-check
+```
+
+If either track fails, STOP and report the failure.
+
+### Phase 1.5: Pending Migrations Check (if HAS_BACKEND > 0)
+
+```bash
 for service in DeviceManager BundleOrchestrator TelemetryProcessor IdentityManager; do
   infra=$(find src -path "*/$service*Infrastructure*.csproj" | head -1)
   host=$(find src -path "*/$service*Host*.csproj" | head -1)
@@ -84,54 +122,44 @@ done
 
 If any service reports pending changes, STOP and create the migration using `/add-migration` before proceeding.
 
-**Step 1.2: Build**
+### Phase 2: Parallel Lint + Unit Tests
+
+Launch all applicable tracks in parallel using separate Bash tool calls in a single response.
+
+**Track A (if HAS_BACKEND > 0): Backend lint + unit tests**
+
+If `--auto-fix` was passed, run `dotnet format src/SignalBeam.sln` first, then:
 ```bash
-dotnet build src/SignalBeam.sln --configuration Release --no-restore
+dotnet format src/SignalBeam.sln --verify-no-changes && dotnet test src/SignalBeam.sln --no-build --configuration Release --filter "Category!=Integration"
 ```
 
-**Step 1.3: Lint (with optional auto-fix)**
-If `--auto-fix` was passed:
+**Track B (if HAS_FRONTEND > 0): Frontend lint**
+
+If `--auto-fix` was passed, run `cd web && npm run lint:fix` first, then:
 ```bash
-dotnet format src/SignalBeam.sln
-cd web && npm run lint:fix && cd ..
+cd web && npm run lint
 ```
 
-Then verify:
+**Track C (if HAS_INFRA > 0): Infrastructure lint**
 ```bash
-dotnet format src/SignalBeam.sln --verify-no-changes
-cd web && npm run lint && npm run type-check && cd ..
+helm lint deploy/charts/signalbeam-infrastructure && helm lint deploy/charts/signalbeam-platform && terraform fmt -check -recursive infra
 ```
 
-**Step 1.4: Helm & Terraform**
-```bash
-helm lint deploy/charts/signalbeam-infrastructure
-helm lint deploy/charts/signalbeam-platform
-terraform fmt -check -recursive infra
-```
+If any track fails, STOP and report which track(s) failed.
 
-### Phase 2: Tests (Sequential)
+### Phase 3: Integration Tests (if HAS_BACKEND > 0)
 
-**Step 2.1: Unit Tests**
-```bash
-dotnet test src/SignalBeam.sln --no-build --configuration Release --filter "Category!=Integration"
-```
+Skip if `--skip-integration` was passed.
 
-**Step 2.2: Integration Tests** (skip if `--skip-integration`)
 ```bash
 dotnet test src/SignalBeam.sln --no-build --configuration Release --filter "Category=Integration"
 ```
 
 If tests fail, STOP and report failures.
 
-### Phase 2.5: Browser Verification (Conditional)
+### Phase 3.5: Browser Verification (if HAS_FRONTEND > 0)
 
-Only run this phase when frontend files were changed:
-
-```bash
-WEB_CHANGES=$(git diff --name-only origin/main...HEAD | grep -c "^web/" || true)
-```
-
-If `WEB_CHANGES` > 0, check if the frontend is running:
+Check if the frontend is running:
 
 ```bash
 curl -sf http://localhost:5173 > /dev/null 2>&1 && echo "Frontend: UP" || echo "Frontend: DOWN"
@@ -140,26 +168,42 @@ curl -sf http://localhost:5173 > /dev/null 2>&1 && echo "Frontend: UP" || echo "
 - **Frontend running:** Invoke `/smoke-test --frontend-only` to verify routes render without errors. Report results as **advisory (WARNING, not FAIL)** — browser verification issues don't block the PR.
 - **Frontend not running:** Skip with advisory note: "Browser verification skipped — frontend not running. Run `/run-local` and `/verify-feature` to test manually."
 
-### Phase 3: Quality Review (Parallel Agents)
+### Phase 4: Parallel Agent Review (Dynamic Composition)
 
-Launch TWO agents in parallel using the Agent tool. Each uses the agent definition from `.claude/agents/`.
+Launch all applicable agents in parallel in a single response. Each agent uses `isolation: "worktree"` for safe parallel reads and `run_in_background: true` so you can begin drafting the PR summary while agents work.
 
-**Agent 1: `reviewer`** — Code review for security, architecture, and quality issues. Uses the `reviewer` agent definition. The agent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
+**Always launch:**
 
-**Agent 2: `verifier`** — QA verification that implementation matches the GitHub issue acceptance criteria. Uses the `verifier` agent definition. The agent should fetch the issue via `gh issue view`, compare against the diff, and return MET/UNMET/PARTIAL status for each criterion with a PASS/FAIL summary.
+1. **`reviewer`** (isolation: worktree, run_in_background: true) — Code review for security, architecture, and quality issues. Uses the `reviewer` agent definition. The agent should review `git diff origin/main...HEAD` and return a structured report with Critical/Warning/Suggestion categories and a PASS/FAIL summary.
 
-### Phase 4: Evaluate Results
+2. **`verifier`** (isolation: worktree, run_in_background: true) — QA verification that implementation matches the GitHub issue acceptance criteria. Uses the `verifier` agent definition. The agent should fetch the issue via `gh issue view`, compare against the diff, and return MET/UNMET/PARTIAL status for each criterion with a PASS/FAIL summary.
 
-Collect results from both agents.
+**Conditionally launch:**
 
-**If BOTH pass:**
-- Proceed to Phase 5
+3. **`doc-checker`** (isolation: worktree, run_in_background: true) — Only if `HAS_ENDPOINTS > 0` OR `HAS_ENTITIES > 0` OR `HAS_EVENTS > 0` OR `HAS_INFRA > 0`. Detects stale documentation relative to code changes.
+
+4. **`infra-reviewer`** (isolation: worktree, run_in_background: true) — Only if `HAS_INFRA > 0`. Dedicated Terraform/Helm/CI review using the `infra-reviewer` agent definition.
+
+While agents run in the background, begin preparing the PR description (title, summary of changes, test plan). You will be notified as each agent completes — do not poll or sleep. Once all agents have reported back, proceed to Phase 5.
+
+### Phase 5: Evaluate + Scoped Fix Loop
+
+Collect results from all agents.
+
+**If ALL pass:**
+- Proceed to Phase 6
 
 **If ANY issues found:**
-1. Display the issues to the user
+1. Display the issues to the user, grouped by agent
 2. Ask: "Fix these issues automatically? (max 3 iterations)"
-3. If yes, fix the issues and restart from Phase 1
-4. If no or max iterations reached, STOP and report
+3. If yes, fix the issues
+4. Re-run only affected tracks — determine which tracks to re-run based on which files the fix touched:
+   - Fix touched `src/` → re-run backend build, backend lint+tests
+   - Fix touched `web/` → re-run frontend build, frontend lint
+   - Fix touched `infra/` or `deploy/` → re-run infra lint
+   - Re-run only the agents that reported issues (not all agents)
+   - When unsure which tracks a fix affects, re-run all tracks
+5. If no or max iterations reached, STOP and report
 
 Track iteration count. After 3 failed attempts, STOP with:
 ```
@@ -168,27 +212,16 @@ Remaining issues:
 {list issues}
 ```
 
-### Phase 4.5: Documentation Check (Optional)
+### Phase 5.5: Documentation Check (Advisory)
 
-Before creating the PR, check if documentation should be updated:
-
-```bash
-# Check if endpoints or entities were added/modified
-CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
-HAS_ENDPOINTS=$(echo "$CHANGED_FILES" | grep -c "Endpoints/" || true)
-HAS_ENTITIES=$(echo "$CHANGED_FILES" | grep -c "Domain/Entities/" || true)
-HAS_EVENTS=$(echo "$CHANGED_FILES" | grep -c "Domain/Events/" || true)
-HAS_INFRA=$(echo "$CHANGED_FILES" | grep -cE "(infra/|deploy/)" || true)
-```
-
-If endpoints, entities, events, or infrastructure changed, suggest running `/docs` for the affected areas:
+Before creating the PR, if `HAS_ENDPOINTS > 0` OR `HAS_ENTITIES > 0` OR `HAS_EVENTS > 0` OR `HAS_INFRA > 0`, suggest running `/docs` for the affected areas:
 - New/changed endpoints → `/docs api {service}`
 - New/changed entities or events → `/docs domain`
 - Infrastructure changes → `/docs architecture`
 
-This is advisory, not blocking — note it in the PR output if docs may need updating.
+This is advisory, not blocking — note it in the PR output if docs may need updating. If the `doc-checker` agent already ran in Phase 4, use its findings here instead of re-checking.
 
-### Phase 5: Create PR
+### Phase 6: Create PR
 
 Run the `/create-pr` skill with the extracted issue number.
 
@@ -207,13 +240,15 @@ On success:
 - PR: {pr-url}
 
 ### Quality Gates
-- Build: PASS
-- Lint: PASS
-- Unit Tests: PASS ({count} tests)
-- Integration Tests: PASS ({count} tests)
-- Browser Verification: PASS / SKIP (advisory)
+- Build: PASS (backend + frontend) / PASS (backend only) / PASS (frontend only)
+- Lint: PASS (backend + frontend + infra) / PASS ({active tracks})
+- Unit Tests: PASS ({count} tests) / SKIP (no backend changes)
+- Integration Tests: PASS ({count} tests) / SKIP
+- Browser Verification: PASS / SKIP (no web/ changes) / SKIP (frontend not running)
 - Code Review: PASS
 - Task Check: PASS ({x}/{y} criteria met)
+- Doc Check: PASS (no stale docs) / SKIP (no endpoint/entity/event/infra changes)
+- Infra Review: PASS / SKIP (no infra changes)
 
 PR is ready for human review.
 ```
@@ -238,6 +273,7 @@ Reason: {error details}
 
 - This skill is idempotent — safe to run multiple times
 - All bash commands use explicit paths relative to repo root
-- Subagents run with isolated context to avoid polluting main conversation
+- Subagents run with worktree isolation to avoid polluting main conversation and enable safe parallel reads
 - Never force-push or amend commits during this process
 - If unsure about a fix, ask the user rather than guessing
+- Parallel tracks are launched as multiple tool calls in a single response for maximum throughput

@@ -39,18 +39,17 @@ ISSUE=$(echo "$BRANCH" | grep -oE '/[0-9]+' | tr -d '/')
 echo "Issue: #$ISSUE"
 ```
 
-### Phase 1: Infrastructure Lint
+### Phase 1: Parallel Infrastructure Lint
 
-Run all infra linting:
+Launch all three lint tracks in parallel using separate Bash tool calls in a single response.
 
-**Terraform format check:**
+**Track A: Terraform format check**
 ```bash
 terraform fmt -check -recursive infra
 ```
 
-**Terraform validate (changed modules only):**
+**Track B: Terraform validate (changed modules only)**
 ```bash
-# Get list of changed terraform files
 CHANGED=$(git diff --name-only origin/main...HEAD -- 'infra/terraform/')
 if [ -n "$CHANGED" ]; then
   for dir in $(echo "$CHANGED" | xargs -I{} dirname {} | sort -u); do
@@ -58,10 +57,12 @@ if [ -n "$CHANGED" ]; then
     terraform -chdir="$dir" init -backend=false -input=false 2>/dev/null
     terraform -chdir="$dir" validate
   done
+else
+  echo "No Terraform changes to validate"
 fi
 ```
 
-**Helm lint (if charts changed):**
+**Track C: Helm lint (if charts changed)**
 ```bash
 HELM_CHANGED=$(git diff --name-only origin/main...HEAD -- 'deploy/charts/')
 if [ -n "$HELM_CHANGED" ]; then
@@ -70,22 +71,18 @@ if [ -n "$HELM_CHANGED" ]; then
     helm lint "$chart"
     helm template test "$chart" > /dev/null
   done
+else
+  echo "No Helm changes to lint"
 fi
 ```
 
-If any lint step fails, STOP and report.
+If any lint track fails, STOP and report.
 
-### Phase 2: Infrastructure Review
+### Phase 2: Infrastructure Review (Parallel Agents)
 
-Launch an agent to review infrastructure changes:
+Launch the review agent with worktree isolation:
 
-**Agent: `reviewer`** — Review `git diff origin/main...HEAD` focusing on:
-- Security: exposed secrets, overly permissive IAM/RBAC, public endpoints
-- Best practices: naming conventions, tagging, resource sizing
-- Dependencies: correct Terragrunt dependency ordering
-- Helm: template correctness, value defaults, resource limits
-
-The agent should return PASS/FAIL with findings.
+**Agent: `infra-reviewer`** (isolation: worktree) — Dedicated Terraform/Helm/CI review using the `infra-reviewer` agent definition. Reviews `git diff origin/main...HEAD -- infra/ deploy/ .github/workflows/` and returns PASS/FAIL with findings covering security, naming, resource limits, and CI best practices.
 
 ### Phase 3: Evaluate
 
@@ -112,8 +109,7 @@ Run `/create-pr {issue}`.
 ### Quality Gates
 - Terraform Format: PASS
 - Terraform Validate: PASS
-- Terragrunt Validate: PASS
-- Helm Lint: PASS/SKIPPED
+- Helm Lint: PASS / SKIP (no chart changes)
 - Infra Review: PASS
 
 PR is ready for human review.
