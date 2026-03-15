@@ -1,20 +1,26 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using NATS.Client.JetStream;
 using SignalBeam.EdgeAgent.Application.Services;
-using SignalBeam.Shared.Infrastructure.Messaging;
 
 namespace SignalBeam.EdgeAgent.Infrastructure.Messaging;
 
 public sealed class NatsMetricsPublisher : IMetricsPublisher
 {
-    private readonly IMessagePublisher _publisher;
+    private readonly INatsJSContext _jetStream;
     private readonly ILogger<NatsMetricsPublisher> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public NatsMetricsPublisher(
-        IMessagePublisher publisher,
+        INatsJSContext jetStream,
         ILogger<NatsMetricsPublisher> logger)
     {
-        _publisher = publisher;
+        _jetStream = jetStream;
         _logger = logger;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
     }
 
     public async Task PublishMetricsAsync(
@@ -38,7 +44,9 @@ public sealed class NatsMetricsPublisher : IMetricsPublisher
             "Publishing metrics for device {DeviceId} to {Subject}",
             deviceId, subject);
 
-        await _publisher.PublishAsync(subject, message, cancellationToken);
+        var json = JsonSerializer.Serialize(message, _jsonOptions);
+        var ack = await _jetStream.PublishAsync(subject, json, cancellationToken: cancellationToken);
+        ack.EnsureSuccess();
     }
 }
 

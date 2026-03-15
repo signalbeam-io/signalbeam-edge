@@ -1,24 +1,35 @@
 using Microsoft.Extensions.Logging;
+using NATS.Client.JetStream;
+using NATS.Client.JetStream.Models;
 using SignalBeam.EdgeAgent.Application.Services;
 using SignalBeam.EdgeAgent.Infrastructure.Messaging;
-using SignalBeam.Shared.Infrastructure.Messaging;
 
 namespace SignalBeam.EdgeAgent.Tests.Unit.Messaging;
 
 public class NatsMetricsPublisherTests
 {
-    private readonly IMessagePublisher _messagePublisher;
+    private readonly INatsJSContext _jetStream;
     private readonly NatsMetricsPublisher _sut;
+    private string? _capturedSubject;
+    private string? _capturedData;
 
     public NatsMetricsPublisherTests()
     {
-        _messagePublisher = Substitute.For<IMessagePublisher>();
+        _jetStream = Substitute.For<INatsJSContext>();
+
+        // Configure JetStream mock to return successful ack and capture arguments
+        _jetStream.PublishAsync(
+            Arg.Do<string>(s => _capturedSubject = s),
+            Arg.Do<string>(d => _capturedData = d),
+            cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new PubAckResponse());
+
         var logger = Substitute.For<ILogger<NatsMetricsPublisher>>();
-        _sut = new NatsMetricsPublisher(_messagePublisher, logger);
+        _sut = new NatsMetricsPublisher(_jetStream, logger);
     }
 
     [Fact]
-    public async Task PublishMetricsAsync_PublishesToCorrectSubject()
+    public async Task PublishMetricsAsync_PublishesToCorrectJetStreamSubject()
     {
         // Arrange
         var deviceId = Guid.NewGuid();
@@ -28,43 +39,27 @@ public class NatsMetricsPublisherTests
         await _sut.PublishMetricsAsync(deviceId, metrics, runningContainers: 3);
 
         // Assert
-        await _messagePublisher.Received(1).PublishAsync(
-            $"signalbeam.telemetry.metrics.{deviceId}",
-            Arg.Any<object>(),
-            Arg.Any<CancellationToken>());
+        _capturedSubject.Should().Be($"signalbeam.telemetry.metrics.{deviceId}");
     }
 
     [Fact]
-    public async Task PublishMetricsAsync_MessageContainsCorrectFields()
+    public async Task PublishMetricsAsync_SerializesMessageAsCamelCaseJson()
     {
         // Arrange
         var deviceId = Guid.NewGuid();
         var metrics = new DeviceMetrics(45.5, 60.0, 75.0, 3600);
-        object? capturedMessage = null;
-
-        await _messagePublisher.PublishAsync(
-            Arg.Any<string>(),
-            Arg.Do<object>(msg => capturedMessage = msg),
-            Arg.Any<CancellationToken>());
 
         // Act
         await _sut.PublishMetricsAsync(deviceId, metrics, runningContainers: 3);
 
         // Assert
-        capturedMessage.Should().NotBeNull();
-
-        var json = System.Text.Json.JsonSerializer.Serialize(capturedMessage,
-            new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
-
-        json.Should().Contain($"\"deviceId\":\"{deviceId}\"");
-        json.Should().Contain("\"cpuUsage\":45.5");
-        json.Should().Contain("\"memoryUsage\":60");
-        json.Should().Contain("\"diskUsage\":75");
-        json.Should().Contain("\"uptimeSeconds\":3600");
-        json.Should().Contain("\"runningContainers\":3");
+        _capturedData.Should().NotBeNull();
+        _capturedData.Should().Contain($"\"deviceId\":\"{deviceId}\"");
+        _capturedData.Should().Contain("\"cpuUsage\":45.5");
+        _capturedData.Should().Contain("\"memoryUsage\":60");
+        _capturedData.Should().Contain("\"diskUsage\":75");
+        _capturedData.Should().Contain("\"uptimeSeconds\":3600");
+        _capturedData.Should().Contain("\"runningContainers\":3");
     }
 
     [Fact]
@@ -73,23 +68,11 @@ public class NatsMetricsPublisherTests
         // Arrange
         var deviceId = Guid.NewGuid();
         var metrics = new DeviceMetrics(10.0, 20.0, 30.0, 100);
-        object? capturedMessage = null;
-
-        await _messagePublisher.PublishAsync(
-            Arg.Any<string>(),
-            Arg.Do<object>(msg => capturedMessage = msg),
-            Arg.Any<CancellationToken>());
 
         // Act
         await _sut.PublishMetricsAsync(deviceId, metrics, runningContainers: 0);
 
         // Assert
-        var json = System.Text.Json.JsonSerializer.Serialize(capturedMessage,
-            new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
-
-        json.Should().Contain("\"timestamp\":");
+        _capturedData.Should().Contain("\"timestamp\":");
     }
 }
