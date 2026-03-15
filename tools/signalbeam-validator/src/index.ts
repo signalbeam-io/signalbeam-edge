@@ -170,14 +170,13 @@ server.tool(
       const output = run(
         `dotnet ef migrations has-pending-model-changes --project "${servicePaths.infrastructure}" --startup-project "${servicePaths.host}" 2>&1`
       );
-      const hasPending =
-        output.includes("pending") || output.includes("changes");
+      // Exit code 0 = no pending changes
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify(
-              { service, pending: hasPending, output: output.trim() },
+              { service, pending: false, output: output.trim() },
               null,
               2
             ),
@@ -185,13 +184,14 @@ server.tool(
         ],
       };
     } catch (e) {
+      // Exit code 2 = pending model changes; execSync throws on non-zero exit
       const msg = e instanceof Error ? e.message : String(e);
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify(
-              { service, pending: false, error: msg },
+              { service, pending: true, output: msg },
               null,
               2
             ),
@@ -210,9 +210,21 @@ server.tool(
   "Check if a C# handler file uses the Result pattern correctly — flags thrown business exceptions that should return Result<T> instead.",
   { filePath: z.string().describe("Absolute or repo-relative path to a .cs handler file") },
   async ({ filePath }) => {
-    const absPath = path.isAbsolute(filePath)
-      ? filePath
-      : path.join(REPO_ROOT, filePath);
+    const absPath = path.resolve(
+      path.isAbsolute(filePath) ? filePath : path.join(REPO_ROOT, filePath)
+    );
+    const root = path.resolve(REPO_ROOT);
+
+    if (!absPath.startsWith(root + path.sep) && absPath !== root) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ file: filePath, error: "Path outside repository root" }),
+          },
+        ],
+      };
+    }
 
     if (!fs.existsSync(absPath)) {
       return {
@@ -343,17 +355,14 @@ server.tool(
       }
 
       try {
-        const output = run(
+        run(
           `dotnet ef migrations has-pending-model-changes --project "${servicePaths.infrastructure}" --startup-project "${servicePaths.host}" 2>&1`
         );
-        results[service] = {
-          pending: output.includes("pending") || output.includes("changes"),
-        };
-      } catch (e) {
-        results[service] = {
-          pending: false,
-          error: e instanceof Error ? e.message : String(e),
-        };
+        // Exit code 0 = no pending changes
+        results[service] = { pending: false };
+      } catch {
+        // Exit code 2 = pending model changes; execSync throws on non-zero exit
+        results[service] = { pending: true };
       }
     }
 
