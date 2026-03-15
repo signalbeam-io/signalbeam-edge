@@ -108,6 +108,29 @@ For mobile viewport testing:
 2. `browser_take_screenshot` for mobile view
 3. `browser_resize` to `1280, 720` to restore desktop viewport
 
+## signalbeam-validator — Architecture Validation
+
+Custom MCP server (`tools/signalbeam-validator/`) that provides structured, cacheable architecture checks. Returns JSON instead of parsed bash output. Registered in `.mcp.json` for team-wide use.
+
+**Tools:**
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| `detect_changes` | Git diff → structured change flags | Phase 0 of `/complete-task` — replaces inline bash |
+| `validate_layers` | Check hexagonal layer deps for one service | During `/check-architecture` or `/complete-task` |
+| `validate_all_layers` | Batch check all services | Before PR — single call instead of looping |
+| `check_pending_migrations` | EF Core pending migration check for one service | After entity changes |
+| `check_all_migrations` | Batch migration check all services | Phase 1.5 of `/complete-task` |
+| `check_result_pattern` | Scan handler for thrown exceptions vs Result\<T\> | During code review |
+
+**Example:**
+```
+mcp__signalbeam-validator__detect_changes → { hasBackend: true, hasFrontend: false, hasInfra: true, ... }
+mcp__signalbeam-validator__validate_all_layers → { results: { DeviceManager: { passed: true }, ... }, allPassed: true }
+```
+
+Prefer these tools over inline bash for architecture checks — they're faster, structured, and callable in parallel with other MCP tools.
+
 ## Mermaid Chart — Diagram Validation
 
 Use to validate mermaid diagrams before writing them to documentation files.
