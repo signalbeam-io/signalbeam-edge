@@ -35,6 +35,8 @@ public sealed class NatsAssignmentSubscriber : IAssignmentListener
 
     public async Task StartAsync(Guid deviceId, CancellationToken cancellationToken)
     {
+        ArgumentOutOfRangeException.ThrowIfEqual(deviceId, Guid.Empty);
+
         var subject = $"signalbeam.bundles.assignments.{deviceId}";
         var streamName = "BUNDLE_ASSIGNMENTS";
         var consumerName = $"edge-agent-{deviceId}";
@@ -96,9 +98,9 @@ public sealed class NatsAssignmentSubscriber : IAssignmentListener
 
     public Task StopAsync()
     {
-        _internalCts?.Cancel();
-        _internalCts?.Dispose();
-        _internalCts = null;
+        var cts = Interlocked.Exchange(ref _internalCts, null);
+        cts?.Cancel();
+        cts?.Dispose();
         return Task.CompletedTask;
     }
 
@@ -106,6 +108,13 @@ public sealed class NatsAssignmentSubscriber : IAssignmentListener
     {
         try
         {
+            if (msg.Data is null or { Length: 0 })
+            {
+                _logger.LogWarning("Received empty assignment message payload, skipping");
+                await msg.AckAsync(cancellationToken: cancellationToken);
+                return;
+            }
+
             var message = JsonSerializer.Deserialize<BundleAssignmentMessage>(msg.Data, _jsonOptions);
             if (message is null)
             {

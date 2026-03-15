@@ -16,6 +16,7 @@ public class NatsAssignmentListenerService : BackgroundService
     private readonly IMessageBus _messageBus;
     private readonly ILogger<NatsAssignmentListenerService> _logger;
     private readonly DeviceStateManager _stateManager;
+    private Func<BundleAssignmentMessage, Task>? _assignmentHandler;
 
     public NatsAssignmentListenerService(
         IAssignmentListener listener,
@@ -52,11 +53,9 @@ public class NatsAssignmentListenerService : BackgroundService
             return;
         }
 
-        // Wire up the event handler for immediate reconciliation
-        _listener.OnAssignmentReceived += async message =>
-        {
-            await OnAssignmentReceivedAsync(message, stoppingToken);
-        };
+        // Wire up the event handler for immediate reconciliation (stored for cleanup in StopAsync)
+        _assignmentHandler = message => OnAssignmentReceivedAsync(message, stoppingToken);
+        _listener.OnAssignmentReceived += _assignmentHandler;
 
         _logger.LogInformation(
             "Starting assignment listener for device {DeviceId}", deviceId.Value);
@@ -119,6 +118,12 @@ public class NatsAssignmentListenerService : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("NatsAssignmentListenerService stopping...");
+
+        if (_assignmentHandler is not null)
+        {
+            _listener.OnAssignmentReceived -= _assignmentHandler;
+        }
+
         await _listener.StopAsync();
         await base.StopAsync(cancellationToken);
     }
