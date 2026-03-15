@@ -7,6 +7,7 @@ using SignalBeam.EdgeAgent.Application.Services;
 using SignalBeam.EdgeAgent.Infrastructure.BackgroundServices;
 using SignalBeam.EdgeAgent.Infrastructure.Cloud;
 using SignalBeam.EdgeAgent.Infrastructure.Container;
+using SignalBeam.EdgeAgent.Infrastructure.Messaging;
 using SignalBeam.EdgeAgent.Infrastructure.Metrics;
 using SignalBeam.EdgeAgent.Infrastructure.Storage;
 using SignalBeam.Shared.Infrastructure.Messaging;
@@ -140,6 +141,11 @@ public static class DependencyInjection
 
         // Register message publisher
         services.AddSingleton<IMessagePublisher, NatsMessagePublisher>();
+
+        // Register NATS publishers for metrics and heartbeats
+        // Singleton: EdgeAgent is a long-running worker process; publishers wrap the singleton NATS connection
+        services.AddSingleton<IMetricsPublisher, NatsMetricsPublisher>();
+        services.AddSingleton<IHeartbeatPublisher, NatsHeartbeatPublisher>();
 
         // Named HTTP client for certificate renewal operations (with API key auth)
         services.AddHttpClient("CloudClient", (serviceProvider, client) =>
