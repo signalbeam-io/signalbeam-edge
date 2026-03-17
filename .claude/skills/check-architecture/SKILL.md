@@ -1,7 +1,7 @@
 ---
 name: check-architecture
 description: Verify hexagonal architecture layer rules, Result pattern usage, and coding conventions. Use as a quick local check during development — fast and focused on architecture rules only. For full security + quality review, use /code-review instead.
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, mcp__signalbeam-validator__validate_all_layers, mcp__signalbeam-validator__check_all_migrations, mcp__signalbeam-validator__check_result_pattern
 user-invocable: true
 ---
 
@@ -21,23 +21,21 @@ If no arch tests exist, proceed with manual checks below.
 
 ## 2. Layer Dependency Violations
 
-Check that Domain layer has no forbidden references:
-- Search `src/**/Domain/**/*.cs` for `using` statements referencing Infrastructure, Host, Entity Framework, ASP.NET
-- Domain should only reference System.*, its own namespace, and pure abstractions
+Call `mcp__signalbeam-validator__validate_all_layers` (no parameters). It checks all microservices in one call and returns structured JSON:
 
-Check that Application layer doesn't reference Host:
-- Search `src/**/*.Application/**/*.cs` for `using` statements referencing `*.Host`
+```json
+{ "results": { "DeviceManager": { "passed": true }, "BundleOrchestrator": { "passed": false, "violations": [...] } }, "allPassed": false }
+```
 
-Check that no circular project references exist in .csproj files.
+If `allPassed` is `false`, report each violation with the file path and offending `using` statement.
 
 ## 3. Result Pattern Compliance
 
-Search Application layer handlers for:
-- Methods that `throw` exceptions for business logic (should use `Result.Failure()` instead)
-- Handlers that return raw types instead of `Result<T>`
-- Catch blocks that swallow exceptions without proper Result conversion
+For each changed handler file in `src/**/Application/**/\*Handler.cs`, call `mcp__signalbeam-validator__check_result_pattern` with the file path. It flags thrown business exceptions that should return `Result<T>` instead.
 
-Acceptable throws: `ArgumentException` in value object constructors, `InvalidOperationException` for programmer errors.
+Acceptable throws (the tool already excludes these): `ArgumentException` in value object constructors, `InvalidOperationException` for programmer errors.
+
+If no handler files changed, skip this check.
 
 ## 4. CQRS Conventions
 
@@ -70,19 +68,13 @@ Check endpoints have:
 
 ## 8. Pending EF Core Migrations
 
-Check that no model changes are missing migrations:
+Call `mcp__signalbeam-validator__check_all_migrations` (no parameters). It checks all microservices in one call and returns structured JSON:
 
-```bash
-for service in DeviceManager BundleOrchestrator TelemetryProcessor IdentityManager; do
-  infra=$(find src -path "*/$service*Infrastructure*.csproj" | head -1)
-  host=$(find src -path "*/$service*Host*.csproj" | head -1)
-  if [ -n "$infra" ] && [ -n "$host" ]; then
-    dotnet ef migrations has-pending-model-changes --project "$infra" --startup-project "$host" 2>&1 || true
-  fi
-done
+```json
+{ "results": { "DeviceManager": { "hasPending": false }, ... }, "anyPending": false }
 ```
 
-Any pending changes are a **FAIL** — entity/configuration changes must always have a corresponding migration.
+Any service with `hasPending: true` is a **FAIL** — entity/configuration changes must always have a corresponding migration.
 
 ## Report Format
 

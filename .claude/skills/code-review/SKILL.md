@@ -1,7 +1,7 @@
 ---
 name: code-review
 description: Review code changes for security, architecture, and quality issues. Use for deep PR-level review — checks OWASP vulnerabilities, hexagonal architecture violations, code smells, and test gaps. For a quick architecture-only check, use /check-architecture instead.
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep, mcp__signalbeam-validator__validate_all_layers, mcp__signalbeam-validator__check_result_pattern
 user-invocable: true
 ---
 
@@ -62,24 +62,22 @@ Check for OWASP Top 10 vulnerabilities:
 
 ### Step 3: Architecture Review
 
-Check SignalBeam-specific rules:
+Use MCP tools for automated checks, then supplement with manual review.
 
-**Hexagonal Architecture**
-- Domain layer imports Infrastructure or Host namespaces
-- Application layer imports Host namespaces
-- Circular dependencies between layers
+**Hexagonal Architecture — call `mcp__signalbeam-validator__validate_all_layers`:**
 
-**Result Pattern**
-- Handlers throwing exceptions for business logic (should return `Result.Failure`)
-- Catch blocks swallowing exceptions without proper Result conversion
-- Raw return types instead of `Result<T>` in handlers
+Returns structured JSON with pass/fail per service. Report any violations found.
 
-**CQRS Violations**
+**Result Pattern — call `mcp__signalbeam-validator__check_result_pattern` for each changed handler file:**
+
+Identify handler files from the diff (`*Handler.cs` in Application layers) and check each one. The tool flags thrown business exceptions that should return `Result<T>` instead.
+
+**CQRS Violations (manual check):**
 - Commands in Query folders or vice versa
 - Query handlers calling write repositories
 - Command handlers returning data (queries in disguise)
 
-**Domain Rules**
+**Domain Rules (manual check):**
 - Entities with public setters (should be private/protected)
 - Missing factory methods (public constructors on aggregates)
 - Domain logic in Infrastructure layer
