@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "signalbeam-validator": {
-      "command": "npx",
-      "args": ["tsx", "tools/signalbeam-validator/src/index.ts"],
+      "command": "node",
+      "args": ["tools/signalbeam-validator/dist/index.js"],
       "env": {
         "REPO_ROOT": "."
       }
