@@ -1,7 +1,7 @@
 ---
 name: complete-task
 description: Complete current task with all quality gates, code review, QA check, and submit PR. Use when implementation is done and you want to run the full verification pipeline (build, lint, tests, review, QA) and create the pull request.
-allowed-tools: Bash, Read, Glob, Grep, Task, Skill
+allowed-tools: Bash, Read, Glob, Grep, Task, Skill, mcp__signalbeam-validator__detect_changes, mcp__signalbeam-validator__check_all_migrations
 user-invocable: true
 ---
 
@@ -21,15 +21,13 @@ Finalize the current feature branch by running all quality gates and creating a 
 - `--skip-integration` — Skip integration tests (faster, for WIP checks)
 - `--auto-fix` — Automatically fix lint issues before proceeding
 
-## Scripts
+## Scripts & MCP Tools
 
-Reusable bash scripts live in `scripts/` (skill-local) and `.claude/scripts/` (shared):
-
-| Script | Location | Purpose |
-|--------|----------|---------|
-| `preflight.sh` | `.claude/scripts/` | Branch check, clean tree, issue extraction |
-| `detect-changes.sh` | `scripts/` | Change detection flags for gating phases |
-| `check-migrations.sh` | `scripts/` | Pending EF Core migrations check |
+| Tool | Type | Purpose |
+|------|------|---------|
+| `preflight.sh` | Bash (`.claude/scripts/`) | Branch check, clean tree, issue extraction |
+| `mcp__signalbeam-validator__detect_changes` | MCP | Change detection flags for gating phases |
+| `mcp__signalbeam-validator__check_all_migrations` | MCP | Pending EF Core migrations check |
 
 ## State Machine
 
@@ -67,11 +65,13 @@ If pre-flight fails, STOP and report the issue.
 
 **Change Detection — run immediately after pre-flight:**
 
-```bash
-bash .claude/skills/complete-task/scripts/detect-changes.sh
+Call `mcp__signalbeam-validator__detect_changes` (no parameters). It returns structured JSON with boolean flags:
+
+```json
+{ "hasBackend": true, "hasFrontend": false, "hasInfra": true, "hasEndpoints": false, "hasEntities": true, "hasEvents": false }
 ```
 
-Parse the output flags (`HAS_BACKEND`, `HAS_FRONTEND`, `HAS_INFRA`, `HAS_ENDPOINTS`, `HAS_ENTITIES`, `HAS_EVENTS`). These gate all downstream phases. If a flag is 0, skip its corresponding tracks.
+Use these flags to gate all downstream phases. If a flag is `false`, skip its corresponding tracks.
 
 ### Phase 1: Parallel Build
 
@@ -89,13 +89,15 @@ cd web && npm run type-check
 
 If either track fails, STOP and report the failure.
 
-### Phase 1.5: Pending Migrations Check (if HAS_BACKEND > 0)
+### Phase 1.5: Pending Migrations Check (if hasBackend)
 
-```bash
-bash .claude/skills/complete-task/scripts/check-migrations.sh
+Call `mcp__signalbeam-validator__check_all_migrations` (no parameters). It returns structured JSON:
+
+```json
+{ "results": { "DeviceManager": { "hasPending": false }, "BundleOrchestrator": { "hasPending": true } }, "anyPending": true }
 ```
 
-If output contains `PENDING_MIGRATIONS=true`, STOP and create the migration using `/add-migration` before proceeding.
+If `anyPending` is `true`, STOP and create the migration using `/add-migration` for the affected service(s) before proceeding.
 
 ### Phase 2: Parallel Lint + Unit Tests
 

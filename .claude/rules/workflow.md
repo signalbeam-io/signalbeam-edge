@@ -105,7 +105,7 @@ Hooks handle day-to-day formatting automatically. The `/lint` skill is for expli
 
 Both `/complete-task` and `/complete-infra` use parallel execution to maximize throughput. Understanding the patterns helps when debugging failures or extending the pipeline.
 
-**Change detection flags** — Phase 0 of `/complete-task` runs `git diff --name-only origin/main...HEAD` and sets flags:
+**Change detection flags** — Phase 0 of `/complete-task` calls `mcp__signalbeam-validator__detect_changes` which returns structured JSON flags:
 
 | Flag | Trigger | Gates |
 |------|---------|-------|
