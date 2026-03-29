@@ -416,3 +416,6 @@ infra/terragrunt/dev/*/.terraform*
 .claude/.workflow-state.json
 tools/workflow-engine/dist/
 tools/workflow-engine/node_modules/
+
+# External plugin repo (not part of this project)
+cloudstack-ai-plugins/
