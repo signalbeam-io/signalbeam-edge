@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="Docker.DotNet" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+  <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="NATS.Client.Core" />
     <PackageReference Include="NATS.Client.JetStream" />
     <PackageReference Include="Polly" />
