@@ -19,4 +19,8 @@
     <ProjectReference Include="..\SignalBeam.EdgeAgent.Application\SignalBeam.EdgeAgent.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SignalBeam.EdgeAgent.Tests.Unit" />
+  </ItemGroup>
+
 </Project>

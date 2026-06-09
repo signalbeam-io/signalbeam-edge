@@ -147,6 +147,10 @@ public static class DependencyInjection
         services.AddSingleton<IMetricsPublisher, NatsMetricsPublisher>();
         services.AddSingleton<IHeartbeatPublisher, NatsHeartbeatPublisher>();
 
+        // Register NATS assignment listener (push channel for instant reconciliation)
+        // Singleton: holds a long-lived subscription tied to the singleton NATS connection
+        services.AddSingleton<IAssignmentListener, NatsAssignmentSubscriber>();
+
         // Named HTTP client for certificate renewal operations (with API key auth)
         services.AddHttpClient("CloudClient", (serviceProvider, client) =>
         {

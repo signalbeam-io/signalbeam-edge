@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\EdgeAgent\SignalBeam.EdgeAgent.Application\SignalBeam.EdgeAgent.Application.csproj" />
     <ProjectReference Include="..\..\src\EdgeAgent\SignalBeam.EdgeAgent.Infrastructure\SignalBeam.EdgeAgent.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\EdgeAgent\SignalBeam.EdgeAgent.Host\SignalBeam.EdgeAgent.Host.csproj" />
     <ProjectReference Include="..\..\src\Shared\SignalBeam.Domain\SignalBeam.Domain.csproj" />
   </ItemGroup>
 

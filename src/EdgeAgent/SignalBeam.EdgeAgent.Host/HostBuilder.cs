@@ -42,6 +42,7 @@ public static class HostBuilder
                 // Background services
                 services.AddHostedService<HeartbeatService>();
                 services.AddHostedService<ReconciliationService>();
+                services.AddHostedService<NatsAssignmentListenerService>();
 
                 // Certificate auto-renewal
                 services.Configure<CertificateRenewalOptions>(
