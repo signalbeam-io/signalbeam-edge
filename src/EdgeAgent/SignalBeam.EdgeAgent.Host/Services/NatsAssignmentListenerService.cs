@@ -20,8 +20,6 @@ public sealed class NatsAssignmentListenerService : BackgroundService
     private readonly DeviceStateManager _stateManager;
     private readonly ILogger<NatsAssignmentListenerService> _logger;
 
-    private CancellationToken _stoppingToken = CancellationToken.None;
-
     public NatsAssignmentListenerService(
         IMessageBus messageBus,
         IAssignmentListener listener,
@@ -32,16 +30,10 @@ public sealed class NatsAssignmentListenerService : BackgroundService
         _listener = listener;
         _stateManager = stateManager;
         _logger = logger;
-
-        // Wire the handler in the constructor so the subscription is testable
-        // independently of the registration-wait in ExecuteAsync.
-        _listener.OnAssignmentReceived += OnAssignmentReceived;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _stoppingToken = stoppingToken;
-
         // Wait for the device to be registered before we know our subject.
         while (!_stateManager.IsRegistered && !stoppingToken.IsCancellationRequested)
         {
@@ -61,6 +53,15 @@ public sealed class NatsAssignmentListenerService : BackgroundService
             return;
         }
 
+        // Wire the handler here (not in the constructor) so the shutdown token is
+        // captured by closure rather than shared via a field that is written on the
+        // host thread and read on the NATS callback thread. Event handlers are
+        // synchronous, so dispatch reconciliation fire-and-forget; every exception
+        // (including cancellation) is handled inside TriggerReconciliationAsync.
+        EventHandler<AssignmentReceivedEventArgs> handler =
+            (_, e) => _ = TriggerReconciliationAsync(e, stoppingToken);
+
+        _listener.OnAssignmentReceived += handler;
         try
         {
             await _listener.StartListeningAsync(deviceId.Value, stoppingToken);
@@ -74,16 +75,9 @@ public sealed class NatsAssignmentListenerService : BackgroundService
         }
         finally
         {
-            _listener.OnAssignmentReceived -= OnAssignmentReceived;
+            _listener.OnAssignmentReceived -= handler;
             await _listener.StopListeningAsync(CancellationToken.None);
         }
-    }
-
-    private void OnAssignmentReceived(object? sender, AssignmentReceivedEventArgs e)
-    {
-        // Event handlers are synchronous; dispatch the reconciliation without
-        // blocking the NATS subscription loop. Exceptions are handled inside.
-        _ = TriggerReconciliationAsync(e, _stoppingToken);
     }
 
     /// <summary>

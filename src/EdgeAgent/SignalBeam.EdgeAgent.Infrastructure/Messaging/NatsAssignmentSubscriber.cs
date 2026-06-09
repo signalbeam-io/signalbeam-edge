@@ -25,6 +25,7 @@ public sealed class NatsAssignmentSubscriber : IAssignmentListener, IAsyncDispos
     private readonly ILogger<NatsAssignmentSubscriber> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
+    private readonly object _stateLock = new();
     private CancellationTokenSource? _cts;
     private Task? _subscriptionTask;
 
@@ -41,24 +42,33 @@ public sealed class NatsAssignmentSubscriber : IAssignmentListener, IAsyncDispos
         // published by BundleOrchestrator deserializes back into PascalCase records.
         _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            // Bound nesting depth so an adversarial payload can't exhaust the stack.
+            MaxDepth = 32
         };
     }
 
     public Task StartListeningAsync(Guid deviceId, CancellationToken cancellationToken = default)
     {
-        if (_subscriptionTask is not null)
-        {
-            _logger.LogWarning("Assignment listener already started; ignoring StartListeningAsync");
-            return Task.CompletedTask;
-        }
-
         var subject = $"signalbeam.bundles.assignments.{deviceId}";
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        // Run the subscription loop in the background so callers (the host's
-        // BackgroundService) are not blocked — messages arrive via the event.
-        _subscriptionTask = Task.Run(() => SubscribeLoopAsync(subject, _cts.Token), CancellationToken.None);
+        // Guard check-and-assign under a lock: the listener is a singleton on a
+        // public interface, so two concurrent StartListeningAsync calls must not
+        // both spin up a subscription loop on the same subject.
+        lock (_stateLock)
+        {
+            if (_subscriptionTask is not null)
+            {
+                _logger.LogWarning("Assignment listener already started; ignoring StartListeningAsync");
+                return Task.CompletedTask;
+            }
+
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            // Run the subscription loop in the background so callers (the host's
+            // BackgroundService) are not blocked — messages arrive via the event.
+            _subscriptionTask = Task.Run(() => SubscribeLoopAsync(subject, _cts.Token), CancellationToken.None);
+        }
 
         _logger.LogInformation("Started listening for bundle assignments on {Subject}", subject);
         return Task.CompletedTask;
@@ -68,6 +78,10 @@ public sealed class NatsAssignmentSubscriber : IAssignmentListener, IAsyncDispos
     {
         try
         {
+            // Subscribe as byte[] and JSON-deserialize manually: the cloud side
+            // publishes via the shared NatsMessagePublisher, which writes UTF-8 JSON
+            // to the wire, so the raw bytes are exactly that JSON. This mirrors the
+            // established NatsSseBridgeService consumer pattern.
             await foreach (var msg in _connection.SubscribeAsync<byte[]>(subject, cancellationToken: cancellationToken))
             {
                 HandlePayload(subject, msg.Data);
@@ -128,28 +142,45 @@ public sealed class NatsAssignmentSubscriber : IAssignmentListener, IAsyncDispos
 
     public async Task StopListeningAsync(CancellationToken cancellationToken = default)
     {
-        if (_cts is null)
+        CancellationTokenSource? cts;
+        Task? subscriptionTask;
+
+        // Snapshot and clear the fields under the lock so a concurrent Start can't
+        // swap them out between cancel and dispose (which would dispose the wrong CTS).
+        lock (_stateLock)
+        {
+            cts = _cts;
+            subscriptionTask = _subscriptionTask;
+            _cts = null;
+            _subscriptionTask = null;
+        }
+
+        if (cts is null)
         {
             return;
         }
 
-        await _cts.CancelAsync();
+        await cts.CancelAsync();
 
-        if (_subscriptionTask is not null)
+        if (subscriptionTask is not null)
         {
             try
             {
-                await _subscriptionTask.WaitAsync(cancellationToken);
+                // Bound the drain so a wedged loop (e.g. dead NATS connection) cannot
+                // stall host shutdown indefinitely.
+                await subscriptionTask.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
             }
             catch (OperationCanceledException)
             {
-                // The loop was cancelled or the wait timed out — either way we are stopping.
+                // The loop was cancelled or the caller's token fired — we are stopping.
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("Assignment subscription did not drain within timeout during shutdown");
             }
         }
 
-        _cts.Dispose();
-        _cts = null;
-        _subscriptionTask = null;
+        cts.Dispose();
 
         _logger.LogInformation("Stopped listening for bundle assignments");
     }
