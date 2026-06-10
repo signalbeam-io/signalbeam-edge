@@ -3,6 +3,19 @@
     <!-- Enable Central Package Management -->
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+  <ItemGroup Label="NuGet audit suppressions">
+    <!--
+      CVE-2026-42191 / GHSA-4625-4j76-fww9 — OpenTelemetry.Exporter.OpenTelemetryProtocol.
+      The vulnerable code path is the OTLP exporter's opt-in disk-retry feature falling back
+      to the shared temp directory. SignalBeam uses the OTLP exporter only with default config
+      (UseOtlpExporter/AddOtlpExporter) and never enables disk retry / persistent storage, so
+      this code path is not reachable.
+      The only patched version (1.15.3) requires System.Diagnostics.DiagnosticSource >= 10.0.0,
+      which WolverineFx 3.7.0 forbids (< 10.0.0) — there is no net9-compatible patched version.
+      Tracked for a real upgrade (Wolverine 4.x + OTel 1.15.x) as a follow-up.
+    -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-4625-4j76-fww9" />
+  </ItemGroup>
   <ItemGroup Label="Messaging and CQRS">
     <PackageVersion Include="WolverineFx" Version="3.7.0" />
     <PackageVersion Include="WolverineFx.Http" Version="3.7.0" />
