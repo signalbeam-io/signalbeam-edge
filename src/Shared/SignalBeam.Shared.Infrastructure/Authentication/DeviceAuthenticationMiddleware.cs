@@ -42,6 +42,15 @@ public class DeviceAuthenticationMiddleware
             return;
         }
 
+        // Skip device-key auth for the registration handshake. These endpoints run before the
+        // device holds an API key and are each authenticated by other means in their handlers:
+        // register and claim-key verify the registration token; registration-status returns no secrets.
+        if (IsRegistrationHandshake(context.Request))
+        {
+            await _next(context);
+            return;
+        }
+
         // [1] Try certificate authentication first (if mTLS is configured)
         var clientCert = context.Connection.ClientCertificate;
         if (clientCert != null && certificateValidator != null)
@@ -149,6 +158,44 @@ public class DeviceAuthenticationMiddleware
         await RespondUnauthorized(context,
             "INVALID_API_KEY",
             "The provided API key is invalid or has expired.");
+    }
+
+    /// <summary>
+    /// Identifies the registration-handshake endpoints that must be reachable before a device
+    /// has an API key: device registration, approval-status polling, and the one-time key claim.
+    /// Uses exact method + path matching to avoid exposing other device endpoints.
+    /// </summary>
+    private static bool IsRegistrationHandshake(HttpRequest request)
+    {
+        if (!request.Path.StartsWithSegments("/api/devices"))
+        {
+            return false;
+        }
+
+        var path = (request.Path.Value ?? string.Empty).TrimEnd('/');
+
+        // POST /api/devices — device self-registration (registration token verified in handler)
+        if (HttpMethods.IsPost(request.Method) &&
+            string.Equals(path, "/api/devices", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // GET /api/devices/{id}/registration-status — status only, returns no secrets
+        if (HttpMethods.IsGet(request.Method) &&
+            path.EndsWith("/registration-status", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // POST /api/devices/{id}/claim-key — one-time key claim (registration token verified in handler)
+        if (HttpMethods.IsPost(request.Method) &&
+            path.EndsWith("/claim-key", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private void SetUserPrincipal(

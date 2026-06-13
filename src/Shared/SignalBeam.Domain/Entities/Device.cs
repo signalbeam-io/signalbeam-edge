@@ -67,6 +67,12 @@ public class Device : AggregateRoot<DeviceId>
     /// </summary>
     public DeviceRegistrationStatus RegistrationStatus { get; private set; }
 
+    /// <summary>
+    /// When the device claimed its API key via the one-time claim flow (null = not yet claimed).
+    /// Used to enforce single-use key delivery after approval.
+    /// </summary>
+    public DateTimeOffset? KeyClaimedAt { get; private set; }
+
     // EF Core constructor
     private Device() : base()
     {
@@ -246,6 +252,25 @@ public class Device : AggregateRoot<DeviceId>
 
         RegistrationStatus = DeviceRegistrationStatus.Approved;
         RaiseDomainEvent(new DeviceRegistrationApprovedEvent(Id, approvedAt));
+    }
+
+    /// <summary>
+    /// Whether the device may claim its API key through the one-time claim flow:
+    /// it is approved and has not claimed a key yet.
+    /// </summary>
+    public bool IsKeyClaimAvailable =>
+        RegistrationStatus == DeviceRegistrationStatus.Approved && KeyClaimedAt is null;
+
+    /// <summary>
+    /// Records that the device has claimed its API key, closing the one-time claim window.
+    /// Further key changes must go through rotation.
+    /// </summary>
+    public void MarkKeyClaimed(DateTimeOffset claimedAt)
+    {
+        if (RegistrationStatus != DeviceRegistrationStatus.Approved)
+            throw new InvalidOperationException("Cannot claim an API key before the device is approved.");
+
+        KeyClaimedAt = claimedAt;
     }
 
     /// <summary>

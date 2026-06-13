@@ -2,9 +2,15 @@ using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Infrastructure.Queries;
 using SignalBeam.Domain.Enums;
+using SignalBeam.Shared.Infrastructure.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
+
+/// <summary>
+/// Request body for the one-time device API key claim.
+/// </summary>
+public record ClaimDeviceApiKeyRequest(string RegistrationToken);
 
 /// <summary>
 /// Device API endpoints.
@@ -105,6 +111,14 @@ public static class DeviceEndpoints
             .WithName("RejectDeviceRegistration")
             .WithSummary("Reject device registration")
             .WithDescription("Rejects a pending device registration.");
+
+        group.MapPost("/{deviceId:guid}/claim-key", ClaimDeviceApiKey)
+            .WithName("ClaimDeviceApiKey")
+            .WithSummary("Claim device API key (one-time)")
+            .WithDescription("Allows an approved device to retrieve its API key exactly once, " +
+                "authenticated by the registration token it registered with. Part of the registration " +
+                "handshake — reachable before the device holds an API key.")
+            .AllowAnonymous();
 
         group.MapPost("/{deviceId:guid}/api-keys", GenerateDeviceApiKey)
             .WithName("GenerateDeviceApiKey")
@@ -461,6 +475,41 @@ public static class DeviceEndpoints
                 type = result.Error.Type.ToString()
             });
     }
+
+    private static async Task<IResult> ClaimDeviceApiKey(
+        Guid deviceId,
+        [FromBody] ClaimDeviceApiKeyRequest request,
+        [FromServices] ClaimDeviceApiKeyHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var command = new ClaimDeviceApiKeyCommand(deviceId, request.RegistrationToken);
+        var result = await handler.Handle(command, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(new
+            {
+                deviceId = result.Value!.DeviceId,
+                apiKey = result.Value.ApiKey,
+                keyPrefix = result.Value.KeyPrefix,
+                expiresAt = result.Value.ExpiresAt,
+                message = "API key claimed successfully. Save the key - it will not be shown again."
+            })
+            : result.Error!.Type switch
+            {
+                ErrorType.NotFound => Results.NotFound(ToError(result.Error)),
+                ErrorType.Unauthorized => Results.Json(ToError(result.Error), statusCode: StatusCodes.Status401Unauthorized),
+                ErrorType.Forbidden => Results.Json(ToError(result.Error), statusCode: StatusCodes.Status403Forbidden),
+                ErrorType.Conflict => Results.Conflict(ToError(result.Error)),
+                _ => Results.BadRequest(ToError(result.Error))
+            };
+    }
+
+    private static object ToError(Error error) => new
+    {
+        error = error.Code,
+        message = error.Message,
+        type = error.Type.ToString()
+    };
 
     private static async Task<IResult> RevokeDeviceApiKey(
         Guid apiKeyId,

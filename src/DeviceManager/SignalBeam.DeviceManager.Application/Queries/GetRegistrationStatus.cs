@@ -16,7 +16,8 @@ public record GetRegistrationStatusQuery(Guid DeviceId);
 public record GetRegistrationStatusResponse(
     string Status,
     string? ApiKey = null,
-    DateTimeOffset? ApiKeyExpiresAt = null);
+    DateTimeOffset? ApiKeyExpiresAt = null,
+    bool KeyClaimAvailable = false);
 
 /// <summary>
 /// Handler for GetRegistrationStatusQuery.
@@ -77,7 +78,8 @@ public class GetRegistrationStatusHandler
 
         return Result<GetRegistrationStatusResponse>.Success(new GetRegistrationStatusResponse(
             device.RegistrationStatus.ToString(),
-            null, // API key not returned for security
-            expiresAt));
+            null, // API key not returned here — the device retrieves it once via the claim-key endpoint
+            expiresAt,
+            device.IsKeyClaimAvailable));
     }
 }
