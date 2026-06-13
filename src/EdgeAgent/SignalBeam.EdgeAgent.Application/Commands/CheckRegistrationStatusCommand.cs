@@ -64,13 +64,45 @@ public class CheckRegistrationStatusCommandHandler
             // Fetch current registration status from cloud
             var status = await _cloudClient.CheckRegistrationStatusAsync(credentials.DeviceId, cancellationToken);
 
-            // Update stored credentials if status changed
-            if (status.Status != credentials.RegistrationStatus ||
-                (status.ApiKey != null && status.ApiKey != credentials.ApiKey))
+            var apiKey = credentials.ApiKey ?? status.ApiKey;
+            var apiKeyExpiresAt = credentials.ApiKeyExpiresAt ?? status.ApiKeyExpiresAt;
+
+            // Once approved, claim the API key exactly once using the retained registration token.
+            if (status.Status == "Approved" &&
+                apiKey == null &&
+                status.KeyClaimAvailable &&
+                !string.IsNullOrEmpty(credentials.RegistrationToken))
+            {
+                try
+                {
+                    var claimed = await _cloudClient.ClaimApiKeyAsync(
+                        credentials.DeviceId,
+                        credentials.RegistrationToken!,
+                        cancellationToken);
+
+                    apiKey = claimed.ApiKey;
+                    apiKeyExpiresAt = claimed.ExpiresAt;
+
+                    _logger.LogInformation(
+                        "Claimed API key for device {DeviceId}",
+                        credentials.DeviceId);
+                }
+                catch (Exception ex)
+                {
+                    // Transient failures shouldn't abort the poll — the next cycle retries.
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to claim API key for device {DeviceId}; will retry on next poll",
+                        credentials.DeviceId);
+                }
+            }
+
+            // Persist any change to status or the newly claimed key.
+            if (status.Status != credentials.RegistrationStatus || apiKey != credentials.ApiKey)
             {
                 credentials.RegistrationStatus = status.Status;
-                credentials.ApiKey = status.ApiKey;
-                credentials.ApiKeyExpiresAt = status.ApiKeyExpiresAt;
+                credentials.ApiKey = apiKey;
+                credentials.ApiKeyExpiresAt = apiKeyExpiresAt;
 
                 await _credentialsStore.SaveCredentialsAsync(credentials, cancellationToken);
 
@@ -78,15 +110,15 @@ public class CheckRegistrationStatusCommandHandler
                     "Device {DeviceId} registration status updated to {Status}. API key: {HasApiKey}",
                     credentials.DeviceId,
                     status.Status,
-                    status.ApiKey != null ? "Received" : "Not yet provided");
+                    apiKey != null ? "Received" : "Not yet provided");
             }
 
             return Result<CheckRegistrationStatusResponse>.Success(
                 new CheckRegistrationStatusResponse(
                     status.Status,
                     status.Status == "Approved",
-                    status.ApiKey,
-                    status.ApiKeyExpiresAt));
+                    apiKey,
+                    apiKeyExpiresAt));
         }
         catch (Exception ex)
         {

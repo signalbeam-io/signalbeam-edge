@@ -10,6 +10,14 @@ public interface ICloudClient
         Guid deviceId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Claims the device API key once, after approval, authenticated by the registration token.
+    /// </summary>
+    Task<ClaimedApiKey> ClaimApiKeyAsync(
+        Guid deviceId,
+        string registrationToken,
+        CancellationToken cancellationToken = default);
+
     Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default);
@@ -45,7 +53,12 @@ public record DeviceRegistrationResponse(
 public record RegistrationStatusResponse(
     string Status,
     string? ApiKey = null,
-    DateTimeOffset? ApiKeyExpiresAt = null);
+    DateTimeOffset? ApiKeyExpiresAt = null,
+    bool KeyClaimAvailable = false);
+
+public record ClaimedApiKey(
+    string ApiKey,
+    DateTimeOffset? ExpiresAt);
 
 public record DeviceHeartbeat(
     Guid DeviceId,

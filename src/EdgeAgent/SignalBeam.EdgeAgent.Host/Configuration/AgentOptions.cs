@@ -6,6 +6,11 @@ public class AgentOptions
 
     public string CloudUrl { get; set; } = "https://api.signalbeam.com";
     public int HeartbeatIntervalSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// How often (seconds) the agent polls for registration approval while still pending.
+    /// </summary>
+    public int RegistrationPollIntervalSeconds { get; set; } = 300;
     public int ReconciliationIntervalSeconds { get; set; } = 60;
     public int ReconciliationRetryAttempts { get; set; } = 3;
     public int ReconciliationRetryDelaySeconds { get; set; } = 10;

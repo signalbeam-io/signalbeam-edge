@@ -74,6 +74,39 @@ public class HttpCloudClient : ICloudClient
         }
     }
 
+    public async Task<ClaimedApiKey> ClaimApiKeyAsync(
+        Guid deviceId,
+        string registrationToken,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Claiming API key for device {DeviceId}", deviceId);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                $"/api/devices/{deviceId}/claim-key",
+                new { registrationToken },
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<ClaimedApiKey>(cancellationToken);
+
+            if (result is null || string.IsNullOrEmpty(result.ApiKey))
+            {
+                throw new InvalidOperationException("Claim-key response did not contain an API key");
+            }
+
+            _logger.LogInformation("API key claimed successfully for device {DeviceId}", deviceId);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to claim API key for device {DeviceId}", deviceId);
+            throw;
+        }
+    }
+
     public async Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default)
