@@ -414,6 +414,7 @@ infra/terragrunt/dev/*/.terraform*
 
 # Workflow engine state
 .claude/.workflow-state.json
+.claude/worktrees/
 tools/workflow-engine/dist/
 tools/workflow-engine/node_modules/
 

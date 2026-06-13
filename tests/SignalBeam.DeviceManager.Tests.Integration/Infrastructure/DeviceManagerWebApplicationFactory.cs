@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using SignalBeam.DeviceManager.Application.Services;
 using SignalBeam.DeviceManager.Infrastructure.Persistence;
 using SignalBeam.Shared.Infrastructure.Authentication;
 using Testcontainers.PostgreSql;
@@ -47,6 +48,11 @@ public class DeviceManagerWebApplicationFactory : WebApplicationFactory<Program>
             // Replace API key validator with test implementation
             services.RemoveAll<IApiKeyValidator>();
             services.AddSingleton<IApiKeyValidator>(new TestApiKeyValidator(_defaultTenantId));
+
+            // Replace IdentityManager-backed quota validator with a test stub so device
+            // registration doesn't make a real HTTP call to a non-running IdentityManager.
+            services.RemoveAll<IDeviceQuotaValidator>();
+            services.AddSingleton<IDeviceQuotaValidator>(new TestDeviceQuotaValidator());
         });
 
         builder.UseEnvironment("Testing");
