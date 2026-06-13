@@ -23,8 +23,16 @@ public static class DependencyInjection
         // Register Docker container manager
         services.AddSingleton<IContainerManager, DockerContainerManager>();
 
-        // Register metrics collector
-        services.AddSingleton<IMetricsCollector, SystemMetricsCollector>();
+        // Register metrics collector — reads host-level metrics from /proc on Linux and the
+        // running container count from Docker. Disk mount point is configurable (default "/").
+        services.AddSingleton<IMetricsCollector>(sp =>
+        {
+            var monitoredDiskPath = configuration["Agent:MonitoredDiskPath"] ?? "/";
+            return new SystemMetricsCollector(
+                sp.GetRequiredService<ILogger<SystemMetricsCollector>>(),
+                sp.GetRequiredService<IContainerManager>(),
+                monitoredDiskPath);
+        });
 
         // Register device credentials store
         services.AddSingleton<IDeviceCredentialsStore, FileDeviceCredentialsStore>();

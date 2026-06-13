@@ -12,4 +12,10 @@ public class AgentOptions
     public int ImagePullTimeoutSeconds { get; set; } = 300;
     public int MaxRetries { get; set; } = 3;
     public string LogFilePath { get; set; } = "/var/log/signalbeam-agent/agent.log";
+
+    /// <summary>
+    /// Filesystem mount point whose usage is reported as the device disk metric.
+    /// Defaults to the root filesystem; override for devices with a dedicated data partition.
+    /// </summary>
+    public string MonitoredDiskPath { get; set; } = "/";
 }

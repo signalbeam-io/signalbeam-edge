@@ -56,7 +56,12 @@ public record DeviceMetrics(
     double CpuUsagePercent,
     double MemoryUsagePercent,
     double DiskUsagePercent,
-    long UptimeSeconds);
+    long UptimeSeconds,
+    int RunningContainers = 0,
+    long MemoryTotalBytes = 0,
+    long MemoryUsedBytes = 0,
+    long DiskTotalBytes = 0,
+    long DiskUsedBytes = 0);
 
 public record DesiredState(
     string? BundleId,

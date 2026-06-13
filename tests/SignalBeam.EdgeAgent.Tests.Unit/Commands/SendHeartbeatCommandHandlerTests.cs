@@ -8,6 +8,7 @@ public class SendHeartbeatCommandHandlerTests
 {
     private readonly ICloudClient _cloudClient;
     private readonly IHeartbeatPublisher _heartbeatPublisher;
+    private readonly IMetricsPublisher _metricsPublisher;
     private readonly IMetricsCollector _metricsCollector;
     private readonly SendHeartbeatCommandHandler _handler;
 
@@ -15,10 +16,11 @@ public class SendHeartbeatCommandHandlerTests
     {
         _cloudClient = Substitute.For<ICloudClient>();
         _heartbeatPublisher = Substitute.For<IHeartbeatPublisher>();
+        _metricsPublisher = Substitute.For<IMetricsPublisher>();
         _metricsCollector = Substitute.For<IMetricsCollector>();
         var logger = Substitute.For<ILogger<SendHeartbeatCommandHandler>>();
         _handler = new SendHeartbeatCommandHandler(
-            _cloudClient, _heartbeatPublisher, _metricsCollector, logger);
+            _cloudClient, _heartbeatPublisher, _metricsPublisher, _metricsCollector, logger);
     }
 
     [Fact]
@@ -32,7 +34,8 @@ public class SendHeartbeatCommandHandlerTests
             CpuUsagePercent: 45.5,
             MemoryUsagePercent: 60.0,
             DiskUsagePercent: 75.0,
-            UptimeSeconds: 3600);
+            UptimeSeconds: 3600,
+            RunningContainers: 4);
 
         _metricsCollector.CollectMetricsAsync(Arg.Any<CancellationToken>())
             .Returns(metrics);
@@ -43,6 +46,8 @@ public class SendHeartbeatCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         await _metricsCollector.Received(1).CollectMetricsAsync(Arg.Any<CancellationToken>());
+        await _metricsPublisher.Received(1).PublishMetricsAsync(
+            deviceId, metrics, 4, Arg.Any<CancellationToken>());
         await _heartbeatPublisher.Received(1).PublishHeartbeatAsync(
             deviceId, "online", null, Arg.Any<CancellationToken>());
         await _cloudClient.Received(1).SendHeartbeatAsync(
