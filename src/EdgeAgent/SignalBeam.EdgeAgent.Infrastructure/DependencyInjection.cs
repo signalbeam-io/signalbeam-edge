@@ -37,6 +37,13 @@ public static class DependencyInjection
         // Register device credentials store
         services.AddSingleton<IDeviceCredentialsStore, FileDeviceCredentialsStore>();
 
+        // Key rotation service — rotation threshold configurable (default 7 days)
+        services.AddScoped<IKeyRotationService>(sp => new KeyRotationService(
+            sp.GetRequiredService<ICloudClient>(),
+            sp.GetRequiredService<IDeviceCredentialsStore>(),
+            sp.GetRequiredService<ILogger<KeyRotationService>>(),
+            int.TryParse(configuration["Agent:KeyRotationThresholdDays"], out var threshold) ? threshold : 7));
+
         // Register API key handler
         services.AddTransient<DeviceApiKeyHandler>();
 

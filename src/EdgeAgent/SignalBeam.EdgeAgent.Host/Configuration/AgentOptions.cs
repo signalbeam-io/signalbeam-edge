@@ -11,6 +11,16 @@ public class AgentOptions
     /// How often (seconds) the agent polls for registration approval while still pending.
     /// </summary>
     public int RegistrationPollIntervalSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Rotate the API key when it expires within this many days.
+    /// </summary>
+    public int KeyRotationThresholdDays { get; set; } = 7;
+
+    /// <summary>
+    /// How often (hours) the key lifecycle service checks for an expiring API key.
+    /// </summary>
+    public double KeyLifecycleCheckIntervalHours { get; set; } = 24.0;
     public int ReconciliationIntervalSeconds { get; set; } = 60;
     public int ReconciliationRetryAttempts { get; set; } = 3;
     public int ReconciliationRetryDelaySeconds { get; set; } = 10;

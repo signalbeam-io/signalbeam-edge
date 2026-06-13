@@ -125,6 +125,12 @@ public static class DeviceEndpoints
             .WithSummary("Generate device API key")
             .WithDescription("Generates a new API key for a device (for key rotation).");
 
+        group.MapPost("/{deviceId:guid}/rotate-key", RotateDeviceApiKey)
+            .WithName("RotateDeviceApiKey")
+            .WithSummary("Rotate device API key")
+            .WithDescription("Rotates the device API key: issues a new key and revokes existing ones. " +
+                "Called by the agent with its current (soon-to-expire) key before expiry.");
+
         group.MapDelete("/api-keys/{apiKeyId:guid}", RevokeDeviceApiKey)
             .WithName("RevokeDeviceApiKey")
             .WithSummary("Revoke device API key")
@@ -510,6 +516,28 @@ public static class DeviceEndpoints
         message = error.Message,
         type = error.Type.ToString()
     };
+
+    private static async Task<IResult> RotateDeviceApiKey(
+        Guid deviceId,
+        [FromServices] GenerateDeviceApiKeyHandler handler,
+        CancellationToken cancellationToken)
+    {
+        // Rotation = generate a fresh key and revoke the old ones.
+        var command = new GenerateDeviceApiKeyCommand(deviceId, ExpirationDays: 90, RevokeExistingKeys: true);
+        var result = await handler.Handle(command, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(new
+            {
+                deviceId = result.Value!.DeviceId,
+                apiKey = result.Value.ApiKey,
+                keyPrefix = result.Value.KeyPrefix,
+                createdAt = result.Value.CreatedAt,
+                expiresAt = result.Value.ExpiresAt,
+                message = "API key rotated successfully. Save the key - it will not be shown again."
+            })
+            : Results.BadRequest(ToError(result.Error!));
+    }
 
     private static async Task<IResult> RevokeDeviceApiKey(
         Guid apiKeyId,

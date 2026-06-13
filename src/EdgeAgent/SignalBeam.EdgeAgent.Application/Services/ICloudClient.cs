@@ -18,6 +18,13 @@ public interface ICloudClient
         string registrationToken,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Rotates the device API key, authenticated by the device's current (still-valid) key.
+    /// </summary>
+    Task<ClaimedApiKey> RotateApiKeyAsync(
+        Guid deviceId,
+        CancellationToken cancellationToken = default);
+
     Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default);

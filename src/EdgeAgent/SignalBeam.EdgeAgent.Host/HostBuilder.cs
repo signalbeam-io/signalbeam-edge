@@ -45,6 +45,7 @@ public static class HostBuilder
 
                 // Background services
                 services.AddHostedService<RegistrationPollingService>();
+                services.AddHostedService<KeyLifecycleService>();
                 services.AddHostedService<HeartbeatService>();
                 services.AddHostedService<ReconciliationService>();
                 services.AddHostedService<NatsAssignmentListenerService>();
