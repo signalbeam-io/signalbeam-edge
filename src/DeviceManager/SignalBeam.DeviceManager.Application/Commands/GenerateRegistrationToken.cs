@@ -16,7 +16,8 @@ public record GenerateRegistrationTokenCommand(
     DateTimeOffset? ExpiresAt = null,
     int ValidityDays = 30,
     string? CreatedBy = null,
-    string? Description = null);
+    string? Description = null,
+    bool AutoApprove = false);
 
 /// <summary>
 /// Response containing the generated registration token.
@@ -68,7 +69,8 @@ public class GenerateRegistrationTokenHandler
                 expiresAt,
                 command.CreatedBy,
                 command.Description,
-                command.MaxUses);
+                command.MaxUses,
+                command.AutoApprove);
 
             // Save to database
             await _tokenRepository.AddAsync(token, cancellationToken);

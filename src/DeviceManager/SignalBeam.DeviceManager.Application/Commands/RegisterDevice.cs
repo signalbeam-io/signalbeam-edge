@@ -67,6 +67,7 @@ public class RegisterDeviceHandler
         }
 
         // Validate registration token if provided
+        DeviceRegistrationToken? validatedToken = null;
         if (!string.IsNullOrEmpty(command.RegistrationToken))
         {
             var tokenValidation = await ValidateRegistrationTokenAsync(
@@ -79,6 +80,8 @@ public class RegisterDeviceHandler
             {
                 return Result.Failure<RegisterDeviceResponse>(tokenValidation.Error!);
             }
+
+            validatedToken = tokenValidation.Value;
         }
 
         // Check if device already exists
@@ -100,6 +103,13 @@ public class RegisterDeviceHandler
             DateTimeOffset.UtcNow,
             command.Metadata);
 
+        // Zero-touch provisioning: a trusted (auto-approve) token approves on registration,
+        // so the device can immediately claim its API key without a manual approval step.
+        if (validatedToken?.AutoApprove == true)
+        {
+            device.ApproveRegistration(DateTimeOffset.UtcNow);
+        }
+
         // Save to repository
         await _deviceRepository.AddAsync(device, cancellationToken);
         await _deviceRepository.SaveChangesAsync(cancellationToken);
@@ -112,7 +122,7 @@ public class RegisterDeviceHandler
             device.RegisteredAt));
     }
 
-    private async Task<Result> ValidateRegistrationTokenAsync(
+    private async Task<Result<DeviceRegistrationToken>> ValidateRegistrationTokenAsync(
         string tokenString,
         TenantId tenantId,
         DeviceId deviceId,
@@ -122,7 +132,7 @@ public class RegisterDeviceHandler
         var parts = tokenString.Split('_');
         if (parts.Length != 3 || parts[0] != "sbt")
         {
-            return Result.Failure(Error.Validation(
+            return Result.Failure<DeviceRegistrationToken>(Error.Validation(
                 "RegistrationToken.InvalidFormat",
                 "Registration token has invalid format."));
         }
@@ -134,7 +144,7 @@ public class RegisterDeviceHandler
 
         if (token == null)
         {
-            return Result.Failure(Error.NotFound(
+            return Result.Failure<DeviceRegistrationToken>(Error.NotFound(
                 "RegistrationToken.NotFound",
                 "Registration token not found or has expired."));
         }
@@ -142,7 +152,7 @@ public class RegisterDeviceHandler
         // Validate token belongs to correct tenant
         if (token.TenantId != tenantId)
         {
-            return Result.Failure(Error.Validation(
+            return Result.Failure<DeviceRegistrationToken>(Error.Validation(
                 "RegistrationToken.InvalidTenant",
                 "Registration token does not belong to this tenant."));
         }
@@ -150,7 +160,7 @@ public class RegisterDeviceHandler
         // Validate token hash
         if (!_tokenService.ValidateToken(tokenString, token.TokenHash))
         {
-            return Result.Failure(Error.Validation(
+            return Result.Failure<DeviceRegistrationToken>(Error.Validation(
                 "RegistrationToken.Invalid",
                 "Registration token is invalid."));
         }
@@ -158,7 +168,7 @@ public class RegisterDeviceHandler
         // Validate token is not used and not expired
         if (!token.IsValid)
         {
-            return Result.Failure(Error.Validation(
+            return Result.Failure<DeviceRegistrationToken>(Error.Validation(
                 "RegistrationToken.Expired",
                 "Registration token has expired or has already been used."));
         }
@@ -168,6 +178,6 @@ public class RegisterDeviceHandler
         await _tokenRepository.UpdateAsync(token, cancellationToken);
         await _tokenRepository.SaveChangesAsync(cancellationToken);
 
-        return Result.Success();
+        return Result<DeviceRegistrationToken>.Success(token);
     }
 }

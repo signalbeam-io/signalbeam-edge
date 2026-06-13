@@ -56,6 +56,11 @@ public class DeviceRegistrationTokenConfiguration : IEntityTypeConfiguration<Dev
         builder.Property(t => t.MaxUses)
             .HasColumnName("max_uses");
 
+        builder.Property(t => t.AutoApprove)
+            .HasColumnName("auto_approve")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(t => t.CurrentUses)
             .HasColumnName("current_uses")
             .IsRequired();
