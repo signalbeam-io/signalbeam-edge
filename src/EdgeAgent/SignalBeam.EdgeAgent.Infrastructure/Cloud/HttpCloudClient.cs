@@ -140,6 +140,41 @@ public class HttpCloudClient : ICloudClient
         }
     }
 
+    public async Task<DeviceCertificateBundle> RequestCertificateAsync(
+        Guid deviceId,
+        string csrPem,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Requesting certificate for device {DeviceId}", deviceId);
+
+            // Authenticated by the device API key, added by DeviceApiKeyHandler.
+            var response = await _httpClient.PostAsJsonAsync(
+                $"/api/certificates/{deviceId}/sign-csr",
+                new { csr = csrPem },
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<DeviceCertificateBundle>(cancellationToken);
+
+            if (result is null || string.IsNullOrEmpty(result.CertificatePem))
+            {
+                throw new InvalidOperationException("sign-csr response did not contain a certificate");
+            }
+
+            _logger.LogInformation("Certificate issued for device {DeviceId}, serial {Serial}",
+                deviceId, result.SerialNumber);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to request certificate for device {DeviceId}", deviceId);
+            throw;
+        }
+    }
+
     public async Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default)

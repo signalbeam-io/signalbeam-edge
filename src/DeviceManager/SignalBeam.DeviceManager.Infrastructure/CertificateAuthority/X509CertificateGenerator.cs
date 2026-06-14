@@ -155,6 +155,48 @@ public class X509CertificateGenerator : ICertificateGenerator
         return ExportCertificateToPem(signedCert);
     }
 
+    public string SignCertificateSigningRequest(
+        string csrPem,
+        string caPrivateKeyPem,
+        string caCertificatePem,
+        string serialNumberHex,
+        int validityDays)
+    {
+        using var caCert = X509Certificate2.CreateFromPem(caCertificatePem, caPrivateKeyPem);
+
+        // Load the device's PKCS#10 CSR. Default options deliberately skip any extensions in the
+        // CSR — the CA dictates them — so we read only the subject and public key.
+        var csr = CertificateRequest.LoadSigningRequestPem(
+            csrPem,
+            HashAlgorithmName.SHA256,
+            CertificateRequestLoadOptions.Default,
+            RSASignaturePadding.Pkcs1);
+
+        // Apply CA-controlled extensions for a TLS client certificate.
+        csr.CertificateExtensions.Add(
+            new X509BasicConstraintsExtension(false, false, 0, critical: true));
+        csr.CertificateExtensions.Add(
+            new X509KeyUsageExtension(
+                X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment,
+                critical: true));
+        csr.CertificateExtensions.Add(
+            new X509EnhancedKeyUsageExtension(
+                new OidCollection { new Oid("1.3.6.1.5.5.7.3.2") }, // clientAuth
+                critical: true));
+        csr.CertificateExtensions.Add(
+            new X509SubjectKeyIdentifierExtension(csr.PublicKey, critical: false));
+        csr.CertificateExtensions.Add(
+            X509AuthorityKeyIdentifierExtension.CreateFromCertificate(
+                caCert, includeKeyIdentifier: true, includeIssuerAndSerial: false));
+
+        var notBefore = DateTimeOffset.UtcNow.AddDays(-1);
+        var notAfter = DateTimeOffset.UtcNow.AddDays(validityDays);
+        var serialBytes = Convert.FromHexString(serialNumberHex);
+
+        using var signedCert = csr.Create(caCert, notBefore, notAfter, serialBytes);
+        return ExportCertificateToPem(signedCert);
+    }
+
     public string CalculateFingerprint(string certificatePem)
     {
         using var cert = X509Certificate2.CreateFromPem(certificatePem);

@@ -21,6 +21,16 @@ public interface ICertificateAuthorityService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Signs a device-generated PKCS#10 CSR. The device keeps its private key, so the returned
+    /// <see cref="IssuedCertificate.PrivateKeyPem"/> is empty.
+    /// </summary>
+    Task<Result<IssuedCertificate>> SignCsrAsync(
+        DeviceId deviceId,
+        string csrPem,
+        int validityDays = 90,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets the CA certificate (for distribution to devices).
     /// </summary>
     Task<string> GetCaCertificateAsync(CancellationToken cancellationToken = default);

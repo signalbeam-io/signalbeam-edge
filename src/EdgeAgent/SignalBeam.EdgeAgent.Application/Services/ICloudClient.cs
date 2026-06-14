@@ -25,6 +25,14 @@ public interface ICloudClient
         Guid deviceId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Submits a device-generated CSR to the cloud CA and returns the signed certificate bundle.
+    /// </summary>
+    Task<DeviceCertificateBundle> RequestCertificateAsync(
+        Guid deviceId,
+        string csrPem,
+        CancellationToken cancellationToken = default);
+
     Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default);
@@ -66,6 +74,12 @@ public record RegistrationStatusResponse(
 public record ClaimedApiKey(
     string ApiKey,
     DateTimeOffset? ExpiresAt);
+
+public record DeviceCertificateBundle(
+    string CertificatePem,
+    string CaCertificatePem,
+    string SerialNumber,
+    DateTimeOffset ExpiresAt);
 
 public record DeviceHeartbeat(
     Guid DeviceId,

@@ -176,6 +176,7 @@ builder.Services.AddSingleton<CertificateMetrics>();
 
 // Register certificate command and query handlers
 builder.Services.AddScoped<IssueCertificateHandler>();
+builder.Services.AddScoped<SignDeviceCsrHandler>();
 builder.Services.AddScoped<RenewCertificateHandler>();
 builder.Services.AddScoped<RevokeCertificateHandler>();
 builder.Services.AddScoped<GetDeviceCertificatesHandler>();

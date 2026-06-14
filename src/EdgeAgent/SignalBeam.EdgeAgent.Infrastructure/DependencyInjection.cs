@@ -9,6 +9,7 @@ using SignalBeam.EdgeAgent.Infrastructure.Cloud;
 using SignalBeam.EdgeAgent.Infrastructure.Container;
 using SignalBeam.EdgeAgent.Infrastructure.Messaging;
 using SignalBeam.EdgeAgent.Infrastructure.Metrics;
+using SignalBeam.EdgeAgent.Infrastructure.Security;
 using SignalBeam.EdgeAgent.Infrastructure.Storage;
 using SignalBeam.Shared.Infrastructure.Messaging;
 
@@ -36,6 +37,18 @@ public static class DependencyInjection
 
         // Register device credentials store
         services.AddSingleton<IDeviceCredentialsStore, FileDeviceCredentialsStore>();
+
+        // mTLS certificate provisioning: device-side CSR generation + file storage
+        services.AddSingleton<ICsrGenerator, CsrGenerator>();
+        services.AddSingleton<ICertificateStore>(_ =>
+        {
+            var certDir = configuration["Agent:CertificateDirectory"]
+                ?? Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "signalbeam-agent",
+                    "certs");
+            return new FileCertificateStore(certDir);
+        });
 
         // Key rotation service — rotation threshold configurable (default 7 days)
         services.AddScoped<IKeyRotationService>(sp => new KeyRotationService(

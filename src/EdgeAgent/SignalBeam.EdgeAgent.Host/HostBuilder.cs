@@ -42,6 +42,7 @@ public static class HostBuilder
 
                 // Application handlers resolved directly by background services
                 services.AddScoped<CheckRegistrationStatusCommandHandler>();
+                services.AddScoped<RequestCertificateCommandHandler>();
 
                 // Background services
                 services.AddHostedService<RegistrationPollingService>();
@@ -99,6 +100,7 @@ public static class HostBuilder
         // Application handlers used by the CLI commands
         services.AddScoped<RegisterDeviceCommandHandler>();
         services.AddScoped<CheckRegistrationStatusCommandHandler>();
+        services.AddScoped<RequestCertificateCommandHandler>();
 
         return services.BuildServiceProvider();
     }

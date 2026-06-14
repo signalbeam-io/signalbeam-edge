@@ -33,6 +33,19 @@ public interface ICertificateGenerator
     string SignCertificate(string certificateRequest, string caPrivateKeyPem, string caCertificatePem);
 
     /// <summary>
+    /// Signs a device-generated PKCS#10 certificate signing request (CSR) with the CA key.
+    /// The device keeps its private key; only its public key and subject are taken from the CSR.
+    /// CA-controlled extensions (clientAuth EKU, key usage) are always applied — any extensions
+    /// in the CSR are ignored.
+    /// </summary>
+    string SignCertificateSigningRequest(
+        string csrPem,
+        string caPrivateKeyPem,
+        string caCertificatePem,
+        string serialNumberHex,
+        int validityDays);
+
+    /// <summary>
     /// Calculates the SHA-256 fingerprint of a certificate.
     /// </summary>
     /// <param name="certificatePem">Certificate in PEM format.</param>
