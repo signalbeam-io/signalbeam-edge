@@ -46,9 +46,11 @@ public class DeviceEndpointsTests : IClassFixture<DeviceManagerWebApplicationFac
     }
 
     [Fact]
-    public async Task RegisterDevice_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task RegisterDevice_WithoutAuthentication_IsReachableAsPublicHandshake()
     {
-        // Arrange
+        // Registration is a public handshake endpoint (#279): a brand-new device has no API key
+        // yet, so the device-auth middleware must not reject it. Authorization is enforced
+        // in-handler via the registration token, not by requiring a pre-shared API key.
         var unauthenticatedClient = _factory.CreateClient();
         var request = new RegisterDeviceCommand(
             TenantId: _factory.DefaultTenantId,
@@ -58,8 +60,8 @@ public class DeviceEndpointsTests : IClassFixture<DeviceManagerWebApplicationFac
         // Act
         var response = await unauthenticatedClient.PostAsJsonAsync("/api/devices", request);
 
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        // Assert — reachable (not blocked by device-auth middleware)
+        response.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
