@@ -83,6 +83,10 @@ public class CheckRegistrationStatusCommandHandler
                     apiKey = claimed.ApiKey;
                     apiKeyExpiresAt = claimed.ExpiresAt;
 
+                    // The registration token has served its purpose; don't keep it on disk
+                    // alongside the API key (least persistence of credentials).
+                    credentials.RegistrationToken = null;
+
                     _logger.LogInformation(
                         "Claimed API key for device {DeviceId}",
                         credentials.DeviceId);

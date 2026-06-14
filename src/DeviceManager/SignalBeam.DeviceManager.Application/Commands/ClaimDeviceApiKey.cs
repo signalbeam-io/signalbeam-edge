@@ -113,8 +113,10 @@ public class ClaimDeviceApiKeyHandler
 
         device.MarkKeyClaimed(createdAt);
 
+        // The device and API key repositories share one DbContext, so a single SaveChanges
+        // commits the revoked old keys, the new key, and the KeyClaimedAt marker atomically —
+        // the device can't end up marked-claimed without a usable key.
         await _deviceRepository.SaveChangesAsync(cancellationToken);
-        await _apiKeyRepository.SaveChangesAsync(cancellationToken);
 
         return Result<ClaimDeviceApiKeyResponse>.Success(new ClaimDeviceApiKeyResponse(
             device.Id.Value,
@@ -174,6 +176,15 @@ public class ClaimDeviceApiKeyHandler
             return Result.Failure(Error.Unauthorized(
                 "RegistrationToken.DeviceMismatch",
                 "Registration token was not used by this device."));
+        }
+
+        // Honour explicit revocation and expiry. We do NOT use token.IsValid here because its
+        // MaxUses check is already satisfied (consumed) by registration — the claim happens after.
+        if (token.IsRevoked || token.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            return Result.Failure(Error.Unauthorized(
+                "RegistrationToken.Expired",
+                "Registration token has been revoked or has expired."));
         }
 
         return Result.Success();

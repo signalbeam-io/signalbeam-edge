@@ -2,6 +2,7 @@ using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Infrastructure.Queries;
 using SignalBeam.Domain.Enums;
+using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Results;
 using Microsoft.AspNetCore.Mvc;
 
@@ -519,9 +520,21 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> RotateDeviceApiKey(
         Guid deviceId,
+        HttpContext httpContext,
         [FromServices] GenerateDeviceApiKeyHandler handler,
         CancellationToken cancellationToken)
     {
+        // Object-level authorization: a device may only rotate its OWN key. The middleware
+        // authenticated the caller via its current device API key and set the device_id claim;
+        // reject if it doesn't match the route to prevent one device rotating another's key.
+        var callerDeviceId = httpContext.User.FindFirst(AuthenticationConstants.DeviceIdClaimType)?.Value;
+        if (!Guid.TryParse(callerDeviceId, out var authenticatedDeviceId) || authenticatedDeviceId != deviceId)
+        {
+            return Results.Json(
+                new { error = "FORBIDDEN", message = "A device may only rotate its own API key." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
         // Rotation = generate a fresh key and revoke the old ones.
         var command = new GenerateDeviceApiKeyCommand(deviceId, ExpirationDays: 90, RevokeExistingKeys: true);
         var result = await handler.Handle(command, cancellationToken);

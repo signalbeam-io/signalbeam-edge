@@ -110,6 +110,23 @@ public class ClaimDeviceApiKeyHandlerTests
     }
 
     [Fact]
+    public async Task Handle_RevokedToken_ReturnsUnauthorized()
+    {
+        var device = ApprovedDevice();
+        _deviceRepository.GetByIdAsync(Arg.Any<DeviceId>(), Arg.Any<CancellationToken>()).Returns(device);
+        var token = TokenUsedBy(_deviceId);
+        token.Revoke("admin");
+        _tokenRepository.GetByPrefixAsync(TokenPrefix, Arg.Any<CancellationToken>()).Returns(token);
+
+        var result = await _handler.Handle(new ClaimDeviceApiKeyCommand(_deviceId.Value, ValidToken), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Type.Should().Be(ErrorType.Unauthorized);
+        result.Error.Code.Should().Be("RegistrationToken.Expired");
+        device.KeyClaimedAt.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Handle_InvalidTokenSecret_ReturnsUnauthorized()
     {
         var device = ApprovedDevice();

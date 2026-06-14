@@ -167,32 +167,34 @@ public class DeviceAuthenticationMiddleware
     /// </summary>
     private static bool IsRegistrationHandshake(HttpRequest request)
     {
-        if (!request.Path.StartsWithSegments("/api/devices"))
+        var path = (request.Path.Value ?? string.Empty).Trim('/');
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length < 2 ||
+            !segments[0].Equals("api", StringComparison.OrdinalIgnoreCase) ||
+            !segments[1].Equals("devices", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        var path = (request.Path.Value ?? string.Empty).TrimEnd('/');
-
         // POST /api/devices — device self-registration (registration token verified in handler)
-        if (HttpMethods.IsPost(request.Method) &&
-            string.Equals(path, "/api/devices", StringComparison.OrdinalIgnoreCase))
+        if (segments.Length == 2)
         {
-            return true;
+            return HttpMethods.IsPost(request.Method);
         }
 
-        // GET /api/devices/{id}/registration-status — status only, returns no secrets
-        if (HttpMethods.IsGet(request.Method) &&
-            path.EndsWith("/registration-status", StringComparison.OrdinalIgnoreCase))
+        // /api/devices/{guid}/{sub} — only the registration-status and claim-key sub-resources.
+        // Requiring a parseable GUID segment prevents an artificial path from matching by suffix.
+        if (segments.Length == 4 && Guid.TryParse(segments[2], out _))
         {
-            return true;
-        }
-
-        // POST /api/devices/{id}/claim-key — one-time key claim (registration token verified in handler)
-        if (HttpMethods.IsPost(request.Method) &&
-            path.EndsWith("/claim-key", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
+            return segments[3] switch
+            {
+                _ when segments[3].Equals("registration-status", StringComparison.OrdinalIgnoreCase)
+                    => HttpMethods.IsGet(request.Method), // status only, returns no secrets
+                _ when segments[3].Equals("claim-key", StringComparison.OrdinalIgnoreCase)
+                    => HttpMethods.IsPost(request.Method), // one-time key claim, token verified in handler
+                _ => false
+            };
         }
 
         return false;

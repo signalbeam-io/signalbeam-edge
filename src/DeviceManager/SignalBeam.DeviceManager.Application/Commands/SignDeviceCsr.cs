@@ -27,6 +27,8 @@ public record SignDeviceCsrResponse(
 
 public class SignDeviceCsrHandler
 {
+    private const int MaxValidityDays = 365;
+
     private readonly IDeviceRepository _deviceRepository;
     private readonly IDeviceCertificateRepository _certificateRepository;
     private readonly ICertificateAuthorityService _caService;
@@ -74,8 +76,11 @@ public class SignDeviceCsrHandler
                 $"Device {command.DeviceId} already has an active certificate. Use renew instead."));
         }
 
+        // Clamp caller-supplied validity to a sane bound so a device can't request a long-lived cert.
+        var validityDays = Math.Clamp(command.ValidityDays, 1, MaxValidityDays);
+
         var certificateResult = await _caService.SignCsrAsync(
-            deviceId, command.Csr, command.ValidityDays, cancellationToken);
+            deviceId, command.Csr, validityDays, cancellationToken);
 
         if (certificateResult.IsFailure)
         {
