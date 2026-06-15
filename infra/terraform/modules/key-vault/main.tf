@@ -17,7 +17,7 @@ resource "azurerm_key_vault" "this" {
   network_acls {
     default_action             = "Deny"
     bypass                     = "AzureServices"
-    virtual_network_subnet_ids = [var.aks_subnet_id, var.services_subnet_id]
+    virtual_network_subnet_ids = compact([var.aks_subnet_id, var.services_subnet_id, var.aca_subnet_id])
   }
 
   tags = var.tags

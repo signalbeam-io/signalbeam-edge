@@ -29,6 +29,12 @@ variable "services_subnet_id" {
   type        = string
 }
 
+variable "aca_subnet_id" {
+  description = "Azure Container Apps subnet ID for Key Vault network ACLs (empty to omit)"
+  type        = string
+  default     = ""
+}
+
 variable "workload_identity_principal_id" {
   description = "Principal ID of the workload managed identity"
   type        = string
