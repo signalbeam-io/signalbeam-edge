@@ -4,7 +4,10 @@ Terraform + Terragrunt configuration for provisioning the SignalBeam Edge dev en
 
 ## Architecture
 
-17 Terraform modules wired together by Terragrunt with the following dependency graph:
+20 Terraform modules wired together by Terragrunt. There are **two deployment
+paths** that share the same base (Phases 1–4):
+
+**AKS path** (full stack, ~$142/mo):
 
 ```
 Phase 1: resource-group
@@ -17,12 +20,24 @@ Phase 7: loki, tempo  (depend on kube-prometheus-stack for monitoring namespace)
 Phase 8: otel-collector  (depends on loki + tempo + kube-prometheus-stack)
 ```
 
+**Azure Container Apps path** (lean/dogfood, ~$20/mo — replaces AKS phases 5–8):
+
+```
+Phase 1–4: (same base as above)
+Phase 5: aca/environment  (depends on networking[aca subnet] + monitoring)
+Phase 6: aca/secrets  (depends on key-vault + postgresql)
+Phase 7: aca/nats, aca/apigateway, aca/devicemanager, aca/bundleorchestrator,
+         aca/telemetryprocessor, aca/identitymanager  (depend on environment + secrets + managed-identity)
+```
+
+See [`terragrunt/dev/aca/README.md`](terragrunt/dev/aca/README.md) for the ACA runbook.
+
 ## Resources Provisioned
 
 | Module | Resources | Est. Cost |
 |--------|-----------|-----------|
 | resource-group | Resource group `sb-rg-dev-weu` | — |
-| networking | VNet, 3 subnets (AKS, PostgreSQL, Services), NSGs, private DNS zone | — |
+| networking | VNet, 4 subnets (AKS, PostgreSQL, Services, ACA), NSGs, private DNS zone | — |
 | monitoring | Log Analytics workspace, ContainerInsights solution | $0 (5GB free) |
 | container-registry | ACR Basic (`sbacrdevweu`) | ~$5/mo |
 | managed-identity | User-assigned identity for workload identity | — |
@@ -38,7 +53,21 @@ Phase 8: otel-collector  (depends on loki + tempo + kube-prometheus-stack)
 | loki | Log aggregation, single-binary mode (10Gi) | ~$0 (runs on AKS) |
 | tempo | Distributed tracing backend (10Gi) | ~$0 (runs on AKS) |
 | otel-collector | OpenTelemetry Collector (2 replicas), routes to Tempo/Prometheus/Loki | ~$0 (runs on AKS) |
-| **Total** | | **~$142/mo** |
+| **Total (AKS path)** | | **~$142/mo** |
+
+### Azure Container Apps path (lean/dogfood)
+
+Replaces the AKS phases 5–8 with a Consumption-based Container Apps stack. Shares
+the base modules (resource-group, networking, monitoring, managed-identity,
+key-vault, postgresql). Valkey, Zitadel, and ACR are omitted.
+
+| Module | Resources | Est. Cost |
+|--------|-----------|-----------|
+| container-app-environment | ACA env (Consumption, public LB) + storage account + Azure Files share for NATS | ~$1–3/mo (Files) |
+| app-secrets | Key Vault secrets: DB connection string + GHCR PAT placeholder | — |
+| container-app (×6) | ApiGateway (external) + DeviceManager, BundleOrchestrator, TelemetryProcessor, IdentityManager (internal, scale-to-zero), NATS (internal TCP, min 1) | NATS ~$5–7/mo; rest ~$0 (free grant) |
+| postgresql (shared base) | Flexible Server B1ms | ~$13/mo |
+| **Total (ACA path)** | | **~$20/mo** |
 
 ## Prerequisites
 
@@ -231,6 +260,13 @@ terragrunt run --all destroy
 - **Calico network policies** in AKS for namespace isolation
 - **Auto-generated secrets** — PostgreSQL password + Zitadel key stored in Key Vault
 
+**ACA path additionally:**
+- **Delegated ACA subnet** (`snet-aca`, /27) with `Microsoft.App/environments` delegation; Postgres NSG explicitly allows it on 5432
+- **Key Vault references** — container apps read secrets via the managed identity (`Key Vault Secrets User`); values never enter the app definitions
+- **NATS Azure Files account** denies public access, restricted to the ACA subnet via a `Microsoft.Storage` service endpoint
+- **Private GHCR** — pull token held in Key Vault (`ghcr-pat`), set out-of-band so it never enters Terraform state
+- See [`terragrunt/dev/aca/README.md`](terragrunt/dev/aca/README.md#terraform-state-contains-sensitive-material) for state-handling guidance
+
 ## File Structure
 
 ```
@@ -254,7 +290,10 @@ infra/
 │   ├── kube-prometheus-stack/           # Prometheus + Grafana + AlertManager
 │   ├── loki/                            # Log aggregation
 │   ├── tempo/                           # Distributed tracing
-│   └── otel-collector/                  # OpenTelemetry Collector
+│   ├── otel-collector/                  # OpenTelemetry Collector
+│   ├── container-app-environment/       # ACA env + Azure Files for NATS (ACA path)
+│   ├── container-app/                   # Reusable Container App (ACA path)
+│   └── app-secrets/                     # KV secrets for ACA (ACA path)
 └── terragrunt/
     ├── terragrunt.hcl                   # Root config: backend, provider, inputs
     └── dev/
@@ -275,7 +314,16 @@ infra/
         ├── kube-prometheus-stack/terragrunt.hcl
         ├── loki/terragrunt.hcl
         ├── tempo/terragrunt.hcl
-        └── otel-collector/terragrunt.hcl
+        ├── otel-collector/terragrunt.hcl
+        └── aca/                         # Container Apps path (alternative to AKS)
+            ├── environment/terragrunt.hcl
+            ├── secrets/terragrunt.hcl
+            ├── nats/terragrunt.hcl
+            ├── apigateway/terragrunt.hcl
+            ├── devicemanager/terragrunt.hcl
+            ├── bundleorchestrator/terragrunt.hcl
+            ├── telemetryprocessor/terragrunt.hcl
+            └── identitymanager/terragrunt.hcl
 ```
 
 ## NATS Architecture
