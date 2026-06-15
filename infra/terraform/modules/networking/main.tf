@@ -46,6 +46,28 @@ resource "azurerm_subnet" "services" {
   address_prefixes     = [var.services_subnet_prefix]
 }
 
+# Dedicated subnet for the Azure Container Apps (Consumption) environment.
+# A workload-profile/Consumption environment requires its own subnet delegated
+# to Microsoft.App/environments. Minimum size is /27 (Consumption-only); we use
+# the configured prefix. The subnet must not carry an NSG rule that blocks the
+# ACA control-plane ports, so we leave it un-associated with a deny-all NSG.
+resource "azurerm_subnet" "aca" {
+  name                 = "snet-aca"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [var.aca_subnet_prefix]
+
+  delegation {
+    name = "aca-delegation"
+    service_delegation {
+      name = "Microsoft.App/environments"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action",
+      ]
+    }
+  }
+}
+
 # --- Network Security Groups ---
 
 resource "azurerm_network_security_group" "aks" {
@@ -71,6 +93,20 @@ resource "azurerm_network_security_rule" "postgresql_allow_aks" {
   source_port_range           = "*"
   destination_port_range      = "5432"
   source_address_prefix       = var.aks_subnet_prefix
+  destination_address_prefix  = var.postgresql_subnet_prefix
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.postgresql.name
+}
+
+resource "azurerm_network_security_rule" "postgresql_allow_aca" {
+  name                        = "AllowAcaToPostgreSQL"
+  priority                    = 110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "5432"
+  source_address_prefix       = var.aca_subnet_prefix
   destination_address_prefix  = var.postgresql_subnet_prefix
   resource_group_name         = var.resource_group_name
   network_security_group_name = azurerm_network_security_group.postgresql.name

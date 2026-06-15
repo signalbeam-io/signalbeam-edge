@@ -23,6 +23,11 @@ output "services_subnet_id" {
   value       = azurerm_subnet.services.id
 }
 
+output "aca_subnet_id" {
+  description = "Azure Container Apps delegated subnet ID"
+  value       = azurerm_subnet.aca.id
+}
+
 output "postgresql_private_dns_zone_id" {
   description = "PostgreSQL private DNS zone ID"
   value       = azurerm_private_dns_zone.postgresql.id

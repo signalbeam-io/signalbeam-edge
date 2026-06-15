@@ -43,6 +43,12 @@ variable "services_subnet_prefix" {
   default     = "10.0.17.0/24"
 }
 
+variable "aca_subnet_prefix" {
+  description = "Address prefix for the Azure Container Apps delegated subnet (Consumption requires at least /27)"
+  type        = string
+  default     = "10.0.18.0/27"
+}
+
 variable "tags" {
   description = "Common tags applied to all resources"
   type        = map(string)
