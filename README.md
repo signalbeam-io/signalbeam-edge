@@ -226,6 +226,8 @@ dotnet run
 - [Code Style](docs/development/code-style.md) - Coding conventions
 
 ### Operations
+- [Azure Infrastructure](infra/README.md) - Terraform/Terragrunt for AKS and the lean Azure Container Apps path
+- [Container Apps Deployment](infra/terragrunt/dev/aca/README.md) - Lean ~$20/mo dogfood control plane on ACA
 - [Deployment Guide](docs/operations/deployment.md) - Production deployment
 - [Monitoring](docs/operations/monitoring.md) - Observability and metrics
 

@@ -20,6 +20,11 @@ Welcome to the SignalBeam Edge documentation! This directory contains guides, ar
 - **[Authentication Architecture](./architecture/authentication-architecture.md)** - Deep dive into authentication flows, JWT validation, and multi-tenancy
 - **[Docker Requirements](./docker-requirements.md)** - Container runtime requirements
 
+## Infrastructure & Deployment
+
+- **[Azure Infrastructure](../infra/README.md)** - Terraform/Terragrunt modules for the AKS path and the lean Azure Container Apps path
+- **[Container Apps Deployment](../infra/terragrunt/dev/aca/README.md)** - Lean ~$20/mo dogfood control plane on ACA (scale-to-zero, KV-reference secrets)
+
 ## Development
 
 - **[Development Setup](./development/)** - Local development environment setup
