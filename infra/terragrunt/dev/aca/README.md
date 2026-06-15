@@ -36,6 +36,26 @@ from private GHCR). See issue #375 for the full cost rationale.
   keys (per #375 acceptance criteria). Device-certificate mTLS (PR #374) would
   require client-cert passthrough through the external ApiGateway and is a
   follow-up, not part of this deployment.
+- The **NATS Azure Files storage account denies public access** and is restricted
+  to the ACA subnet via a `Microsoft.Storage` service endpoint. SMB mounts require
+  the account key (`shared_access_key_enabled = true`) — that is an ACA platform
+  constraint, mitigated by the network lock-down.
+
+### Terraform state contains sensitive material
+
+Two values that ACA + Terraform cannot keep out of state:
+
+- the Postgres connection string (with password) in the `dev/aca/secrets` state blob, and
+- the NATS storage account key in the `dev/aca/environment` state blob (ACA needs
+  it at share-registration time).
+
+The remote state lives in the `sbtfstatedevweu` storage account. Restrict read
+access to that account to the deploy identity only (Storage Blob Data Reader/
+Contributor scoped to the CI principal), and do not grant broad subscription
+Reader to it. The Postgres password already exists in the `key-vault` state, so no
+*new* class of secret is exposed — but the access controls on the state account
+are the real boundary protecting these values. The **GHCR PAT is the exception**:
+it is set out-of-band (below) and never touches state.
 
 ## Prerequisites
 

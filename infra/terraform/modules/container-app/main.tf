@@ -56,11 +56,12 @@ resource "azurerm_container_app" "this" {
     }
 
     container {
-      name    = var.name
-      image   = var.image
-      cpu     = var.cpu
-      memory  = var.memory
-      command = var.command
+      name   = var.name
+      image  = var.image
+      cpu    = var.cpu
+      memory = var.memory
+      # Use null (not []) when unset so the image's own entrypoint/CMD is preserved.
+      command = length(var.command) > 0 ? var.command : null
 
       # Plain environment variables
       dynamic "env" {

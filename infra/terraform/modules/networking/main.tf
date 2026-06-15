@@ -56,6 +56,9 @@ resource "azurerm_subnet" "aca" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [var.aca_subnet_prefix]
+  # Service endpoint so the ACA apps can reach the NATS Azure Files storage
+  # account over the VNet while that account denies public network access.
+  service_endpoints = ["Microsoft.Storage"]
 
   delegation {
     name = "aca-delegation"

@@ -46,4 +46,5 @@ inputs = {
   resource_group_name        = dependency.resource_group.outputs.name
   log_analytics_workspace_id = dependency.monitoring.outputs.log_analytics_workspace_id
   infrastructure_subnet_id   = dependency.networking.outputs.aca_subnet_id
+  aca_subnet_id              = dependency.networking.outputs.aca_subnet_id
 }

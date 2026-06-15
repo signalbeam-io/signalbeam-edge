@@ -29,6 +29,11 @@ variable "infrastructure_subnet_id" {
   type        = string
 }
 
+variable "aca_subnet_id" {
+  description = "ACA subnet ID, allow-listed on the NATS Azure Files storage account (usually the same as infrastructure_subnet_id)"
+  type        = string
+}
+
 variable "internal_load_balancer_enabled" {
   description = "If true, the environment is internal-only (no public ingress). Keep false so the ApiGateway can be reached at a public FQDN."
   type        = bool

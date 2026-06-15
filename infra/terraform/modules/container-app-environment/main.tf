@@ -42,6 +42,15 @@ resource "azurerm_storage_account" "files" {
   allow_nested_items_to_be_public = false
   shared_access_key_enabled       = true
 
+  # SMB mounts require the account key, so lock the account to the ACA subnet
+  # (via service endpoint) and deny public network access. AzureServices bypass
+  # lets the ACA control plane register the share.
+  network_rules {
+    default_action             = "Deny"
+    bypass                     = ["AzureServices"]
+    virtual_network_subnet_ids = [var.aca_subnet_id]
+  }
+
   tags = var.tags
 }
 
