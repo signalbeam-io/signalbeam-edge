@@ -714,9 +714,71 @@ graph TB
     style Tempo fill:#f8bbd0
 ```
 
+### Production Deployment (Azure Container Apps — lean/dogfood)
+
+For a single dogfood device or cost-sensitive deployments, the control plane can
+run on **Azure Container Apps (ACA) Consumption** instead of AKS — targeting
+**~$20/mo**. Stateless services scale to zero; NATS is the only always-on
+component. This is an additive path (the AKS modules remain available); it trades
+the in-cluster observability stack and multi-replica HA for cost and operational
+simplicity. See [`infra/terragrunt/dev/aca/README.md`](../../infra/terragrunt/dev/aca/README.md).
+
+```mermaid
+graph TB
+    Agent([EdgeAgent / Internet])
+
+    subgraph ACA["Azure Container Apps Environment (Consumption)"]
+        GW[ApiGateway / YARP<br/>External ingress<br/>scale 0 to 1]
+        DM[DeviceManager<br/>internal · 0 to 1]
+        BO[BundleOrchestrator<br/>internal · 0 to 1]
+        TP[TelemetryProcessor<br/>internal · 0 to 1]
+        IM[IdentityManager<br/>internal · 0 to 1]
+        NATS[NATS + JetStream<br/>internal TCP · min 1]
+    end
+
+    subgraph Azure["Azure Managed Services"]
+        PSQL[(PostgreSQL<br/>Flexible Server<br/>Burstable B1ms)]
+        KV[Key Vault<br/>secret references]
+        LAW[Log Analytics]
+        FILES[Azure Files<br/>NATS persistence]
+    end
+
+    Agent -->|HTTPS| GW
+    GW -->|https internal| DM
+    GW -->|https internal| BO
+    GW -->|https internal| TP
+    GW -->|https internal| IM
+    DM & BO & TP & IM -->|NATS TCP| NATS
+    DM & BO & TP & IM -.->|Read/Write| PSQL
+    DM & BO & TP & IM -.->|secrets via MI| KV
+    NATS -.->|persist| FILES
+    GW -.->|logs| LAW
+
+    style GW fill:#e1f5ff
+    style DM fill:#c8e6c9
+    style BO fill:#c8e6c9
+    style TP fill:#c8e6c9
+    style IM fill:#c8e6c9
+    style NATS fill:#ffe0b2
+    style PSQL fill:#fff9c4
+    style KV fill:#fff9c4
+    style LAW fill:#f8bbd0
+    style FILES fill:#fff9c4
+```
+
+**Differences from the AKS path** (lean dogfood):
+- **Valkey omitted** — caching is in-process `IMemoryCache`; no standalone cache.
+- **Zitadel omitted** — device flows authenticate with API keys, not OIDC.
+- **No in-cluster Prometheus/Loki/Tempo** — logs go to the Azure Log Analytics workspace.
+- **Secrets as Key Vault references** resolved by a user-assigned managed identity (never written into the container app definitions or Terraform state).
+- **Images from private GHCR** via a PAT held in Key Vault (no ACR).
+- **mTLS deferred** — registration handshake uses API keys.
+
 **Infrastructure as Code**:
-- Terraform for cloud resources
-- Helm charts for Kubernetes deployments
+- Terraform for cloud resources (`infra/terraform/modules/`); ACA modules:
+  `container-app-environment`, `container-app`, `app-secrets`
+- Terragrunt for environment wiring (`infra/terragrunt/dev/`; ACA stack under `dev/aca/`)
+- Helm charts for Kubernetes (AKS) deployments
 - ArgoCD for GitOps
 
 ## Observability

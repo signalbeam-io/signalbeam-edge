@@ -418,7 +418,7 @@ cd web
 npm run dev
 ```
 
-### Production (Kubernetes)
+### Production (Kubernetes / AKS)
 
 ```bash
 # 1. Deploy infrastructure chart
@@ -430,6 +430,30 @@ helm install signalbeam deploy/charts/signalbeam-platform
 # 3. Verify deployment
 kubectl get pods -n signalbeam
 ```
+
+### Production (Azure Container Apps — lean/dogfood, ~$20/mo)
+
+An alternative, cost-optimized path for a single dogfood device. Stateless
+services scale to zero; NATS is the only always-on component. Valkey and Zitadel
+are omitted (in-process cache + API-key auth), and secrets use Key Vault
+references via a managed identity.
+
+```bash
+# Base platform (resource-group, networking, key-vault, postgresql, monitoring, managed-identity)
+cd infra/terragrunt/dev
+terragrunt run --all apply --queue-include-dir ./resource-group --queue-include-dir ./networking \
+  --queue-include-dir ./managed-identity --queue-include-dir ./monitoring \
+  --queue-include-dir ./key-vault --queue-include-dir ./postgresql
+
+# ACA stack (environment, secrets, nats, apigateway + 4 services)
+terragrunt run --all apply --working-dir ./aca
+
+# Set the GHCR pull token out-of-band, then fetch the public gateway URL
+az keyvault secret set --vault-name sb-kv-dev-weu --name ghcr-pat --value <PAT>
+terragrunt output --working-dir ./aca/apigateway fqdn
+```
+
+See [`infra/terragrunt/dev/aca/README.md`](../infra/terragrunt/dev/aca/README.md) for the full runbook.
 
 ## Monitoring & Observability
 
