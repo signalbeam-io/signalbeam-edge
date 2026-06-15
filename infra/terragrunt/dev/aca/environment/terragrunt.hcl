@@ -3,11 +3,11 @@ include "root" {
 }
 
 terraform {
-  source = "../../../terraform/modules/key-vault"
+  source = "../../../../terraform/modules/container-app-environment"
 }
 
 dependency "resource_group" {
-  config_path = "../resource-group"
+  config_path = "../../resource-group"
 
   mock_outputs = {
     name     = "mock-rg"
@@ -18,7 +18,7 @@ dependency "resource_group" {
 }
 
 dependency "networking" {
-  config_path = "../networking"
+  config_path = "../../networking"
 
   mock_outputs = {
     vnet_id                        = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.Network/virtualNetworks/mock-vnet"
@@ -32,22 +32,18 @@ dependency "networking" {
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
 
-dependency "managed_identity" {
-  config_path = "../managed-identity"
+dependency "monitoring" {
+  config_path = "../../monitoring"
 
   mock_outputs = {
-    id           = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mock-id"
-    principal_id = "00000000-0000-0000-0000-000000000000"
-    client_id    = "00000000-0000-0000-0000-000000000000"
-    name         = "mock-id"
+    log_analytics_workspace_id   = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.OperationalInsights/workspaces/mock-law"
+    log_analytics_workspace_name = "mock-law"
   }
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
 
 inputs = {
-  resource_group_name            = dependency.resource_group.outputs.name
-  aks_subnet_id                  = dependency.networking.outputs.aks_subnet_id
-  services_subnet_id             = dependency.networking.outputs.services_subnet_id
-  aca_subnet_id                  = dependency.networking.outputs.aca_subnet_id
-  workload_identity_principal_id = dependency.managed_identity.outputs.principal_id
+  resource_group_name        = dependency.resource_group.outputs.name
+  log_analytics_workspace_id = dependency.monitoring.outputs.log_analytics_workspace_id
+  infrastructure_subnet_id   = dependency.networking.outputs.aca_subnet_id
 }

@@ -35,6 +35,12 @@ variable "memory" {
   default     = "0.5Gi"
 }
 
+variable "command" {
+  description = "Container entrypoint/command override (e.g. NATS JetStream flags); empty uses the image default"
+  type        = list(string)
+  default     = []
+}
+
 variable "min_replicas" {
   description = "Minimum replicas (0 enables scale-to-zero; set 1 for stateful apps like NATS)"
   type        = number
@@ -91,8 +97,14 @@ variable "allow_insecure_connections" {
   default     = false
 }
 
-variable "health_probe_path" {
-  description = "HTTP path for liveness/readiness probes (empty to disable, e.g. for NATS)"
+variable "liveness_probe_path" {
+  description = "HTTP path for the liveness probe (empty to disable, e.g. for NATS); use /health/live for .NET services"
+  type        = string
+  default     = ""
+}
+
+variable "readiness_probe_path" {
+  description = "HTTP path for the readiness probe (empty to disable); use /health/ready for .NET services"
   type        = string
   default     = ""
 }

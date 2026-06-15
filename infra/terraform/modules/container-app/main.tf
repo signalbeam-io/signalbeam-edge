@@ -56,10 +56,11 @@ resource "azurerm_container_app" "this" {
     }
 
     container {
-      name   = var.name
-      image  = var.image
-      cpu    = var.cpu
-      memory = var.memory
+      name    = var.name
+      image   = var.image
+      cpu     = var.cpu
+      memory  = var.memory
+      command = var.command
 
       # Plain environment variables
       dynamic "env" {
@@ -87,22 +88,26 @@ resource "azurerm_container_app" "this" {
         }
       }
 
+      # Liveness uses /health/live (no dependency checks) so a transient DB/NATS
+      # blip does not trigger container restarts.
       dynamic "liveness_probe" {
-        for_each = var.health_probe_path == "" ? [] : [1]
+        for_each = var.liveness_probe_path == "" ? [] : [1]
         content {
           transport     = "HTTP"
           port          = var.target_port
-          path          = var.health_probe_path
+          path          = var.liveness_probe_path
           initial_delay = 15
         }
       }
 
+      # Readiness uses /health/ready (checks dependencies) so traffic is only
+      # routed once the app can serve it.
       dynamic "readiness_probe" {
-        for_each = var.health_probe_path == "" ? [] : [1]
+        for_each = var.readiness_probe_path == "" ? [] : [1]
         content {
           transport        = "HTTP"
           port             = var.target_port
-          path             = var.health_probe_path
+          path             = var.readiness_probe_path
           interval_seconds = 15
         }
       }
