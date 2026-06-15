@@ -23,7 +23,7 @@ This directory contains systemd service configuration and installation scripts f
 
 - Linux system with systemd (tested on Ubuntu 20.04+, Raspberry Pi OS)
 - Docker installed and running
-- .NET 9.0 runtime (or self-contained build)
+- .NET 10.0 runtime (or self-contained build)
 - Root/sudo access for installation
 
 ## Quick Start

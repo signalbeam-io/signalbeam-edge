@@ -6,7 +6,7 @@ SignalBeam Edge is a fleet management platform for edge devices (Raspberry Pis, 
 
 ## Tech Stack
 
-- **Backend:** .NET 9, C# 13, hexagonal architecture
+- **Backend:** .NET 10, C# 14, hexagonal architecture
 - **CQRS/Messaging:** WolverineFx, NATS with JetStream
 - **Data:** EF Core + PostgreSQL/TimescaleDB, Dapper for read queries
 - **Cache:** Valkey (Redis-compatible, uses StackExchange.Redis client)

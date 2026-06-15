@@ -349,7 +349,7 @@ The domain layer has zero external dependencies - pure business logic.
 ### 7. Nullable Reference Types
 Enabled throughout for compile-time null safety.
 
-### 8. C# 13 Features
+### 8. C# 14 Features
 - Record types for value objects and events
 - Record structs for IDs
 - Init-only properties

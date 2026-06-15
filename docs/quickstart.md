@@ -4,7 +4,7 @@ Get up and running with SignalBeam in under 5 minutes with **fully automated** Z
 
 ## Prerequisites
 
-- .NET 9 SDK
+- .NET 10 SDK
 - Docker Desktop
 - Node.js 20+
 - jq (for config scripts): `brew install jq` (macOS) or `apt install jq` (Linux)
@@ -204,7 +204,7 @@ The setup will run again automatically and create new IDs.
 
 ### ⚙️ One-Time Setup (Per Developer Machine)
 
-- Install .NET 9 SDK
+- Install .NET 10 SDK
 - Install Docker Desktop
 - Install Node.js
 - Run `npm install` in `web/` directory

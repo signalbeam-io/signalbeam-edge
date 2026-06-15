@@ -12,7 +12,7 @@ Code reviewer for SignalBeam Edge — the deep PR-level quality gate.
 ## Context
 
 SignalBeam Edge is a fleet management platform for edge devices using:
-- .NET 9 with hexagonal architecture (Domain / Application / Infrastructure / Host layers)
+- .NET 10 with hexagonal architecture (Domain / Application / Infrastructure / Host layers)
 - CQRS with WolverineFx — commands mutate state, queries read
 - Result pattern — handlers return `Result<T>`, no exceptions for business logic
 - EF Core + PostgreSQL/TimescaleDB, Dapper for read-optimized queries

@@ -16,11 +16,11 @@ This guide will help you set up SignalBeam Edge for local development. We recomm
 
 ### Required Software
 
-1. **.NET 9 SDK** ([download](https://dotnet.microsoft.com/download/dotnet/9.0))
+1. **.NET 10 SDK** ([download](https://dotnet.microsoft.com/download/dotnet/10.0))
    ```bash
    # Verify installation
    dotnet --version
-   # Should show: 9.0.x
+   # Should show: 10.0.x
    ```
 
 2. **.NET Aspire Workload**
@@ -265,7 +265,7 @@ Example `launch.json`:
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/bin/Debug/net9.0/SignalBeam.BundleOrchestrator.Host.dll",
+      "program": "${workspaceFolder}/src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/bin/Debug/net10.0/SignalBeam.BundleOrchestrator.Host.dll",
       "args": [],
       "cwd": "${workspaceFolder}/src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host",
       "stopAtEntry": false,

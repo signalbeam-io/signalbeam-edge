@@ -18,7 +18,7 @@ This directory contains the packaging configuration and build scripts for distri
 
 ### Prerequisites
 
-- .NET 9.0 SDK
+- .NET 10.0 SDK
 - dpkg tools (`dpkg-deb`)
 - Linux system (or WSL on Windows)
 
@@ -221,7 +221,7 @@ Current sizes (approximate):
 - arm64: ~75-85 MB
 - armhf: ~70-80 MB
 
-To reduce size, you can use framework-dependent deployment (requires .NET 9.0 runtime on target):
+To reduce size, you can use framework-dependent deployment (requires .NET 10.0 runtime on target):
 ```bash
 dotnet publish -c Release -r linux-x64 --self-contained false
 ```

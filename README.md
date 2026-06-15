@@ -58,7 +58,7 @@ The Quick Start guide includes:
 
 ### Prerequisites
 
-- **.NET 9 SDK**
+- **.NET 10 SDK**
 - **Docker Desktop** (for infrastructure services)
 - **Node.js 20+** (for frontend)
 - **.NET Aspire workload**:
@@ -175,8 +175,8 @@ dotnet run
 
 ## Technology Stack
 
-### Backend (.NET 9)
-- **Framework**: .NET 9, C# 13, ASP.NET Core Minimal APIs
+### Backend (.NET 10)
+- **Framework**: .NET 10, C# 14, ASP.NET Core Minimal APIs
 - **Architecture**: Hexagonal (Ports & Adapters) with CQRS
 - **Database**: Entity Framework Core + PostgreSQL + TimescaleDB
 - **Messaging**: NATS with JetStream
@@ -285,7 +285,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## Acknowledgments
 
-- Built with [.NET 9](https://dot.net) and [.NET Aspire](https://learn.microsoft.com/aspire)
+- Built with [.NET 10](https://dot.net) and [.NET Aspire](https://learn.microsoft.com/aspire)
 - UI components from [shadcn/ui](https://ui.shadcn.com/)
 - Inspired by the need for simple, effective edge device management
 

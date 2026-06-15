@@ -278,7 +278,7 @@ For developers or custom deployments:
 
 #### Prerequisites
 
-- .NET 9.0 SDK
+- .NET 10.0 SDK
 - Docker (optional, for containerized apps)
 
 #### Build Steps

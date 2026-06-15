@@ -65,11 +65,11 @@ C4Container
     System_Boundary(signalbeam, "SignalBeam Edge Platform") {
         Container(webUI, "Web UI", "React, TypeScript", "Provides fleet management interface via web browser")
 
-        Container(deviceManager, "DeviceManager Service", ".NET 9, ASP.NET Core", "Manages device registration, grouping, and health monitoring")
+        Container(deviceManager, "DeviceManager Service", ".NET 10, ASP.NET Core", "Manages device registration, grouping, and health monitoring")
 
-        Container(bundleOrchestrator, "BundleOrchestrator Service", ".NET 9, ASP.NET Core", "Manages application bundles, versions, and rollout orchestration")
+        Container(bundleOrchestrator, "BundleOrchestrator Service", ".NET 10, ASP.NET Core", "Manages application bundles, versions, and rollout orchestration")
 
-        Container(telemetryProcessor, "TelemetryProcessor Service", ".NET 9, ASP.NET Core", "Processes device metrics and telemetry data")
+        Container(telemetryProcessor, "TelemetryProcessor Service", ".NET 10, ASP.NET Core", "Processes device metrics and telemetry data")
 
         ContainerDb(database, "Database", "PostgreSQL + TimescaleDB", "Stores device state, bundles, rollout status, and time-series metrics")
 
@@ -81,7 +81,7 @@ C4Container
     }
 
     System_Ext(edgeDevice, "Edge Device", "Raspberry Pi, mini-PC running Docker/Podman")
-    Container_Ext(edgeAgent, "Edge Agent", ".NET 9 Console App", "Runs on device, reconciles container state")
+    Container_Ext(edgeAgent, "Edge Agent", ".NET 10 Console App", "Runs on device, reconciles container state")
 
     Rel(fleetManager, webUI, "Uses", "HTTPS")
 
