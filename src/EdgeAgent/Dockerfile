@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy Directory.Build.props and Directory.Packages.props for central package management
@@ -26,7 +26,7 @@ WORKDIR /src/src/EdgeAgent/SignalBeam.EdgeAgent.Host
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 
 # Install Docker CLI
 RUN apk add --no-cache docker-cli
