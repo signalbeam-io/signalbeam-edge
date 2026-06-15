@@ -6,6 +6,11 @@ using SignalBeam.DeviceManager.Application.Services;
 namespace SignalBeam.DeviceManager.Host.Endpoints;
 
 /// <summary>
+/// Request body for signing a device-generated CSR.
+/// </summary>
+public record SignDeviceCsrRequest(string Csr);
+
+/// <summary>
 /// Certificate management API endpoints for mTLS.
 /// </summary>
 public static class CertificateEndpoints
@@ -23,6 +28,12 @@ public static class CertificateEndpoints
             .WithName("IssueCertificate")
             .WithSummary("Issue a new certificate for an approved device")
             .WithDescription("Generates and issues a new mTLS client certificate for an approved device.");
+
+        group.MapPost("/{deviceId:guid}/sign-csr", SignDeviceCsr)
+            .WithName("SignDeviceCsr")
+            .WithSummary("Sign a device-generated CSR")
+            .WithDescription("Signs a device-generated PKCS#10 CSR and issues an mTLS client certificate. " +
+                "The device keeps its private key — only the public key is certified.");
 
         group.MapPost("/{serialNumber}/renew", RenewCertificate)
             .WithName("RenewCertificate")
@@ -59,6 +70,24 @@ public static class CertificateEndpoints
         CancellationToken cancellationToken = default)
     {
         var command = new IssueCertificateCommand(deviceId, validityDays);
+        var result = await handler.Handle(command, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new { error = result.Error!.Code, message = result.Error.Message });
+    }
+
+    /// <summary>
+    /// Signs a device-generated CSR and issues a client certificate.
+    /// </summary>
+    private static async Task<IResult> SignDeviceCsr(
+        Guid deviceId,
+        [FromBody] SignDeviceCsrRequest request,
+        [FromServices] SignDeviceCsrHandler handler,
+        [FromQuery] int validityDays = 90,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new SignDeviceCsrCommand(deviceId, request.Csr, validityDays);
         var result = await handler.Handle(command, cancellationToken);
 
         return result.IsSuccess

@@ -74,6 +74,107 @@ public class HttpCloudClient : ICloudClient
         }
     }
 
+    public async Task<ClaimedApiKey> ClaimApiKeyAsync(
+        Guid deviceId,
+        string registrationToken,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Claiming API key for device {DeviceId}", deviceId);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                $"/api/devices/{deviceId}/claim-key",
+                new { registrationToken },
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<ClaimedApiKey>(cancellationToken);
+
+            if (result is null || string.IsNullOrEmpty(result.ApiKey))
+            {
+                throw new InvalidOperationException("Claim-key response did not contain an API key");
+            }
+
+            _logger.LogInformation("API key claimed successfully for device {DeviceId}", deviceId);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to claim API key for device {DeviceId}", deviceId);
+            throw;
+        }
+    }
+
+    public async Task<ClaimedApiKey> RotateApiKeyAsync(
+        Guid deviceId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Rotating API key for device {DeviceId}", deviceId);
+
+            // Authenticated by the current device API key, added by DeviceApiKeyHandler.
+            var response = await _httpClient.PostAsync(
+                $"/api/devices/{deviceId}/rotate-key",
+                content: null,
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<ClaimedApiKey>(cancellationToken);
+
+            if (result is null || string.IsNullOrEmpty(result.ApiKey))
+            {
+                throw new InvalidOperationException("Rotate-key response did not contain an API key");
+            }
+
+            _logger.LogInformation("API key rotated successfully for device {DeviceId}", deviceId);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to rotate API key for device {DeviceId}", deviceId);
+            throw;
+        }
+    }
+
+    public async Task<DeviceCertificateBundle> RequestCertificateAsync(
+        Guid deviceId,
+        string csrPem,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Requesting certificate for device {DeviceId}", deviceId);
+
+            // Authenticated by the device API key, added by DeviceApiKeyHandler.
+            var response = await _httpClient.PostAsJsonAsync(
+                $"/api/certificates/{deviceId}/sign-csr",
+                new { csr = csrPem },
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<DeviceCertificateBundle>(cancellationToken);
+
+            if (result is null || string.IsNullOrEmpty(result.CertificatePem))
+            {
+                throw new InvalidOperationException("sign-csr response did not contain a certificate");
+            }
+
+            _logger.LogInformation("Certificate issued for device {DeviceId}, serial {Serial}",
+                deviceId, result.SerialNumber);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to request certificate for device {DeviceId}", deviceId);
+            throw;
+        }
+    }
+
     public async Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default)

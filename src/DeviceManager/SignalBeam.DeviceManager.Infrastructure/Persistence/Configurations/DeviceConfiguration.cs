@@ -53,6 +53,10 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .HasDefaultValue(Domain.Enums.DeviceRegistrationStatus.Pending)
             .IsRequired();
 
+        // One-time API key claim marker (set when the device claims its key after approval)
+        builder.Property(d => d.KeyClaimedAt)
+            .HasColumnName("key_claimed_at");
+
         // Timestamps
         builder.Property(d => d.LastSeenAt)
             .HasColumnName("last_seen_at");
@@ -112,5 +116,8 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
 
         // Ignore domain events collection (not persisted)
         builder.Ignore("DomainEvents");
+
+        // Computed convenience property, not a column
+        builder.Ignore(d => d.IsKeyClaimAvailable);
     }
 }

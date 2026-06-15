@@ -31,6 +31,12 @@ public class DeviceCredentials
     public string RegistrationStatus { get; set; } = "Pending";
 
     /// <summary>
+    /// The registration token this device registered with, retained so the agent can
+    /// claim its API key once after approval. Stored in the 0600 credentials file.
+    /// </summary>
+    public string? RegistrationToken { get; set; }
+
+    /// <summary>
     /// When the device was registered.
     /// </summary>
     public DateTimeOffset RegisteredAt { get; set; }

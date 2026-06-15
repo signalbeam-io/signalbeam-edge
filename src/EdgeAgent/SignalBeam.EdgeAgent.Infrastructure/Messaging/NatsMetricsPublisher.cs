@@ -31,6 +31,10 @@ public sealed class NatsMetricsPublisher : IMetricsPublisher
     {
         var subject = $"signalbeam.telemetry.metrics.{deviceId}";
 
+        // Raw byte counters aren't first-class fields on the wire schema; carry them in
+        // AdditionalMetrics so the telemetry pipeline can surface absolute memory/disk usage.
+        var additionalMetrics = BuildAdditionalMetrics(metrics);
+
         var message = new DeviceMetricsMessage(
             DeviceId: deviceId,
             Timestamp: DateTimeOffset.UtcNow,
@@ -38,7 +42,8 @@ public sealed class NatsMetricsPublisher : IMetricsPublisher
             MemoryUsage: metrics.MemoryUsagePercent,
             DiskUsage: metrics.DiskUsagePercent,
             UptimeSeconds: metrics.UptimeSeconds,
-            RunningContainers: runningContainers);
+            RunningContainers: runningContainers,
+            AdditionalMetrics: additionalMetrics);
 
         _logger.LogDebug(
             "Publishing metrics for device {DeviceId} to {Subject}",
@@ -47,6 +52,31 @@ public sealed class NatsMetricsPublisher : IMetricsPublisher
         var json = JsonSerializer.Serialize(message, _jsonOptions);
         var ack = await _jetStream.PublishAsync(subject, json, cancellationToken: cancellationToken);
         ack.EnsureSuccess();
+    }
+
+    /// <summary>
+    /// Serializes absolute byte counters as a compact JSON object, or returns null when no
+    /// raw values are present (keeps the wire message lean for collectors that don't report them).
+    /// </summary>
+    private string? BuildAdditionalMetrics(DeviceMetrics metrics)
+    {
+        if (metrics.MemoryTotalBytes == 0 &&
+            metrics.MemoryUsedBytes == 0 &&
+            metrics.DiskTotalBytes == 0 &&
+            metrics.DiskUsedBytes == 0)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Serialize(
+            new
+            {
+                memoryTotalBytes = metrics.MemoryTotalBytes,
+                memoryUsedBytes = metrics.MemoryUsedBytes,
+                diskTotalBytes = metrics.DiskTotalBytes,
+                diskUsedBytes = metrics.DiskUsedBytes
+            },
+            _jsonOptions);
     }
 }
 

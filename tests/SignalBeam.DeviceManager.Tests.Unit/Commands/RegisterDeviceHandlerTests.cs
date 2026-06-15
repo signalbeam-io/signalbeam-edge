@@ -2,6 +2,7 @@ using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Repositories;
 using SignalBeam.DeviceManager.Application.Services;
 using SignalBeam.Domain.Entities;
+using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
 using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Results;
@@ -159,5 +160,62 @@ public class RegisterDeviceHandlerTests
         await _quotaValidator.Received(1).CheckDeviceQuotaAsync(
             Arg.Is<TenantId>(t => t.Value == tenantId),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_AutoApproveToken_ApprovesDeviceOnRegistration()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var command = new RegisterDeviceCommand(
+            TenantId: tenantId,
+            Name: "pi-5",
+            DeviceId: Guid.NewGuid(),
+            RegistrationToken: "sbt_abc12345_secret");
+
+        _deviceRepository.GetByIdAsync(Arg.Any<DeviceId>(), Arg.Any<CancellationToken>())
+            .Returns((Device?)null);
+
+        var token = DeviceRegistrationToken.Create(
+            new TenantId(tenantId), "hash", "sbt_abc12345", DateTimeOffset.UtcNow.AddDays(1), autoApprove: true);
+        _tokenRepository.GetByPrefixAsync("sbt_abc12345", Arg.Any<CancellationToken>()).Returns(token);
+        _tokenService.ValidateToken(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Status.Should().Be(DeviceRegistrationStatus.Approved.ToString());
+        await _deviceRepository.Received(1).AddAsync(
+            Arg.Is<Device>(d => d.RegistrationStatus == DeviceRegistrationStatus.Approved),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_NonAutoApproveToken_LeavesDevicePending()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var command = new RegisterDeviceCommand(
+            TenantId: tenantId,
+            Name: "pi-5",
+            DeviceId: Guid.NewGuid(),
+            RegistrationToken: "sbt_abc12345_secret");
+
+        _deviceRepository.GetByIdAsync(Arg.Any<DeviceId>(), Arg.Any<CancellationToken>())
+            .Returns((Device?)null);
+
+        var token = DeviceRegistrationToken.Create(
+            new TenantId(tenantId), "hash", "sbt_abc12345", DateTimeOffset.UtcNow.AddDays(1), autoApprove: false);
+        _tokenRepository.GetByPrefixAsync("sbt_abc12345", Arg.Any<CancellationToken>()).Returns(token);
+        _tokenService.ValidateToken(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Status.Should().Be(DeviceRegistrationStatus.Pending.ToString());
     }
 }

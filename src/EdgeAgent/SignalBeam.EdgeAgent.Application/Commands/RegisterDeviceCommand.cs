@@ -71,7 +71,9 @@ public class RegisterDeviceCommandHandler
                 RegistrationStatus = response.Status,
                 RegisteredAt = response.RegisteredAt,
                 ApiKey = response.ApiKey,
-                ApiKeyExpiresAt = response.ApiKeyExpiresAt
+                ApiKeyExpiresAt = response.ApiKeyExpiresAt,
+                // Retained so the agent can claim its API key once approved.
+                RegistrationToken = command.RegistrationToken
             };
 
             await _credentialsStore.SaveCredentialsAsync(credentials, cancellationToken);

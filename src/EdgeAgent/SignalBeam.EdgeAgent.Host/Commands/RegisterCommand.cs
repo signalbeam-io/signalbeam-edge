@@ -55,11 +55,12 @@ public static class RegisterCommand
 
     private static async Task<int> ExecuteAsync(Guid tenantId, string? deviceId, string token, string cloudUrl)
     {
+        // Point the cloud client at the requested control plane before the provider is built.
+        Environment.SetEnvironmentVariable("Agent__CloudUrl", cloudUrl);
+
         var serviceProvider = HostBuilder.BuildServiceProvider();
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger<Program>();
-        var cloudClient = serviceProvider.GetRequiredService<ICloudClient>();
-        var credentialsStore = serviceProvider.GetRequiredService<IDeviceCredentialsStore>();
 
         try
         {
@@ -78,8 +79,7 @@ public static class RegisterCommand
                 hostname,
                 platform);
 
-            var handlerLogger = loggerFactory.CreateLogger<RegisterDeviceCommandHandler>();
-            var handler = new RegisterDeviceCommandHandler(cloudClient, credentialsStore, handlerLogger);
+            var handler = serviceProvider.GetRequiredService<RegisterDeviceCommandHandler>();
             var result = await handler.Handle(command, CancellationToken.None);
 
             if (!result.IsSuccess || result.Value == null)

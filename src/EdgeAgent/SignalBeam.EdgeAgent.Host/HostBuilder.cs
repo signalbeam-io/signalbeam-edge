@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using SignalBeam.EdgeAgent.Application.Commands;
 using SignalBeam.EdgeAgent.Host.Configuration;
 using SignalBeam.EdgeAgent.Host.Services;
 using SignalBeam.EdgeAgent.Infrastructure;
@@ -39,7 +40,13 @@ public static class HostBuilder
                 // Infrastructure
                 services.AddInfrastructure(context.Configuration);
 
+                // Application handlers resolved directly by background services
+                services.AddScoped<CheckRegistrationStatusCommandHandler>();
+                services.AddScoped<RequestCertificateCommandHandler>();
+
                 // Background services
+                services.AddHostedService<RegistrationPollingService>();
+                services.AddHostedService<KeyLifecycleService>();
                 services.AddHostedService<HeartbeatService>();
                 services.AddHostedService<ReconciliationService>();
                 services.AddHostedService<NatsAssignmentListenerService>();
@@ -89,6 +96,11 @@ public static class HostBuilder
 
         // Infrastructure
         services.AddInfrastructure(configuration);
+
+        // Application handlers used by the CLI commands
+        services.AddScoped<RegisterDeviceCommandHandler>();
+        services.AddScoped<CheckRegistrationStatusCommandHandler>();
+        services.AddScoped<RequestCertificateCommandHandler>();
 
         return services.BuildServiceProvider();
     }

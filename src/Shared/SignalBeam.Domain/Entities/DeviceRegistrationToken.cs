@@ -22,7 +22,8 @@ public class DeviceRegistrationToken : Entity<Guid>
         DateTimeOffset expiresAt,
         string? createdBy,
         string? description,
-        int? maxUses)
+        int? maxUses,
+        bool autoApprove)
         : base(id)
     {
         TenantId = tenantId;
@@ -33,6 +34,7 @@ public class DeviceRegistrationToken : Entity<Guid>
         CreatedBy = createdBy;
         Description = description;
         MaxUses = maxUses;
+        AutoApprove = autoApprove;
         CurrentUses = 0;
         IsRevoked = false;
         IsUsed = false;
@@ -80,6 +82,12 @@ public class DeviceRegistrationToken : Entity<Guid>
     /// Maximum number of times this token can be used (null = unlimited).
     /// </summary>
     public int? MaxUses { get; private set; }
+
+    /// <summary>
+    /// When true, devices registering with this token are approved automatically,
+    /// enabling zero-touch fleet provisioning for trusted tokens.
+    /// </summary>
+    public bool AutoApprove { get; private set; }
 
     /// <summary>
     /// Current number of times this token has been used.
@@ -140,7 +148,8 @@ public class DeviceRegistrationToken : Entity<Guid>
         DateTimeOffset expiresAt,
         string? createdBy = null,
         string? description = null,
-        int? maxUses = null)
+        int? maxUses = null,
+        bool autoApprove = false)
     {
         return new DeviceRegistrationToken(
             Guid.NewGuid(),
@@ -151,7 +160,8 @@ public class DeviceRegistrationToken : Entity<Guid>
             expiresAt,
             createdBy,
             description,
-            maxUses);
+            maxUses,
+            autoApprove);
     }
 
     /// <summary>

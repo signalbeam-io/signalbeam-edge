@@ -10,6 +10,29 @@ public interface ICloudClient
         Guid deviceId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Claims the device API key once, after approval, authenticated by the registration token.
+    /// </summary>
+    Task<ClaimedApiKey> ClaimApiKeyAsync(
+        Guid deviceId,
+        string registrationToken,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rotates the device API key, authenticated by the device's current (still-valid) key.
+    /// </summary>
+    Task<ClaimedApiKey> RotateApiKeyAsync(
+        Guid deviceId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Submits a device-generated CSR to the cloud CA and returns the signed certificate bundle.
+    /// </summary>
+    Task<DeviceCertificateBundle> RequestCertificateAsync(
+        Guid deviceId,
+        string csrPem,
+        CancellationToken cancellationToken = default);
+
     Task SendHeartbeatAsync(
         DeviceHeartbeat heartbeat,
         CancellationToken cancellationToken = default);
@@ -45,7 +68,18 @@ public record DeviceRegistrationResponse(
 public record RegistrationStatusResponse(
     string Status,
     string? ApiKey = null,
-    DateTimeOffset? ApiKeyExpiresAt = null);
+    DateTimeOffset? ApiKeyExpiresAt = null,
+    bool KeyClaimAvailable = false);
+
+public record ClaimedApiKey(
+    string ApiKey,
+    DateTimeOffset? ExpiresAt);
+
+public record DeviceCertificateBundle(
+    string CertificatePem,
+    string CaCertificatePem,
+    string SerialNumber,
+    DateTimeOffset ExpiresAt);
 
 public record DeviceHeartbeat(
     Guid DeviceId,
@@ -56,7 +90,12 @@ public record DeviceMetrics(
     double CpuUsagePercent,
     double MemoryUsagePercent,
     double DiskUsagePercent,
-    long UptimeSeconds);
+    long UptimeSeconds,
+    int RunningContainers = 0,
+    long MemoryTotalBytes = 0,
+    long MemoryUsedBytes = 0,
+    long DiskTotalBytes = 0,
+    long DiskUsedBytes = 0);
 
 public record DesiredState(
     string? BundleId,

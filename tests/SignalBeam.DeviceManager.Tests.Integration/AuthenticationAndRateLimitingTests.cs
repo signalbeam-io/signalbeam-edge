@@ -43,15 +43,12 @@ public class AuthenticationAndRateLimitingTests : IClassFixture<DeviceManagerWeb
     [Fact]
     public async Task Request_WithInvalidApiKey_ReturnsUnauthorized()
     {
-        // Arrange
+        // Arrange — registration endpoints are now a public handshake (#279), so assert the
+        // middleware rejection against a still-protected endpoint (device lookup).
         var client = _factory.CreateAuthenticatedClient("");
-        var request = new RegisterDeviceCommand(
-            TenantId: _factory.DefaultTenantId,
-            DeviceId: Guid.NewGuid(),
-            Name: "Test Device");
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/devices", request);
+        var response = await client.GetAsync($"/api/devices/{Guid.NewGuid()}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

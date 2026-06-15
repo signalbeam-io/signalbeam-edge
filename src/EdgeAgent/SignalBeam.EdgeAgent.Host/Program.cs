@@ -12,6 +12,7 @@ public class Program
         // Add all commands
         rootCommand.AddCommand(RegisterCommand.Create());
         rootCommand.AddCommand(RunCommand.Create());
+        rootCommand.AddCommand(RequestCertCommand.Create());
         rootCommand.AddCommand(StatusCommand.Create());
         rootCommand.AddCommand(VersionCommand.Create());
         rootCommand.AddCommand(LogsCommand.Create());

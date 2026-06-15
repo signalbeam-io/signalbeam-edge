@@ -42,6 +42,15 @@ public class DeviceAuthenticationMiddleware
             return;
         }
 
+        // Skip device-key auth for the registration handshake. These endpoints run before the
+        // device holds an API key and are each authenticated by other means in their handlers:
+        // register and claim-key verify the registration token; registration-status returns no secrets.
+        if (IsRegistrationHandshake(context.Request))
+        {
+            await _next(context);
+            return;
+        }
+
         // [1] Try certificate authentication first (if mTLS is configured)
         var clientCert = context.Connection.ClientCertificate;
         if (clientCert != null && certificateValidator != null)
@@ -149,6 +158,46 @@ public class DeviceAuthenticationMiddleware
         await RespondUnauthorized(context,
             "INVALID_API_KEY",
             "The provided API key is invalid or has expired.");
+    }
+
+    /// <summary>
+    /// Identifies the registration-handshake endpoints that must be reachable before a device
+    /// has an API key: device registration, approval-status polling, and the one-time key claim.
+    /// Uses exact method + path matching to avoid exposing other device endpoints.
+    /// </summary>
+    private static bool IsRegistrationHandshake(HttpRequest request)
+    {
+        var path = (request.Path.Value ?? string.Empty).Trim('/');
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length < 2 ||
+            !segments[0].Equals("api", StringComparison.OrdinalIgnoreCase) ||
+            !segments[1].Equals("devices", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // POST /api/devices — device self-registration (registration token verified in handler)
+        if (segments.Length == 2)
+        {
+            return HttpMethods.IsPost(request.Method);
+        }
+
+        // /api/devices/{guid}/{sub} — only the registration-status and claim-key sub-resources.
+        // Requiring a parseable GUID segment prevents an artificial path from matching by suffix.
+        if (segments.Length == 4 && Guid.TryParse(segments[2], out _))
+        {
+            return segments[3] switch
+            {
+                _ when segments[3].Equals("registration-status", StringComparison.OrdinalIgnoreCase)
+                    => HttpMethods.IsGet(request.Method), // status only, returns no secrets
+                _ when segments[3].Equals("claim-key", StringComparison.OrdinalIgnoreCase)
+                    => HttpMethods.IsPost(request.Method), // one-time key claim, token verified in handler
+                _ => false
+            };
+        }
+
+        return false;
     }
 
     private void SetUserPrincipal(

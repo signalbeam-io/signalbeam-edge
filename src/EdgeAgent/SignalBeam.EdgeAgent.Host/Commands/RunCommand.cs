@@ -2,7 +2,9 @@ using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SignalBeam.EdgeAgent.Application.Services;
+using SignalBeam.EdgeAgent.Host.Configuration;
 using SignalBeam.EdgeAgent.Host.Services;
 
 namespace SignalBeam.EdgeAgent.Host.Commands;
@@ -27,34 +29,16 @@ public static class RunCommand
         {
             var host = HostBuilder.BuildHost();
 
-            // Check if device is registered
             var stateManager = host.Services.GetRequiredService<DeviceStateManager>();
-            if (!stateManager.IsRegistered)
-            {
-                Console.WriteLine("❌ Device is not registered. Please run 'signalbeam-agent register' first.");
-                return 1;
-            }
-
             var logger = host.Services.GetRequiredService<ILogger<Program>>();
-            logger.LogInformation("Starting SignalBeam Edge Agent");
-            logger.LogInformation("Device ID: {DeviceId}", stateManager.DeviceId);
 
-            // Check credentials and registration status
+            // Credentials are the source of truth for registration state.
             var credentialsStore = host.Services.GetRequiredService<IDeviceCredentialsStore>();
             var credentials = await credentialsStore.LoadCredentialsAsync(CancellationToken.None);
 
             if (credentials == null)
             {
                 Console.WriteLine("❌ Device credentials not found. Please run 'signalbeam-agent register' first.");
-                return 1;
-            }
-
-            // Check registration status
-            if (credentials.RegistrationStatus == "Pending")
-            {
-                Console.WriteLine("⏳ Device registration is pending approval.");
-                Console.WriteLine("   The agent cannot start until an administrator approves the device.");
-                Console.WriteLine("   Check status with: signalbeam-agent status");
                 return 1;
             }
 
@@ -65,17 +49,10 @@ public static class RunCommand
                 return 1;
             }
 
-            // Check API key
-            if (string.IsNullOrEmpty(credentials.ApiKey))
-            {
-                Console.WriteLine("❌ Device API key not found.");
-                Console.WriteLine("   Registration may still be pending approval.");
-                Console.WriteLine("   Check status with: signalbeam-agent status");
-                return 1;
-            }
+            var hasApiKey = !string.IsNullOrEmpty(credentials.ApiKey);
 
-            // Check API key expiration
-            if (credentials.ApiKeyExpiresAt.HasValue)
+            // A claimed key that has already expired can't be used and can't be rotated.
+            if (hasApiKey && credentials.ApiKeyExpiresAt.HasValue)
             {
                 var daysUntilExpiration = (credentials.ApiKeyExpiresAt.Value - DateTimeOffset.UtcNow).TotalDays;
 
@@ -89,15 +66,33 @@ public static class RunCommand
                 if (daysUntilExpiration < 7)
                 {
                     Console.WriteLine($"⚠️  Warning: API key expires in {daysUntilExpiration:F1} days.");
-                    Console.WriteLine("   Consider rotating the key soon.");
+                    Console.WriteLine("   The agent will attempt to rotate it automatically.");
                     Console.WriteLine();
                 }
             }
 
+            logger.LogInformation("Starting SignalBeam Edge Agent");
+            logger.LogInformation("Device ID: {DeviceId}", credentials.DeviceId);
+
+            // Promote to registered so the heartbeat & reconciliation loops start. When the key
+            // hasn't been claimed yet, RegistrationPollingService does this once approval lands.
+            if (hasApiKey)
+            {
+                var options = host.Services.GetRequiredService<IOptions<AgentOptions>>().Value;
+                stateManager.SetRegistrationState(credentials.DeviceId, credentials.ApiKey!, options.CloudUrl);
+            }
+
             Console.WriteLine("🚀 SignalBeam Edge Agent starting...");
-            Console.WriteLine($"   Device ID: {stateManager.DeviceId}");
-            Console.WriteLine($"   Cloud Endpoint: {stateManager.CloudEndpoint}");
+            Console.WriteLine($"   Device ID: {credentials.DeviceId}");
             Console.WriteLine($"   Registration Status: {credentials.RegistrationStatus}");
+
+            if (!hasApiKey)
+            {
+                Console.WriteLine();
+                Console.WriteLine("⏳ Registration is pending approval. The agent will poll and start the");
+                Console.WriteLine("   heartbeat automatically once approved and its API key is claimed.");
+            }
+
             Console.WriteLine();
             Console.WriteLine("Press Ctrl+C to stop the agent");
             Console.WriteLine();

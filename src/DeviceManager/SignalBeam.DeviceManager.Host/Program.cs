@@ -149,6 +149,7 @@ builder.Services.AddScoped<BulkRemoveDeviceTagsHandler>();
 builder.Services.AddScoped<ApproveDeviceRegistrationHandler>();
 builder.Services.AddScoped<RejectDeviceRegistrationHandler>();
 builder.Services.AddScoped<GenerateDeviceApiKeyHandler>();
+builder.Services.AddScoped<ClaimDeviceApiKeyHandler>();
 builder.Services.AddScoped<RevokeDeviceApiKeyHandler>();
 
 builder.Services.AddScoped<GetDevicesHandler>();
@@ -175,6 +176,7 @@ builder.Services.AddSingleton<CertificateMetrics>();
 
 // Register certificate command and query handlers
 builder.Services.AddScoped<IssueCertificateHandler>();
+builder.Services.AddScoped<SignDeviceCsrHandler>();
 builder.Services.AddScoped<RenewCertificateHandler>();
 builder.Services.AddScoped<RevokeCertificateHandler>();
 builder.Services.AddScoped<GetDeviceCertificatesHandler>();

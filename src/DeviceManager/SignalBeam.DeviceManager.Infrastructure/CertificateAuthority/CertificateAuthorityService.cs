@@ -125,6 +125,55 @@ public class CertificateAuthorityService : ICertificateAuthorityService
         }
     }
 
+    public async Task<Result<IssuedCertificate>> SignCsrAsync(
+        DeviceId deviceId,
+        string csrPem,
+        int validityDays = 90,
+        CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken);
+
+        try
+        {
+            var caCertificatePem = await _caKeyStore.GetCaCertificateAsync(cancellationToken);
+            var caPrivateKeyPem = await _caKeyStore.GetCaPrivateKeyAsync(cancellationToken);
+
+            var serialNumber = GenerateSerialNumber();
+
+            var signedCertPem = _certificateGenerator.SignCertificateSigningRequest(
+                csrPem,
+                caPrivateKeyPem,
+                caCertificatePem,
+                serialNumber,
+                validityDays);
+
+            var fingerprint = _certificateGenerator.CalculateFingerprint(signedCertPem);
+            var issuedAt = DateTimeOffset.UtcNow;
+            var expiresAt = issuedAt.AddDays(validityDays);
+
+            _logger.LogInformation(
+                "Signed CSR for device {DeviceId}. Serial: {SerialNumber}, Expires: {ExpiresAt}",
+                deviceId.Value, serialNumber, expiresAt);
+
+            // The device holds its own private key — never returned here.
+            return Result<IssuedCertificate>.Success(new IssuedCertificate(
+                signedCertPem,
+                string.Empty,
+                caCertificatePem,
+                serialNumber,
+                fingerprint,
+                issuedAt,
+                expiresAt));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to sign CSR for device {DeviceId}", deviceId.Value);
+            return Result.Failure<IssuedCertificate>(Error.Failure(
+                "CSR_SIGNING_FAILED",
+                $"Failed to sign certificate signing request: {ex.Message}"));
+        }
+    }
+
     public async Task<string> GetCaCertificateAsync(CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken);
