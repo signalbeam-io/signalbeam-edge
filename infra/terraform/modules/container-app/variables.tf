@@ -1,0 +1,159 @@
+variable "name" {
+  description = "Container app name (lowercase alphanumeric and hyphens, e.g. sb-ca-devicemanager-dev)"
+  type        = string
+}
+
+variable "resource_group_name" {
+  description = "Name of the resource group"
+  type        = string
+}
+
+variable "container_app_environment_id" {
+  description = "ID of the Container Apps environment"
+  type        = string
+}
+
+variable "managed_identity_id" {
+  description = "User-assigned managed identity ID (used for Key Vault references and registry auth)"
+  type        = string
+}
+
+variable "image" {
+  description = "Fully qualified container image, e.g. ghcr.io/signalbeam-io/devicemanager:latest"
+  type        = string
+}
+
+variable "cpu" {
+  description = "vCPU allocation for the container"
+  type        = number
+  default     = 0.25
+}
+
+variable "memory" {
+  description = "Memory allocation for the container (e.g. 0.5Gi)"
+  type        = string
+  default     = "0.5Gi"
+}
+
+variable "min_replicas" {
+  description = "Minimum replicas (0 enables scale-to-zero; set 1 for stateful apps like NATS)"
+  type        = number
+  default     = 0
+}
+
+variable "max_replicas" {
+  description = "Maximum replicas"
+  type        = number
+  default     = 1
+}
+
+variable "revision_mode" {
+  description = "Revision mode (Single or Multiple)"
+  type        = string
+  default     = "Single"
+}
+
+variable "workload_profile_name" {
+  description = "Workload profile name on the environment"
+  type        = string
+  default     = "Consumption"
+}
+
+# --- Ingress ---
+
+variable "ingress_enabled" {
+  description = "Whether the app exposes ingress"
+  type        = bool
+  default     = true
+}
+
+variable "ingress_external" {
+  description = "Whether ingress is public (true only for the ApiGateway); otherwise internal to the VNet"
+  type        = bool
+  default     = false
+}
+
+variable "target_port" {
+  description = "Container port that ingress routes to"
+  type        = number
+  default     = 8080
+}
+
+variable "transport" {
+  description = "Ingress transport: auto, http, http2, or tcp (tcp for NATS)"
+  type        = string
+  default     = "auto"
+}
+
+variable "allow_insecure_connections" {
+  description = "Allow insecure (HTTP) ingress connections"
+  type        = bool
+  default     = false
+}
+
+variable "health_probe_path" {
+  description = "HTTP path for liveness/readiness probes (empty to disable, e.g. for NATS)"
+  type        = string
+  default     = ""
+}
+
+# --- Environment & secrets ---
+
+variable "env_vars" {
+  description = "Plain (non-secret) environment variables"
+  type        = map(string)
+  default     = {}
+}
+
+variable "secret_env_vars" {
+  description = "Environment variables sourced from secrets: map of ENV_NAME => secret_name"
+  type        = map(string)
+  default     = {}
+}
+
+variable "kv_secrets" {
+  description = "Key Vault reference secrets: list of { name, key_vault_secret_id }"
+  type = list(object({
+    name                = string
+    key_vault_secret_id = string
+  }))
+  default = []
+}
+
+# --- Private registry (GHCR) ---
+
+variable "registry_server" {
+  description = "Container registry server (empty to skip, e.g. ghcr.io)"
+  type        = string
+  default     = ""
+}
+
+variable "registry_username" {
+  description = "Container registry username"
+  type        = string
+  default     = ""
+}
+
+variable "registry_password_secret_name" {
+  description = "Name of the secret (in kv_secrets) holding the registry password/PAT"
+  type        = string
+  default     = ""
+}
+
+# --- Volumes ---
+
+variable "volumes" {
+  description = "Azure Files volume mounts: list of { name, storage_name, path }"
+  type = list(object({
+    name         = string
+    storage_name = string
+    path         = string
+  }))
+  default = []
+}
+
+variable "tags" {
+  description = "Common tags applied to all resources"
+  type        = map(string)
+  default     = {}
+}
