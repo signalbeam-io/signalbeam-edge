@@ -106,9 +106,13 @@ dotnet ef database update
 cd web && npm install && npm run dev
 cd web && npm test && npm run lint
 
-# Helm
-helm install signalbeam-infra deploy/charts/signalbeam-infrastructure -n signalbeam --create-namespace
-helm install signalbeam deploy/charts/signalbeam-platform -n signalbeam
+# Helm (one chart per service under deploy/charts/)
+for c in device-manager bundle-orchestrator telemetry-processor identity-manager api-gateway web; do
+  helm upgrade --install "$c" "deploy/charts/$c" -n signalbeam --create-namespace
+done
+
+# Azure Container Apps (lean ~$20/mo path) — see infra/terragrunt/dev/aca/README.md
+cd infra/terragrunt/dev && terragrunt run --all apply --working-dir ./aca
 ```
 
 ## Code Quality
