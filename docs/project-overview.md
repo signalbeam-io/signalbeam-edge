@@ -90,7 +90,7 @@ See `RUNNING_WITH_ASPIRE.md` for configuration details.
 
 ### Prerequisites
 
-- .NET 9 SDK
+- .NET 10 SDK
 - Docker Desktop
 - Aspire workload
 

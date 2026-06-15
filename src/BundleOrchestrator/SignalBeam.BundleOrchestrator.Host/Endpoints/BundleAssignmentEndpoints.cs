@@ -14,8 +14,7 @@ public static class BundleAssignmentEndpoints
     public static IEndpointRouteBuilder MapBundleAssignmentEndpoints(this IEndpointRouteBuilder app)
     {
         var deviceGroup = app.MapGroup("/api/devices")
-            .WithTags("Bundle Assignments")
-            .WithOpenApi();
+            .WithTags("Bundle Assignments");
 
         deviceGroup.MapPost("/{deviceId}/bundle", AssignBundleToDevice)
             .WithName("AssignBundleToDevice")
@@ -28,8 +27,7 @@ public static class BundleAssignmentEndpoints
             .WithDescription("Retrieves the desired bundle state for a specific device.");
 
         var groupGroup = app.MapGroup("/api/device-groups")
-            .WithTags("Bundle Assignments")
-            .WithOpenApi();
+            .WithTags("Bundle Assignments");
 
         groupGroup.MapPost("/{deviceGroupId}/bundle", AssignBundleToGroup)
             .WithName("AssignBundleToGroup")

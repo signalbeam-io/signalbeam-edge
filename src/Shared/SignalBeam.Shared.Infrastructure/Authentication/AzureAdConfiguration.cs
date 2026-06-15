@@ -42,7 +42,6 @@ public static class AzureAdConfiguration
         {
             ExcludeEnvironmentCredential = false,
             ExcludeManagedIdentityCredential = false,
-            ExcludeSharedTokenCacheCredential = true,
             ExcludeVisualStudioCredential = true,
             ExcludeVisualStudioCodeCredential = true,
             ExcludeAzureCliCredential = false,

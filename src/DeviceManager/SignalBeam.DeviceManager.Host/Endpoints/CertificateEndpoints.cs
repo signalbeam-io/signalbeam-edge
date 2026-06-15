@@ -21,8 +21,7 @@ public static class CertificateEndpoints
     public static IEndpointRouteBuilder MapCertificateEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/certificates")
-            .WithTags("Certificates")
-            .WithOpenApi();
+            .WithTags("Certificates");
 
         group.MapPost("/{deviceId:guid}/issue", IssueCertificate)
             .WithName("IssueCertificate")

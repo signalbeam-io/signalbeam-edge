@@ -237,7 +237,6 @@ public class DockerContainerManager : IContainerManager, IDisposable
             var logs = await _retryPolicy.ExecuteAsync(async () =>
                 await _client.Containers.GetContainerLogsAsync(
                     containerId,
-                    false, // tty - set to false for proper demultiplexing
                     new ContainerLogsParameters
                     {
                         ShowStdout = true,

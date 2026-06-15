@@ -18,8 +18,7 @@ public static class SubscriptionEndpoints
     {
         var group = app.MapGroup("/api/subscriptions")
             .WithTags("Subscriptions")
-            .RequireAuthorization()
-            .WithOpenApi();
+            .RequireAuthorization();
 
         group.MapGet("/", GetSubscription)
             .WithName("GetSubscription")

@@ -4,7 +4,7 @@ This guide shows how to run the entire SignalBeam platform using .NET Aspire for
 
 ## Prerequisites
 
-- .NET 9.0 SDK
+- .NET 10.0 SDK
 - Docker Desktop (running)
 - .NET Aspire workload: `dotnet workload install aspire`
 

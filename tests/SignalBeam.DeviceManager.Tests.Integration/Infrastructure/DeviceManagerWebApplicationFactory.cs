@@ -23,8 +23,7 @@ public class DeviceManagerWebApplicationFactory : WebApplicationFactory<Program>
 
     public DeviceManagerWebApplicationFactory()
     {
-        _postgresContainer = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _postgresContainer = new PostgreSqlBuilder("timescale/timescaledb:latest-pg16")
             .WithDatabase("signalbeam_test")
             .WithUsername("postgres")
             .WithPassword("postgres")

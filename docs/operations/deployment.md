@@ -76,6 +76,23 @@ terragrunt output --working-dir ./aca/apigateway fqdn
 Images come from `ghcr.io/signalbeam-io/{service}:latest`; publish them before
 applying. The ACA path omits Valkey and Zitadel and routes logs to Log Analytics.
 
+### Continuous deployment (GitHub Actions)
+
+Once the Container Apps exist, `.github/workflows/deploy.yml` handles redeploys on
+every push to `main` (or via `workflow_dispatch`). For each service it builds and
+pushes the image to GHCR, runs `az containerapp update` to the new `${GITHUB_SHA::7}`
+tag, waits for the revision to reach `Running`, then smoke-tests the gateway's
+`/health/live`. It authenticates to Azure with OIDC — no stored credentials.
+
+One-time setup:
+
+- Create an Azure AD app with a federated credential for this repo/branch and set
+  the `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` repo secrets.
+- Grant the deployer service principal **Contributor** on each `sb-ca-*-dev` app so
+  it can swap the image tag.
+- The apps already hold the `ghcr-pat` registry secret (set above), so they can pull
+  the private images.
+
 ## Database migrations
 
 Apply EF Core migrations against the deployed Postgres. The server is private —

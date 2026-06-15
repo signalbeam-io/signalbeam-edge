@@ -158,7 +158,7 @@ public class AuthenticationAndRateLimitingTests : IClassFixture<DeviceManagerWeb
 
         // Assert - Should have some rate-limited requests
         rateLimitedRequests.Should().BeGreaterThan(0, "Rate limiting should kick in after 100 requests");
-        successfulRequests.Should().BeLessOrEqualTo(100, "Should not exceed the rate limit");
+        successfulRequests.Should().BeLessThanOrEqualTo(100, "Should not exceed the rate limit");
     }
 
     [Fact]

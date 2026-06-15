@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy central package management files
@@ -28,7 +28,7 @@ WORKDIR /src/src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 
 # Create non-root user
 RUN addgroup -S signalbeam && adduser -S signalbeam -G signalbeam

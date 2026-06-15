@@ -24,8 +24,7 @@ public class TelemetryProcessorWebApplicationFactory : WebApplicationFactory<Pro
 
     public TelemetryProcessorWebApplicationFactory()
     {
-        _postgresContainer = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _postgresContainer = new PostgreSqlBuilder("timescale/timescaledb:latest-pg16")
             .WithDatabase("signalbeam_test")
             .WithUsername("postgres")
             .WithPassword("postgres")

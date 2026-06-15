@@ -14,8 +14,7 @@ public static class RolloutEndpoints
     public static IEndpointRouteBuilder MapRolloutEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/rollouts")
-            .WithTags("Rollouts")
-            .WithOpenApi();
+            .WithTags("Rollouts");
 
         group.MapGet("", GetRollouts)
             .WithName("GetRollouts")

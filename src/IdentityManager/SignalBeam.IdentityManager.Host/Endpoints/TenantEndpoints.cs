@@ -11,8 +11,7 @@ public static class TenantEndpoints
     public static IEndpointRouteBuilder MapTenantEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/tenants")
-            .WithTags("Tenants")
-            .WithOpenApi();
+            .WithTags("Tenants");
 
         group.MapGet("/retention-policies", GetTenantRetentionPolicies)
             .WithName("GetTenantRetentionPolicies")

@@ -15,8 +15,7 @@ public static class TagEndpoints
     public static IEndpointRouteBuilder MapTagEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/tags")
-            .WithTags("Tags")
-            .WithOpenApi();
+            .WithTags("Tags");
 
         group.MapGet("/", GetAllTags)
             .WithName("GetAllTags")
@@ -29,8 +28,7 @@ public static class TagEndpoints
             .WithDescription("Removes a specific tag from a device.");
 
         var searchGroup = app.MapGroup("/api/devices")
-            .WithTags("Devices")
-            .WithOpenApi();
+            .WithTags("Devices");
 
         searchGroup.MapGet("/search", SearchDevicesByTagQuery)
             .WithName("SearchDevicesByTagQuery")

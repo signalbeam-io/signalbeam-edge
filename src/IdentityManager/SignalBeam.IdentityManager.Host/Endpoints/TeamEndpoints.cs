@@ -18,7 +18,6 @@ public static class TeamEndpoints
     {
         var group = app.MapGroup("/api/teams")
             .WithTags("Teams")
-            .WithOpenApi()
             .RequireAuthorization();
 
         // Admin-only endpoints

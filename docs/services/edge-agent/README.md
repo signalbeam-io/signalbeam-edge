@@ -12,7 +12,7 @@ The SignalBeam Edge Agent is a lightweight .NET console application that runs on
 
 ## Prerequisites
 
-- .NET 9.0 or later
+- .NET 10.0 or later
 - Docker (for container management)
 - Linux, macOS, or Windows
 
