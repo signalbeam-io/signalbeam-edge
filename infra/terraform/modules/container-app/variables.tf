@@ -98,9 +98,15 @@ variable "allow_insecure_connections" {
 }
 
 variable "liveness_probe_path" {
-  description = "HTTP path for the liveness probe (empty to disable, e.g. for NATS); use /health/live for .NET services"
+  description = "HTTP path for the liveness probe (empty to disable); use /health/live for .NET services, /healthz for NATS"
   type        = string
   default     = ""
+}
+
+variable "liveness_probe_port" {
+  description = "Container port for the liveness probe (0 = use target_port); set to the NATS monitoring port when ingress is TCP"
+  type        = number
+  default     = 0
 }
 
 variable "readiness_probe_path" {

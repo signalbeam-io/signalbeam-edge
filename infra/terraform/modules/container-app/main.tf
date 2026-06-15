@@ -95,7 +95,7 @@ resource "azurerm_container_app" "this" {
         for_each = var.liveness_probe_path == "" ? [] : [1]
         content {
           transport     = "HTTP"
-          port          = var.target_port
+          port          = var.liveness_probe_port > 0 ? var.liveness_probe_port : var.target_port
           path          = var.liveness_probe_path
           initial_delay = 15
         }

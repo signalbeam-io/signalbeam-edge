@@ -67,6 +67,11 @@ inputs = {
   transport        = "tcp"
   target_port      = 4222
 
+  # ACA can't HTTP-probe a TCP ingress port, so the liveness probe targets the
+  # NATS monitoring endpoint (/healthz on 8222) to catch a hung JetStream.
+  liveness_probe_path = "/healthz"
+  liveness_probe_port = 8222
+
   # JetStream persistence on the Azure Files share registered with the environment.
   volumes = [
     { name = "nats-data", storage_name = dependency.environment.outputs.nats_storage_name, path = "/data" },

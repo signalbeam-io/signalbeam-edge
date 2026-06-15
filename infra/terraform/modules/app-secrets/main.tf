@@ -17,6 +17,7 @@ resource "azurerm_key_vault_secret" "db_connection" {
     var.administrator_password,
   )
   key_vault_id = var.key_vault_id
+  tags         = var.tags
 }
 
 # GHCR personal access token (read:packages). Created as a placeholder here so the
@@ -27,6 +28,7 @@ resource "azurerm_key_vault_secret" "ghcr_pat" {
   name         = "ghcr-pat"
   value        = "REPLACE_VIA_AZ_CLI"
   key_vault_id = var.key_vault_id
+  tags         = var.tags
 
   lifecycle {
     ignore_changes = [value]
