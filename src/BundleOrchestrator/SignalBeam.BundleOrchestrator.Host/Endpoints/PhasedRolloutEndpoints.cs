@@ -15,8 +15,7 @@ public static class PhasedRolloutEndpoints
     public static IEndpointRouteBuilder MapPhasedRolloutEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/phased-rollouts")
-            .WithTags("Phased Rollouts")
-            .WithOpenApi();
+            .WithTags("Phased Rollouts");
 
         // Query endpoints
         group.MapGet("", ListPhasedRollouts)

@@ -11,7 +11,7 @@ using SignalBeam.ServiceDefaults;
 using Scalar.AspNetCore;
 using SignalBeam.Shared.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 

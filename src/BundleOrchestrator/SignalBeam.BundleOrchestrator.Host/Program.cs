@@ -11,7 +11,7 @@ using SignalBeam.ServiceDefaults;
 using Scalar.AspNetCore;
 using SignalBeam.Shared.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -27,7 +27,7 @@ builder.Host.UseSerilog((context, configuration) =>
 builder.AddServiceDefaults();
 
 // Add Azure Blob Storage (Azurite locally, Azure Blob Storage in production)
-builder.AddAzureBlobClient("blobs");
+builder.AddAzureBlobServiceClient("blobs");
 
 // Add Infrastructure (DbContext, Repositories)
 builder.Services.AddInfrastructure(builder.Configuration);

@@ -15,8 +15,7 @@ public static class GroupEndpoints
     public static IEndpointRouteBuilder MapGroupEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/groups")
-            .WithTags("Device Groups")
-            .WithOpenApi();
+            .WithTags("Device Groups");
 
         group.MapGet("/", GetDeviceGroups)
             .WithName("GetDeviceGroups")

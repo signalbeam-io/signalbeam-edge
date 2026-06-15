@@ -13,7 +13,6 @@ public static class UserEndpoints
     {
         var group = app.MapGroup("/api/users")
             .WithTags("Users")
-            .WithOpenApi()
             .RequireAuthorization();
 
         group.MapPut("/me/profile", UpdateProfile)

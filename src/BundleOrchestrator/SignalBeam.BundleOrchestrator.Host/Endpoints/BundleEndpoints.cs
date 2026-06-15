@@ -60,8 +60,7 @@ public static class BundleEndpoints
     public static IEndpointRouteBuilder MapBundleEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/bundles")
-            .WithTags("Bundles")
-            .WithOpenApi();
+            .WithTags("Bundles");
 
         group.MapPost("/", CreateBundle)
             .WithName("CreateBundle")

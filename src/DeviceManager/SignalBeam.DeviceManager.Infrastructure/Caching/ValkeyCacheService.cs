@@ -72,7 +72,7 @@ public class ValkeyCacheService : ICacheService
             var db = _redis.GetDatabase();
             var serialized = JsonSerializer.Serialize(value, _jsonOptions);
 
-            await db.StringSetAsync(key, serialized, expiration);
+            await db.StringSetAsync(key, serialized, expiration, keepTtl: false);
 
             _logger.LogDebug(
                 "Set cache value for key: {Key} with expiration: {Expiration}",

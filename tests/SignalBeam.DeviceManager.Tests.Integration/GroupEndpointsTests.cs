@@ -80,7 +80,7 @@ public class GroupEndpointsTests : IClassFixture<DeviceManagerWebApplicationFact
 
         var result = await response.Content.ReadFromJsonAsync<GetDeviceGroupsResponse>();
         result.Should().NotBeNull();
-        result!.Groups.Should().HaveCountGreaterOrEqualTo(3);
+        result!.Groups.Should().HaveCountGreaterThanOrEqualTo(3);
     }
 
     [Fact]
@@ -197,7 +197,7 @@ public class GroupEndpointsTests : IClassFixture<DeviceManagerWebApplicationFact
 
         var result = await response.Content.ReadFromJsonAsync<GetDevicesByGroupResponse>();
         result.Should().NotBeNull();
-        result!.Devices.Should().HaveCountGreaterOrEqualTo(3);
+        result!.Devices.Should().HaveCountGreaterThanOrEqualTo(3);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class GroupEndpointsTests : IClassFixture<DeviceManagerWebApplicationFact
 
         var result = await response.Content.ReadFromJsonAsync<GetDevicesByGroupResponse>();
         result.Should().NotBeNull();
-        result!.Devices.Should().HaveCountLessOrEqualTo(2);
+        result!.Devices.Should().HaveCountLessThanOrEqualTo(2);
     }
 
     [Fact]

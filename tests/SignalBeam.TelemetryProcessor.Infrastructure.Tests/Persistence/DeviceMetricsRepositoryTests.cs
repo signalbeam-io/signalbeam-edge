@@ -22,8 +22,7 @@ public class DeviceMetricsRepositoryTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Create and start PostgreSQL container with TimescaleDB extension
-        _postgresContainer = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _postgresContainer = new PostgreSqlBuilder("timescale/timescaledb:latest-pg16")
             .WithDatabase("telemetry_test")
             .WithUsername("postgres")
             .WithPassword("postgres")

@@ -6,7 +6,7 @@ using Serilog;
 using SignalBeam.ServiceDefaults;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
 using SignalBeam.IdentityManager.Infrastructure.Persistence;
 using System.Text.Json;

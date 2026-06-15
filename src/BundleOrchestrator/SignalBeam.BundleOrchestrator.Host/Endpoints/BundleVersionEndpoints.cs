@@ -18,8 +18,7 @@ public static class BundleVersionEndpoints
     public static IEndpointRouteBuilder MapBundleVersionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/bundles/{bundleId}/versions")
-            .WithTags("Bundle Versions")
-            .WithOpenApi();
+            .WithTags("Bundle Versions");
 
         group.MapPost("/", CreateBundleVersion)
             .WithName("CreateBundleVersion")

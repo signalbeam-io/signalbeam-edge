@@ -24,8 +24,7 @@ public static class DeviceEndpoints
     public static IEndpointRouteBuilder MapDeviceEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/devices")
-            .WithTags("Devices")
-            .WithOpenApi();
+            .WithTags("Devices");
 
         group.MapPost("/", RegisterDevice)
             .WithName("RegisterDevice")
@@ -139,8 +138,7 @@ public static class DeviceEndpoints
 
         // Registration token management
         var tokenGroup = app.MapGroup("/api/registration-tokens")
-            .WithTags("Registration Tokens")
-            .WithOpenApi();
+            .WithTags("Registration Tokens");
 
         tokenGroup.MapPost("/", GenerateRegistrationToken)
             .WithName("GenerateRegistrationToken")
