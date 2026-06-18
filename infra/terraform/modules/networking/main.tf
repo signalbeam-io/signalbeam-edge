@@ -1,5 +1,5 @@
 locals {
-  location_short = "weu"
+  location_short = lookup({ westeurope = "weu", northeurope = "neu" }, var.location, "weu")
   name_prefix    = "${var.project}-${var.environment}-${local.location_short}"
 }
 
@@ -20,6 +20,8 @@ resource "azurerm_subnet" "aks" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [var.aks_subnet_prefix]
+  # Required before the Key Vault can ACL this subnet (network_acls in key-vault module).
+  service_endpoints = ["Microsoft.KeyVault"]
 }
 
 resource "azurerm_subnet" "postgresql" {
@@ -44,6 +46,8 @@ resource "azurerm_subnet" "services" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [var.services_subnet_prefix]
+  # Required before the Key Vault can ACL this subnet (network_acls in key-vault module).
+  service_endpoints = ["Microsoft.KeyVault"]
 }
 
 # Dedicated subnet for the Azure Container Apps (Consumption) environment.
@@ -56,9 +60,11 @@ resource "azurerm_subnet" "aca" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [var.aca_subnet_prefix]
-  # Service endpoint so the ACA apps can reach the NATS Azure Files storage
-  # account over the VNet while that account denies public network access.
-  service_endpoints = ["Microsoft.Storage"]
+  # Service endpoints so the ACA apps can reach the NATS Azure Files storage
+  # account over the VNet (Storage), and so the Key Vault can ACL this subnet
+  # (KeyVault — see network_acls in the key-vault module). Both are required
+  # while those resources deny public network access.
+  service_endpoints = ["Microsoft.Storage", "Microsoft.KeyVault"]
 
   delegation {
     name = "aca-delegation"

@@ -1,5 +1,5 @@
 locals {
-  location_short = "weu"
+  location_short = lookup({ westeurope = "weu", northeurope = "neu" }, var.location, "weu")
   # ACR names must be alphanumeric, no hyphens
   name = "${var.project}acr${var.environment}${local.location_short}"
 }

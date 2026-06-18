@@ -50,4 +50,9 @@ inputs = {
   services_subnet_id             = dependency.networking.outputs.services_subnet_id
   aca_subnet_id                  = dependency.networking.outputs.aca_subnet_id
   workload_identity_principal_id = dependency.managed_identity.outputs.principal_id
+
+  # The vault denies public access; data-plane secret writes come from the host
+  # running Terraform. KV_ALLOWED_IPS (comma-separated) lets that host through
+  # the firewall. deploy-dev.sh auto-detects the operator's public IP.
+  allowed_ip_addresses = compact(split(",", get_env("KV_ALLOWED_IPS", "")))
 }
