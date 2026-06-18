@@ -23,6 +23,6 @@ jobs:
   build:
     uses: ./.github/workflows/build-service.yml
     with:
-      service-name: api-gateway
+      service-name: apigateway
       dockerfile: ./src/SignalBeam.ApiGateway/Dockerfile
       context: .

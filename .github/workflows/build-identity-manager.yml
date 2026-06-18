@@ -25,6 +25,6 @@ jobs:
   build:
     uses: ./.github/workflows/build-service.yml
     with:
-      service-name: identity-manager
+      service-name: identitymanager
       dockerfile: ./src/IdentityManager/Dockerfile
       context: .

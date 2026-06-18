@@ -25,6 +25,6 @@ jobs:
   build:
     uses: ./.github/workflows/build-service.yml
     with:
-      service-name: bundle-orchestrator
+      service-name: bundleorchestrator
       dockerfile: ./src/BundleOrchestrator/Dockerfile
       context: .
