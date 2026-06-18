@@ -1,5 +1,5 @@
 locals {
-  location_short = "weu"
+  location_short = lookup({ westeurope = "weu", northeurope = "neu" }, var.location, "weu")
 }
 
 resource "azurerm_user_assigned_identity" "workload" {

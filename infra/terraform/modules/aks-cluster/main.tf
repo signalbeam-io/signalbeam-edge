@@ -1,7 +1,7 @@
 data "azurerm_client_config" "current" {}
 
 locals {
-  location_short = "weu"
+  location_short = lookup({ westeurope = "weu", northeurope = "neu" }, var.location, "weu")
   cluster_name   = "${var.project}-aks-${var.environment}-${local.location_short}"
 }
 

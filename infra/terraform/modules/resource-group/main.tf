@@ -1,5 +1,5 @@
 locals {
-  location_short = "weu"
+  location_short = lookup({ westeurope = "weu", northeurope = "neu" }, var.location, "weu")
   name           = "${var.project}-rg-${var.environment}-${local.location_short}"
 }
 

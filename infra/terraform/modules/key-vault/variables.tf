@@ -46,6 +46,12 @@ variable "soft_delete_retention_days" {
   default     = 7
 }
 
+variable "allowed_ip_addresses" {
+  description = "Public IPs/CIDRs allowed through the Key Vault firewall for data-plane access (e.g. the operator's IP so Terraform can write secrets). Empty list keeps the vault subnet-only."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Common tags applied to all resources"
   type        = map(string)
