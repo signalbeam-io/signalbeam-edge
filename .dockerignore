@@ -32,13 +32,9 @@
 # systemd files (not needed in container)
 **/systemd/
 
-# Exclude other services (we only need Shared and EdgeAgent)
-src/DeviceManager/
-src/BundleOrchestrator/
-src/TelemetryProcessor/
-src/SignalBeam.AppHost/
-src/SignalBeam.ApiGateway/
-src/SignalBeam.ServiceDefaults/
+# NOTE: do not exclude src/<service>/ or src/SignalBeam.ServiceDefaults/ here.
+# All service image builds use the repo root as build context and share this
+# file, so excluding any service dir breaks that service's own COPY steps.
 
 # Tests
 tests/
