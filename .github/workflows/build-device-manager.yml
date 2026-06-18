@@ -15,6 +15,12 @@ on:
       - 'src/SignalBeam.ServiceDefaults/**'
   workflow_dispatch:
 
+# Repo default token is read-only; the reusable build-service.yml needs
+# packages: write to push to GHCR. Grant it here or the run fails at startup.
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     uses: ./.github/workflows/build-service.yml
