@@ -1,0 +1,158 @@
+include "root" {
+  path = find_in_parent_folders()
+}
+
+locals {
+  env  = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals
+  name = "${local.env.project}-ca-zitadel-${local.env.environment}"
+
+  # ACA assigns an external app the FQDN "<name>.<env-default-domain>" (internal
+  # apps get "<name>.internal.<...>"). This is predictable before the app exists,
+  # so we can set Zitadel's EXTERNALDOMAIN without a self-referential output —
+  # which matters because Zitadel bakes this host into issuer/discovery URLs and
+  # it MUST equal the host the browser uses, or OIDC discovery + JWT issuer
+  # validation break.
+  external_domain = "${local.name}.${dependency.environment.outputs.default_domain}"
+}
+
+terraform {
+  source = "../../../../terraform/modules/container-app"
+}
+
+dependency "resource_group" {
+  config_path = "../../resource-group"
+
+  mock_outputs = {
+    name     = "mock-rg"
+    id       = "/subscriptions/00000000/resourceGroups/mock-rg"
+    location = "westeurope"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
+dependency "managed_identity" {
+  config_path = "../../managed-identity"
+
+  mock_outputs = {
+    id           = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mock-id"
+    principal_id = "00000000-0000-0000-0000-000000000000"
+    client_id    = "00000000-0000-0000-0000-000000000000"
+    name         = "mock-id"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
+dependency "environment" {
+  config_path = "../environment"
+
+  mock_outputs = {
+    id                = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.App/managedEnvironments/mock-cae"
+    name              = "mock-cae"
+    default_domain    = "mockenv.westeurope.azurecontainerapps.io"
+    static_ip_address = "20.0.0.1"
+    nats_storage_name = "nats-jetstream"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
+dependency "postgresql" {
+  config_path = "../../postgresql"
+
+  mock_outputs = {
+    id             = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.DBforPostgreSQL/flexibleServers/mock-psql"
+    name           = "mock-psql"
+    fqdn           = "mock-psql.postgres.database.azure.com"
+    database_names = ["signalbeam", "zitadel"]
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
+dependency "secrets" {
+  config_path = "../secrets"
+
+  mock_outputs = {
+    db_connection_secret_id           = "https://mock-kv.vault.azure.net/secrets/db-connection-signalbeam"
+    ghcr_pat_secret_id                = "https://mock-kv.vault.azure.net/secrets/ghcr-pat"
+    zitadel_master_key_secret_id      = "https://mock-kv.vault.azure.net/secrets/zitadel-master-key"
+    postgres_admin_password_secret_id = "https://mock-kv.vault.azure.net/secrets/postgresql-admin-password"
+    zitadel_admin_password_secret_id  = "https://mock-kv.vault.azure.net/secrets/zitadel-admin-password"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
+inputs = {
+  name                         = local.name
+  resource_group_name          = dependency.resource_group.outputs.name
+  container_app_environment_id = dependency.environment.outputs.id
+  managed_identity_id          = dependency.managed_identity.outputs.id
+
+  # Pinned upstream image (public — no registry credentials). v2.66.3 matches the
+  # version used by the Aspire AppHost for local dev, so behaviour is reproducible.
+  image = "ghcr.io/zitadel/zitadel:v2.66.3"
+
+  # start-from-init runs DB setup/migrations then starts, in one idempotent
+  # process. TLS is terminated by the ACA Envoy ingress, so Zitadel serves plain
+  # HTTP (h2c) internally.
+  command = ["start-from-init", "--tlsMode", "disabled"]
+
+  # Zitadel is stateful at startup and behaves poorly with scale-to-zero cold
+  # starts (it must stay reachable for token/JWKS validation by other services).
+  min_replicas = 1
+  max_replicas = 1
+
+  cpu    = 0.5
+  memory = "1.0Gi"
+
+  # External ingress: the browser and backend services reach Zitadel directly at
+  # its own FQDN. http2 so the gRPC/gRPC-Web management + /v2 APIs work (used by
+  # the bootstrap tool); HTTP/1.1 OIDC/login traffic still negotiates fine.
+  ingress_external = true
+  transport        = "http2"
+  target_port      = 8080
+
+  # Readiness-only on purpose: Zitadel's first-run migrations can take 1–2 min,
+  # which exceeds the module's fixed liveness initial_delay and would restart-loop
+  # the container. A failing readiness probe only withholds traffic (no restart),
+  # which is exactly the right behaviour during init. /debug/ready is Zitadel's
+  # readiness endpoint (the setup scripts poll it).
+  readiness_probe_path = "/debug/ready"
+
+  kv_secrets = [
+    { name = "zitadel-master-key", key_vault_secret_id = dependency.secrets.outputs.zitadel_master_key_secret_id },
+    { name = "zitadel-db-password", key_vault_secret_id = dependency.secrets.outputs.postgres_admin_password_secret_id },
+    { name = "zitadel-admin-password", key_vault_secret_id = dependency.secrets.outputs.zitadel_admin_password_secret_id },
+  ]
+
+  # Secret-sourced env vars. Master key is passed via env (not the --masterkey
+  # arg) to avoid shell-quoting issues with special characters.
+  secret_env_vars = {
+    "ZITADEL_MASTERKEY"                        = "zitadel-master-key"
+    "ZITADEL_DATABASE_POSTGRES_USER_PASSWORD"  = "zitadel-db-password"
+    "ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD" = "zitadel-db-password"
+    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD" = "zitadel-admin-password"
+  }
+
+  env_vars = {
+    # --- Database (shared Postgres Flexible Server, dedicated `zitadel` DB) ---
+    "ZITADEL_DATABASE_POSTGRES_HOST"           = dependency.postgresql.outputs.fqdn
+    "ZITADEL_DATABASE_POSTGRES_PORT"           = "5432"
+    "ZITADEL_DATABASE_POSTGRES_DATABASE"       = "zitadel"
+    "ZITADEL_DATABASE_POSTGRES_USER_USERNAME"  = "pgadmin"
+    "ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE"  = "require"
+    "ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME" = "pgadmin"
+    "ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE" = "require"
+
+    # --- External addressing (issuer/discovery host) ---
+    "ZITADEL_EXTERNALSECURE" = "true"
+    "ZITADEL_EXTERNALDOMAIN" = local.external_domain
+    "ZITADEL_EXTERNALPORT"   = "443"
+
+    # --- First-instance bootstrap: human admin (login works on first boot) ---
+    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME"               = "admin"
+    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED" = "false"
+    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS"          = "admin@signalbeam.local"
+    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_VERIFIED"         = "true"
+    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME"              = "SignalBeam"
+    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME"               = "Admin"
+  }
+}

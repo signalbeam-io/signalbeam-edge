@@ -17,10 +17,14 @@ a public HTTPS endpoint the EdgeAgent can reach via `--cloud-url`.
 | `bundleorchestrator` | BundleOrchestrator | internal HTTPS | 0→1 | scale-to-zero |
 | `telemetryprocessor` | TelemetryProcessor | internal HTTPS | 0→1 | scale-to-zero |
 | `identitymanager` | IdentityManager | internal HTTPS | 0→1 | scale-to-zero |
+| `zitadel` | Zitadel OIDC provider | **external HTTPS** | **1** (always-on) | OIDC for the dashboard + IdentityManager; reuses the shared Postgres (#389) |
 
 **Omitted for the lean dogfood:** Valkey (confirmed unused — caching is in-process
-`IMemoryCache`), Zitadel (device flows use API keys, not OIDC), ACR (images come
-from private GHCR). See issue #375 for the full cost rationale.
+`IMemoryCache`), ACR (images come from private GHCR). See issue #375 for the full
+cost rationale. **Zitadel** was originally omitted but is now deployed (#389) so
+IdentityManager's JWT/OIDC endpoints and the dashboard login work in the cloud —
+it adds ~$10–14/mo (one always-on small container; the `zitadel` database reuses
+the existing Postgres server at no extra DB cost).
 
 ## Security posture
 
@@ -164,16 +168,101 @@ next revision roll) after the SWA exists so the origin takes effect.
 
 ### Auth prerequisite (OIDC / Zitadel)
 
-The dashboard is configured for **OIDC via Zitadel**, but Zitadel is **not** part
-of the lean ACA stack (omitted per #375). Until an identity provider is
-provisioned (tracked by the IdentityManager auth issue), login will not complete.
-When Zitadel is available, register the SWA URLs in the SPA client:
+The dashboard is configured for **OIDC via Zitadel**. Zitadel is now deployed as
+part of this stack (#389) — see [Identity provider](#identity-provider-zitadel--oidc)
+below for the one-time bootstrap that creates the SPA client and registers the SWA
+redirect URIs (`https://<swa-host>/callback`, post-logout `https://<swa-host>`).
 
-- Redirect URI: `https://<swa-host>/callback`
-- Post-logout redirect URI: `https://<swa-host>`
+## Identity provider (Zitadel / OIDC)
+
+The `zitadel` unit runs [Zitadel](https://zitadel.com) `v2.66.3` as an always-on,
+externally-reachable container app — the OIDC authority for both the dashboard and
+IdentityManager (#389). It uses the dedicated `zitadel` database on the shared
+Postgres server and these Key Vault secrets (all provisioned automatically):
+`zitadel-master-key`, `postgresql-admin-password` (as the DB password), and
+`zitadel-admin-password` (the first-instance admin login).
+
+**Topology:** external ingress (`transport = http2`). The browser and backend
+services talk to Zitadel **directly** at its own FQDN — not through the gateway —
+which avoids proxying Zitadel's gRPC APIs through YARP. `ZITADEL_EXTERNALDOMAIN` is
+set to that FQDN so issuer/discovery URLs match what the browser uses.
+
+```bash
+# FQDN + first-instance admin password
+terragrunt output --working-dir ./aca/zitadel fqdn
+az keyvault secret show --vault-name sb-kv-dev-neu --name zitadel-admin-password --query value -o tsv
+# Admin console: https://<zitadel-fqdn>  (user: admin, pw: the secret above)
+```
+
+### Prerequisite — grant DB ownership (run once, before Zitadel first boots)
+
+Terraform pre-creates the `zitadel` database, so it is **not** owned by `pgadmin`
+(the server admin). Zitadel's `start-from-init` runs DDL (CREATE SCHEMA/ROLE/GRANT)
+and needs ownership, or it crash-loops on first boot. Grant it once, out-of-band
+(same pattern as running EF migrations — from a VNet-connected host or with your IP
+temporarily allowed):
+
+```bash
+PGPASSWORD=$(az keyvault secret show --vault-name sb-kv-dev-neu \
+  --name postgresql-admin-password --query value -o tsv) \
+psql "host=sb-psql-dev-neu.postgres.database.azure.com user=pgadmin dbname=postgres sslmode=require" \
+  -c 'ALTER DATABASE zitadel OWNER TO pgadmin;' \
+  -c 'GRANT ALL PRIVILEGES ON DATABASE zitadel TO pgadmin;'
+```
+
+Then start (or restart) the `zitadel` app so `start-from-init` runs against the
+now-owned database.
+
+### One-time bootstrap (project + SPA client)
+
+`start-from-init` + the `ZITADEL_FIRSTINSTANCE_*` env vars create the instance and
+admin on first boot, but the **SignalBeam project + OIDC SPA app** must be created
+once. Use the `SignalBeam.ZitadelSetup` tool (now parameterised for the deployed
+host) — create a service user + PAT in the Zitadel console first, then:
+
+```bash
+ZITADEL_URL=https://<zitadel-fqdn> \
+ZITADEL_PAT=<pat-from-console> \
+WEB_BASE_URL=https://<swa-host> \
+OIDC_AUTHORITY=https://<zitadel-fqdn> \
+BACKEND_REQUIRE_HTTPS=true \
+CONFIG_OUTPUT_PATH=./zitadel-config.json \
+dotnet run --project src/SignalBeam.ZitadelSetup
+# prints Project ID and Client ID; registers the SWA redirect URIs on the SPA app
+```
+
+`CONFIG_OUTPUT_PATH` is overridden because the default (`/app/config/...`) only
+exists inside the Aspire container. If you wire this into CI, set `ZITADEL_PAT` as
+a **secret**, never a plain variable.
+
+(Or create the project/app manually in the console — see `docs/zitadel-setup.md`.)
+
+### After bootstrap — wire the IDs (out-of-band, like the GHCR PAT)
+
+The project/client IDs only exist after bootstrap, so set them on the consumers:
+
+```bash
+# Dashboard (GitHub repo Variables for the SWA build — see the table above)
+VITE_ZITADEL_AUTHORITY=https://<zitadel-fqdn>
+VITE_ZITADEL_CLIENT_ID=<client-id>
+VITE_ZITADEL_PROJECT_ID=<project-id>
+
+# IdentityManager — set the audience to enable JWT audience validation
+az containerapp update -n sb-ca-identitymanager-dev -g <rg> \
+  --set-env-vars Authentication__Jwt__Audience=<project-id>
+```
+
+IdentityManager's `Authority`/`RequireHttpsMetadata` are already wired to the
+deployed Zitadel by the `identitymanager` unit; only the audience is post-bootstrap.
+Until it is set, `ValidateAudience` stays off (issuer/lifetime/signature are still
+enforced) rather than rejecting every token.
 
 ## Cost controls
 
-- All stateless apps scale to zero; only NATS runs 24/7.
+- All stateless apps scale to zero; **NATS and Zitadel run 24/7** (Zitadel adds
+  ~$10–14/mo — it cannot scale to zero without breaking token/JWKS validation).
 - `terragrunt run --all destroy --working-dir ./aca` between dogfood sessions
   drops cost to storage-only (~$3–5/mo). Postgres can also be stopped overnight.
+- To run the lean stack **without** OIDC and avoid the Zitadel cost, exclude the
+  `zitadel` unit (`--queue-exclude-dir ./aca/zitadel`) and leave the dashboard /
+  IdentityManager audience unset.

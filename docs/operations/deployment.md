@@ -74,7 +74,8 @@ terragrunt output --working-dir ./aca/apigateway fqdn
 ```
 
 Images come from `ghcr.io/signalbeam-io/{service}:latest`; publish them before
-applying. The ACA path omits Valkey and Zitadel and routes logs to Log Analytics.
+applying. The ACA path omits Valkey (in-process caching) and routes logs to Log
+Analytics. Zitadel is deployed for the dashboard login / OIDC flows (#389).
 
 ### Continuous deployment (GitHub Actions)
 

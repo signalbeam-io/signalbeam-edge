@@ -100,5 +100,11 @@ inputs = {
     "ReverseProxy__Clusters__bundle-orchestrator__Destinations__destination1__Address" = "https://${local.env.project}-ca-bundleorchestrator-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
     "ReverseProxy__Clusters__telemetry-processor__Destinations__destination1__Address" = "https://${local.env.project}-ca-telemetryprocessor-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
     "ReverseProxy__Clusters__identity-manager__Destinations__destination1__Address"    = "https://${local.env.project}-ca-identitymanager-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
+
+    # Zitadel has EXTERNAL ingress (the dashboard talks to it directly), so this
+    # points at its public FQDN, not an internal one. The deployed dashboard uses
+    # Zitadel as its OIDC authority directly; these gateway OIDC routes are a
+    # fallback so a stray /oauth, /oidc or /.well-known request still resolves.
+    "ReverseProxy__Clusters__zitadel__Destinations__destination1__Address" = "https://${local.env.project}-ca-zitadel-${local.env.environment}.${dependency.environment.outputs.default_domain}"
   }
 }

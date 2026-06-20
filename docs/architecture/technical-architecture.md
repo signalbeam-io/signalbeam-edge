@@ -768,7 +768,7 @@ graph TB
 
 **Differences from the AKS path** (lean dogfood):
 - **Valkey omitted** — caching is in-process `IMemoryCache`; no standalone cache.
-- **Zitadel omitted** — device flows authenticate with API keys, not OIDC.
+- **Zitadel deployed (always-on)** — provides OIDC for the dashboard and IdentityManager (#389); device flows still use API keys.
 - **No in-cluster Prometheus/Loki/Tempo** — logs go to the Azure Log Analytics workspace.
 - **Secrets as Key Vault references** resolved by a user-assigned managed identity (never written into the container app definitions or Terraform state).
 - **Images from private GHCR** via a PAT held in Key Vault (no ACR).

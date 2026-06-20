@@ -34,3 +34,31 @@ resource "azurerm_key_vault_secret" "ghcr_pat" {
     ignore_changes = [value]
   }
 }
+
+# Zitadel first-instance admin password. Generated here (not out-of-band) because
+# it only ever seeds the initial admin login at bootstrap; rotate via the Zitadel
+# console afterwards. Complexity satisfies Zitadel's default password policy
+# (upper/lower/number/symbol). override_special avoids characters that are awkward
+# to paste from `terragrunt output`.
+resource "random_password" "zitadel_admin" {
+  length           = 24
+  min_upper        = 2
+  min_lower        = 2
+  min_numeric      = 2
+  min_special      = 2
+  override_special = "!#%*-_=+"
+}
+
+resource "azurerm_key_vault_secret" "zitadel_admin_password" {
+  name         = "zitadel-admin-password"
+  value        = random_password.zitadel_admin.result
+  key_vault_id = var.key_vault_id
+  tags         = var.tags
+
+  # Only ever seeds the first-instance admin. Once the operator rotates it in the
+  # Zitadel console, don't let a later apply overwrite it with a fresh random
+  # value (same guard as the GHCR PAT above).
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
