@@ -27,6 +27,21 @@ var configuredOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>() ?? [];
 
+// Fail fast on misconfiguration: a wildcard or malformed origin must never reach
+// the CORS policy (a public SPA origin combined with AllowCredentials makes "*"
+// both invalid and dangerous). Validate before the policy is built.
+var invalidOrigins = configuredOrigins
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Where(origin => origin == "*" || !Uri.TryCreate(origin, UriKind.Absolute, out _))
+    .ToArray();
+
+if (invalidOrigins.Length > 0)
+{
+    throw new InvalidOperationException(
+        $"Invalid CORS origins in configuration (Cors:AllowedOrigins): {string.Join(", ", invalidOrigins)}. " +
+        "Origins must be absolute URIs (e.g. https://app.azurestaticapps.net) and must not be '*'.");
+}
+
 var allowedOrigins = defaultOrigins
     .Concat(configuredOrigins)
     .Where(origin => !string.IsNullOrWhiteSpace(origin))

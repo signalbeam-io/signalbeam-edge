@@ -63,6 +63,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Close PR Preview
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+
       - name: Close preview environment
         uses: Azure/static-web-apps-deploy@v1
         with:

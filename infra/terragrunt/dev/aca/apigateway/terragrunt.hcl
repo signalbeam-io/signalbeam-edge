@@ -59,7 +59,7 @@ dependency "secrets" {
 
 # The Static Web Apps dashboard origin is allow-listed for CORS on the gateway.
 dependency "static_web_app" {
-  config_path = "../../static-web-app"
+  config_path = "../static-web-app"
 
   mock_outputs = {
     default_host_name = "mock-swa.azurestaticapps.net"

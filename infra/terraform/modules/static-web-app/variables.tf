@@ -21,15 +21,25 @@ variable "resource_group_name" {
 }
 
 variable "sku_tier" {
-  description = "Static Web App SKU tier"
+  description = "Static Web App SKU tier (must match sku_size)"
   type        = string
   default     = "Free"
+
+  validation {
+    condition     = contains(["Free", "Standard"], var.sku_tier)
+    error_message = "sku_tier must be \"Free\" or \"Standard\"."
+  }
 }
 
 variable "sku_size" {
-  description = "Static Web App SKU size"
+  description = "Static Web App SKU size (must match sku_tier)"
   type        = string
   default     = "Free"
+
+  validation {
+    condition     = contains(["Free", "Standard"], var.sku_size)
+    error_message = "sku_size must be \"Free\" or \"Standard\"."
+  }
 }
 
 variable "tags" {

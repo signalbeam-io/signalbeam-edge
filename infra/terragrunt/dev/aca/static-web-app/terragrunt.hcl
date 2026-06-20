@@ -3,11 +3,11 @@ include "root" {
 }
 
 terraform {
-  source = "../../../terraform/modules/static-web-app"
+  source = "../../../../terraform/modules/static-web-app"
 }
 
 dependency "resource_group" {
-  config_path = "../resource-group"
+  config_path = "../../resource-group"
 
   mock_outputs = {
     name     = "mock-rg"

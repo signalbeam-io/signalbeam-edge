@@ -81,18 +81,16 @@ terragrunt run --all apply --queue-include-dir ./resource-group --queue-include-
   --queue-include-dir ./managed-identity --queue-include-dir ./monitoring \
   --queue-include-dir ./key-vault --queue-include-dir ./postgresql
 
-# Web dashboard host (SWA) — apply before the ACA stack: the apigateway unit
-# reads its hostname to allow-list the dashboard origin for CORS.
-terragrunt apply --working-dir ./static-web-app
-
-# ACA stack
+# ACA stack — includes the Static Web Apps unit (aca/static-web-app). Terragrunt
+# applies it before apigateway, which reads its hostname to allow-list the
+# dashboard origin for CORS.
 terragrunt run --all apply --working-dir ./aca
 ```
 
-> The `apigateway` unit depends on `static-web-app` for its CORS origin. Apply
-> `static-web-app` first (one-time) so `terragrunt run --all ./aca` can resolve
-> the hostname; otherwise the gateway apply fails on the missing dependency
-> output. See [Web dashboard](#web-dashboard-azure-static-web-apps) below.
+> The `static-web-app` unit lives inside `./aca`, so `terragrunt run --all` walks
+> it and orders it ahead of `apigateway` (which depends on its hostname for CORS)
+> automatically — no separate manual apply step. See
+> [Web dashboard](#web-dashboard-azure-static-web-apps) below.
 
 ### Set the GHCR PAT (out-of-band — never in Terraform state)
 
@@ -128,18 +126,18 @@ curl -i https://<apigateway-fqdn>/api/devices   # routed by YARP to DeviceManage
 ## Web dashboard (Azure Static Web Apps)
 
 The React dashboard (`web/`) is hosted on **Azure Static Web Apps (Free)**, giving
-a permanent `https://<name>.azurestaticapps.net` URL (issue #383). SWA is a
-separate unit from the ACA stack — it lives in `infra/terragrunt/dev/static-web-app`
-and is **pinned to West Europe** because the Free tier is not offered in
-northeurope.
+a permanent `https://<name>.azurestaticapps.net` URL (issue #383). The SWA unit
+lives inside the ACA group at `infra/terragrunt/dev/aca/static-web-app` (so it is
+applied and ordered with the rest of the stack) but is **pinned to West Europe**
+because the Free tier is not offered in northeurope.
 
 ```bash
-# Provision the Static Web App (one-time)
-terragrunt apply --working-dir ./static-web-app   # from infra/terragrunt/dev
+# Applied as part of `run --all ./aca`, or on its own:
+terragrunt apply --working-dir ./aca/static-web-app   # from infra/terragrunt/dev
 
 # Grab the hostname and deployment token
-terragrunt output --working-dir ./static-web-app default_host_name
-terragrunt output --raw --working-dir ./static-web-app api_key
+terragrunt output --working-dir ./aca/static-web-app default_host_name
+terragrunt output --raw --working-dir ./aca/static-web-app api_key
 ```
 
 ### Wire up CI deployment

@@ -1,5 +1,6 @@
 locals {
-  name = "${var.project}-swa-web-${var.environment}"
+  location_short = lookup({ westeurope = "weu", northeurope = "neu" }, var.location, "weu")
+  name           = "${var.project}-swa-web-${var.environment}-${local.location_short}"
 }
 
 # Azure Static Web Apps hosts the React dashboard (web/) on a permanent
