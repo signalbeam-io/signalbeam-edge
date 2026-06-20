@@ -42,10 +42,20 @@ builder.Services.AddAuthentication(options =>
 
     options.RequireHttpsMetadata = jwtConfig.GetValue<bool>("RequireHttpsMetadata", true);
 
+    // Validate the audience whenever one is configured. Zitadel access tokens
+    // only carry the project as an audience when the SPA requests the
+    // urn:zitadel:iam:org:project:id:<PROJECT_ID>:aud scope (the web app does this
+    // when VITE_ZITADEL_PROJECT_ID is set) and Audience is set to that project ID.
+    // Before the deployed Zitadel project is bootstrapped no audience is known, so
+    // validation stays off rather than rejecting every token; once Audience is
+    // configured it is enforced. This replaces the previously hardcoded
+    // ValidateAudience=false (flagged in .claude/rules/security.md).
+    var validateAudience = !string.IsNullOrWhiteSpace(audience);
+
     options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
     {
         ValidateIssuer = true,
-        ValidateAudience = false, // Disabled - Zitadel audience handling requires project:aud scope
+        ValidateAudience = validateAudience,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ClockSkew = TimeSpan.FromMinutes(5)
