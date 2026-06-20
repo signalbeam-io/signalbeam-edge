@@ -51,6 +51,13 @@ builder.Services.AddAuthentication(options =>
     // configured it is enforced. This replaces the previously hardcoded
     // ValidateAudience=false (flagged in .claude/rules/security.md).
     var validateAudience = !string.IsNullOrWhiteSpace(audience);
+    if (!validateAudience)
+    {
+        Console.WriteLine(
+            "[JWT] WARNING: Authentication:Jwt:Audience is not configured — audience validation is " +
+            "DISABLED (issuer, lifetime, and signature are still enforced). Set it to the Zitadel " +
+            "project ID to enable audience validation.");
+    }
 
     options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
     {

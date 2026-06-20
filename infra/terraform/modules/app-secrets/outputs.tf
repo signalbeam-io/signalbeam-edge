@@ -14,14 +14,16 @@ output "ghcr_pat_secret_id" {
 # Zitadel secrets. The master key and Postgres admin password are created by the
 # key-vault module; their versionless IDs are built from the vault URI so the
 # Zitadel container app can reference them without a cross-module data source.
+# trimsuffix guards against a missing/extra trailing slash on the vault URI — a
+# malformed ID would silently resolve to an empty env var at container runtime.
 output "zitadel_master_key_secret_id" {
   description = "Versionless Key Vault secret ID for the Zitadel master key"
-  value       = "${var.key_vault_uri}secrets/zitadel-master-key"
+  value       = "${trimsuffix(var.key_vault_uri, "/")}/secrets/zitadel-master-key"
 }
 
 output "postgres_admin_password_secret_id" {
   description = "Versionless Key Vault secret ID for the Postgres admin password (reused as Zitadel's DB password)"
-  value       = "${var.key_vault_uri}secrets/postgresql-admin-password"
+  value       = "${trimsuffix(var.key_vault_uri, "/")}/secrets/postgresql-admin-password"
 }
 
 output "zitadel_admin_password_secret_id" {

@@ -54,4 +54,11 @@ resource "azurerm_key_vault_secret" "zitadel_admin_password" {
   value        = random_password.zitadel_admin.result
   key_vault_id = var.key_vault_id
   tags         = var.tags
+
+  # Only ever seeds the first-instance admin. Once the operator rotates it in the
+  # Zitadel console, don't let a later apply overwrite it with a fresh random
+  # value (same guard as the GHCR PAT above).
+  lifecycle {
+    ignore_changes = [value]
+  }
 }

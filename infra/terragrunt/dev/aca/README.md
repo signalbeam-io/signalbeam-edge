@@ -194,6 +194,25 @@ az keyvault secret show --vault-name sb-kv-dev-neu --name zitadel-admin-password
 # Admin console: https://<zitadel-fqdn>  (user: admin, pw: the secret above)
 ```
 
+### Prerequisite — grant DB ownership (run once, before Zitadel first boots)
+
+Terraform pre-creates the `zitadel` database, so it is **not** owned by `pgadmin`
+(the server admin). Zitadel's `start-from-init` runs DDL (CREATE SCHEMA/ROLE/GRANT)
+and needs ownership, or it crash-loops on first boot. Grant it once, out-of-band
+(same pattern as running EF migrations — from a VNet-connected host or with your IP
+temporarily allowed):
+
+```bash
+PGPASSWORD=$(az keyvault secret show --vault-name sb-kv-dev-neu \
+  --name postgresql-admin-password --query value -o tsv) \
+psql "host=sb-psql-dev-neu.postgres.database.azure.com user=pgadmin dbname=postgres sslmode=require" \
+  -c 'ALTER DATABASE zitadel OWNER TO pgadmin;' \
+  -c 'GRANT ALL PRIVILEGES ON DATABASE zitadel TO pgadmin;'
+```
+
+Then start (or restart) the `zitadel` app so `start-from-init` runs against the
+now-owned database.
+
 ### One-time bootstrap (project + SPA client)
 
 `start-from-init` + the `ZITADEL_FIRSTINSTANCE_*` env vars create the instance and
@@ -207,9 +226,14 @@ ZITADEL_PAT=<pat-from-console> \
 WEB_BASE_URL=https://<swa-host> \
 OIDC_AUTHORITY=https://<zitadel-fqdn> \
 BACKEND_REQUIRE_HTTPS=true \
+CONFIG_OUTPUT_PATH=./zitadel-config.json \
 dotnet run --project src/SignalBeam.ZitadelSetup
 # prints Project ID and Client ID; registers the SWA redirect URIs on the SPA app
 ```
+
+`CONFIG_OUTPUT_PATH` is overridden because the default (`/app/config/...`) only
+exists inside the Aspire container. If you wire this into CI, set `ZITADEL_PAT` as
+a **secret**, never a plain variable.
 
 (Or create the project/app manually in the console — see `docs/zitadel-setup.md`.)
 
