@@ -115,6 +115,12 @@ variable "readiness_probe_path" {
   default     = ""
 }
 
+variable "tcp_probe_port" {
+  description = "Container TCP port for startup + readiness probes (0 = disabled). Set to the NATS client port so ACA confirms the TCP port accepts connections and opens the internal TCP ingress listener; without a TCP-port readiness signal the internal LB may never route the TCP port."
+  type        = number
+  default     = 0
+}
+
 # --- Environment & secrets ---
 
 variable "env_vars" {
