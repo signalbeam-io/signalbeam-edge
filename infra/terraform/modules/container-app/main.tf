@@ -112,6 +112,27 @@ resource "azurerm_container_app" "this" {
           interval_seconds = 15
         }
       }
+
+      # TCP startup + readiness probes for TCP-ingress apps (NATS). ACA only
+      # opens the internal TCP ingress listener once it confirms the port
+      # accepts connections; an HTTP liveness probe on a different port (8222)
+      # is not enough to mark the TCP client port (4222) ready for routing.
+      dynamic "startup_probe" {
+        for_each = var.tcp_probe_port > 0 ? [1] : []
+        content {
+          transport = "TCP"
+          port      = var.tcp_probe_port
+        }
+      }
+
+      dynamic "readiness_probe" {
+        for_each = var.tcp_probe_port > 0 ? [1] : []
+        content {
+          transport        = "TCP"
+          port             = var.tcp_probe_port
+          interval_seconds = 10
+        }
+      }
     }
   }
 

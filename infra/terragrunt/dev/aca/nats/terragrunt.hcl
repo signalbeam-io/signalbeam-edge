@@ -54,8 +54,11 @@ inputs = {
   managed_identity_id          = dependency.managed_identity.outputs.id
 
   # Public upstream image — no private registry credentials needed.
-  image   = "nats:2.10-alpine"
-  command = ["nats-server", "--jetstream", "--store_dir=/data", "--http_port=8222"]
+  image = "nats:2.10-alpine"
+  # --no_advertise stops NATS from gossiping its internal pod IP to clients in
+  # the INFO handshake; behind the ACA Envoy TCP proxy that advertised IP is
+  # unreachable, which can break NATS .NET client connections.
+  command = ["nats-server", "--jetstream", "--store_dir=/data", "--http_port=8222", "--no_advertise"]
 
   # The one always-on service: persistent JetStream, cannot scale to zero.
   min_replicas = 1
@@ -71,6 +74,11 @@ inputs = {
   # NATS monitoring endpoint (/healthz on 8222) to catch a hung JetStream.
   liveness_probe_path = "/healthz"
   liveness_probe_port = 8222
+
+  # TCP startup + readiness probes on the client port so ACA confirms 4222 is
+  # accepting and opens the internal TCP ingress listener (otherwise app-to-app
+  # connections to nats://...:4222 time out even though NATS is healthy).
+  tcp_probe_port = 4222
 
   # JetStream persistence on the Azure Files share registered with the environment.
   volumes = [

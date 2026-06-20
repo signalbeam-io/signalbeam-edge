@@ -17,6 +17,14 @@ builder.Host.UseSerilog((context, configuration) =>
 // Add Aspire ServiceDefaults (OpenTelemetry, Service Discovery, Health Checks)
 builder.AddServiceDefaults();
 
+// A broker outage must not take down the whole service. The NATS background
+// services (consumer + SSE bridge) throw a fatal exception when NATS is
+// unreachable; with the default StopHost behavior that crashes the host and the
+// container crash-loops. Ignore lets the host stay up (serving HTTP + health)
+// while NATS-dependent features degrade until connectivity is restored.
+builder.Services.Configure<HostOptions>(options =>
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
+
 // Add TelemetryProcessor Infrastructure (DbContext, NATS, Repositories, Message Handlers)
 builder.Services.AddTelemetryProcessorInfrastructure(builder.Configuration);
 
