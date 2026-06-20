@@ -3,6 +3,11 @@ variable "key_vault_id" {
   type        = string
 }
 
+variable "key_vault_uri" {
+  description = "Key Vault URI, used to build versionless secret IDs for secrets owned by the key-vault module (the Zitadel master key and Postgres admin password)"
+  type        = string
+}
+
 variable "postgres_fqdn" {
   description = "Postgres Flexible Server FQDN"
   type        = string

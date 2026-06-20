@@ -32,6 +32,7 @@ dependency "postgresql" {
 
 inputs = {
   key_vault_id           = dependency.key_vault.outputs.id
+  key_vault_uri          = dependency.key_vault.outputs.vault_uri
   postgres_fqdn          = dependency.postgresql.outputs.fqdn
   administrator_password = dependency.key_vault.outputs.postgresql_admin_password
 }

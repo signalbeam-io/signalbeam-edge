@@ -85,5 +85,17 @@ inputs = {
   env_vars = {
     "ASPNETCORE_HTTP_PORTS" = "8080"
     "NATS__Url"             = "nats://${local.env.project}-ca-nats-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}:4222"
+
+    # OIDC issuer = the deployed Zitadel external FQDN (must match the token issuer
+    # so ValidateIssuer passes). HTTPS metadata is required in the deployed env.
+    "Authentication__Jwt__Authority"            = "https://${local.env.project}-ca-zitadel-${local.env.environment}.${dependency.environment.outputs.default_domain}"
+    "Authentication__Jwt__RequireHttpsMetadata" = "true"
+
+    # Authentication__Jwt__Audience is intentionally NOT set here: the audience is
+    # the Zitadel project ID, which only exists after the one-time bootstrap
+    # (see aca/README.md). Set it out-of-band once known to enable audience
+    # validation:
+    #   az containerapp update -n <identitymanager-app> -g <rg> \
+    #     --set-env-vars Authentication__Jwt__Audience=<project-id>
   }
 }
