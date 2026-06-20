@@ -70,6 +70,22 @@ it is set out-of-band (below) and never touches state.
    (`apigateway`, `devicemanager`, `bundleorchestrator`, `telemetryprocessor`,
    `identitymanager`).
 5. A GitHub PAT with `read:packages` for pulling private GHCR images.
+6. **Allowlist your IP on the Key Vault firewall.** The vault (`sb-kv-dev-neu`) is
+   `Deny`-by-default with `bypass = AzureServices`, so the Azure CLI is *not* a
+   trusted caller — applying the `key-vault`/`secrets` units from your machine
+   fails with `403 ForbiddenByFirewall` until your public IP is allowed:
+
+   ```bash
+   # the 403 error prints your "Client address" — use that IP
+   az keyvault network-rule add --name sb-kv-dev-neu --ip-address <your-ip>
+   az keyvault network-rule list --name sb-kv-dev-neu -o jsonc   # verify (~30–60s to propagate)
+   ```
+
+   The KV module has `ignore_changes` on `ip_rules`, so this manual rule persists
+   and a later `apply` won't revert it. Re-add if your ISP IP changes. The runtime
+   path is unaffected (container apps reach KV via managed identity, not your IP).
+   **Don't Ctrl-C a terragrunt run** mid-apply on this stack — it can orphan the
+   state lock.
 
 ## Deploy
 

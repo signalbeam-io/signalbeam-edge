@@ -5,14 +5,8 @@ include "root" {
 locals {
   env  = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals
   name = "${local.env.project}-ca-zitadel-${local.env.environment}"
-
-  # ACA assigns an external app the FQDN "<name>.<env-default-domain>" (internal
-  # apps get "<name>.internal.<...>"). This is predictable before the app exists,
-  # so we can set Zitadel's EXTERNALDOMAIN without a self-referential output —
-  # which matters because Zitadel bakes this host into issuer/discovery URLs and
-  # it MUST equal the host the browser uses, or OIDC discovery + JWT issuer
-  # validation break.
-  external_domain = "${local.name}.${dependency.environment.outputs.default_domain}"
+  # The external FQDN is computed inline in env_vars below — a locals block can
+  # only reference other locals, not dependency outputs.
 }
 
 terraform {
@@ -143,8 +137,12 @@ inputs = {
     "ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE" = "require"
 
     # --- External addressing (issuer/discovery host) ---
+    # ACA assigns an external app the FQDN "<name>.<env-default-domain>" (internal
+    # apps get "<name>.internal.<...>"), predictable before the app exists — so
+    # EXTERNALDOMAIN is set without a self-referential output. It MUST equal the
+    # browser-facing host or OIDC discovery + JWT issuer validation break.
     "ZITADEL_EXTERNALSECURE" = "true"
-    "ZITADEL_EXTERNALDOMAIN" = local.external_domain
+    "ZITADEL_EXTERNALDOMAIN" = "${local.name}.${dependency.environment.outputs.default_domain}"
     "ZITADEL_EXTERNALPORT"   = "443"
 
     # --- First-instance bootstrap: human admin (login works on first boot) ---
