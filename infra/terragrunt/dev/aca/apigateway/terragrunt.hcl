@@ -57,6 +57,16 @@ dependency "secrets" {
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
 
+# The Static Web Apps dashboard origin is allow-listed for CORS on the gateway.
+dependency "static_web_app" {
+  config_path = "../../static-web-app"
+
+  mock_outputs = {
+    default_host_name = "mock-swa.azurestaticapps.net"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
 inputs = {
   name                         = local.name
   resource_group_name          = dependency.resource_group.outputs.name
@@ -82,6 +92,9 @@ inputs = {
   # internal ingress over HTTPS on 443 with a valid cert for *.internal.<domain>.
   env_vars = {
     "ASPNETCORE_HTTP_PORTS" = "8080"
+
+    # Allow the deployed Static Web Apps dashboard origin through CORS.
+    "Cors__AllowedOrigins__0" = "https://${dependency.static_web_app.outputs.default_host_name}"
 
     "ReverseProxy__Clusters__device-manager__Destinations__destination1__Address"      = "https://${local.env.project}-ca-devicemanager-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
     "ReverseProxy__Clusters__bundle-orchestrator__Destinations__destination1__Address" = "https://${local.env.project}-ca-bundleorchestrator-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
