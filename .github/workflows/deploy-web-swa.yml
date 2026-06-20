@@ -1,0 +1,75 @@
+name: Deploy Web (Static Web Apps)
+
+# Builds and deploys the React dashboard (web/) to Azure Static Web Apps (Free).
+# This is separate from build-web.yml, which still builds the GHCR Docker image
+# used by the Helm/k8s hosting path. SWA does not consume that image — it builds
+# the Vite app via Oryx and serves the static output.
+#
+# Prerequisites (see infra/terragrunt/dev/aca/README.md):
+#   - Provision the SWA: `terragrunt apply --working-dir infra/terragrunt/dev/static-web-app`
+#   - Secret  AZURE_STATIC_WEB_APPS_API_TOKEN  = the module's `api_key` output
+#   - Repo variables (Settings → Secrets and variables → Actions → Variables):
+#       VITE_API_URL             = https://<apigateway-host>   (the ACA gateway)
+#       VITE_AUTH_MODE           = zitadel
+#       VITE_ZITADEL_AUTHORITY   = https://<zitadel-instance>
+#       VITE_ZITADEL_CLIENT_ID   = <spa client id>
+#       VITE_ZITADEL_PROJECT_ID  = <project id>
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-web-swa.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write # SWA posts preview-environment URLs as PR comments
+
+jobs:
+  build-and-deploy:
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    name: Build and Deploy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+
+      - name: Build and Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: 'web'
+          output_location: 'dist'
+        env:
+          # Baked into the bundle at build time by Vite. Configure as repo variables.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_AUTH_MODE: ${{ vars.VITE_AUTH_MODE }}
+          VITE_ZITADEL_AUTHORITY: ${{ vars.VITE_ZITADEL_AUTHORITY }}
+          VITE_ZITADEL_CLIENT_ID: ${{ vars.VITE_ZITADEL_CLIENT_ID }}
+          VITE_ZITADEL_PROJECT_ID: ${{ vars.VITE_ZITADEL_PROJECT_ID }}
+
+  close-pr-preview:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close PR Preview
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+
+      - name: Close preview environment
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: close
