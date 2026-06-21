@@ -36,7 +36,13 @@ variable "memory" {
 }
 
 variable "command" {
-  description = "Container entrypoint/command override (e.g. NATS JetStream flags); empty uses the image default"
+  description = "Container entrypoint/command override (replaces the image ENTRYPOINT, e.g. NATS JetStream flags); empty uses the image default"
+  type        = list(string)
+  default     = []
+}
+
+variable "args" {
+  description = "Container args appended to the image ENTRYPOINT (like Docker CMD). Use this — not command — when the entrypoint is a binary and you pass a subcommand (e.g. Zitadel's `start-from-init`); empty uses the image default"
   type        = list(string)
   default     = []
 }

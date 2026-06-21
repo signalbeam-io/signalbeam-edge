@@ -87,7 +87,12 @@ inputs = {
   # start-from-init runs DB setup/migrations then starts, in one idempotent
   # process. TLS is terminated by the ACA Envoy ingress, so Zitadel serves plain
   # HTTP (h2c) internally.
-  command = ["start-from-init", "--tlsMode", "disabled"]
+  #
+  # These are ARGS, not command: the image ENTRYPOINT is the /app/zitadel binary
+  # and "start-from-init" is a subcommand of it. Using `command` would override
+  # the entrypoint and try to exec "start-from-init" as a standalone executable
+  # (which fails: "executable file not found in $PATH").
+  args = ["start-from-init", "--tlsMode", "disabled"]
 
   # Zitadel is stateful at startup and behaves poorly with scale-to-zero cold
   # starts (it must stay reachable for token/JWKS validation by other services).
