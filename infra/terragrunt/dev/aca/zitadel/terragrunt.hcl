@@ -113,12 +113,20 @@ inputs = {
   transport        = "http2"
   target_port      = 8080
 
-  # Readiness-only on purpose: Zitadel's first-run migrations can take 1–2 min,
-  # which exceeds the module's fixed liveness initial_delay and would restart-loop
-  # the container. A failing readiness probe only withholds traffic (no restart),
-  # which is exactly the right behaviour during init. /debug/ready is Zitadel's
-  # readiness endpoint (the setup scripts poll it).
-  readiness_probe_path = "/debug/ready"
+  # NO probes on purpose. start-from-init runs DB migrations BEFORE the HTTP
+  # server starts, so /debug/ready stays down for ~1–2 min on first boot. With a
+  # readiness probe, ACA never marks the new revision "ready", so in single
+  # revision mode it never retires the OLD revision — every redeploy then leaves
+  # another Zitadel replica running, and multiple replicas racing start-from-init
+  # deadlock on the 03_default_instance migration ("migration already started").
+  # Dropping the probe lets a new revision go active immediately and the old one
+  # retire, so exactly one Zitadel runs the migration. (No liveness either — the
+  # process doesn't self-exit, and we don't want restarts mid-migration.)
+  #
+  # NOTE: the proper long-term fix is to split init into a one-shot `zitadel
+  # setup` Job and run `zitadel start` (no migrations) as the service, so
+  # overlapping replicas during a rollout can never race the migration.
+  readiness_probe_path = ""
 
   kv_secrets = [
     { name = "zitadel-master-key", key_vault_secret_id = dependency.secrets.outputs.zitadel_master_key_secret_id },
