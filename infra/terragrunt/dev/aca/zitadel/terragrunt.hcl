@@ -92,7 +92,11 @@ inputs = {
   # and "start-from-init" is a subcommand of it. Using `command` would override
   # the entrypoint and try to exec "start-from-init" as a standalone executable
   # (which fails: "executable file not found in $PATH").
-  args = ["start-from-init", "--tlsMode", "disabled"]
+  #
+  # --masterkeyFromEnv tells Zitadel to read the master key from the
+  # ZITADEL_MASTERKEY env var (wired below as a KV secret). Without this flag it
+  # only checks --masterkey/--masterkeyFile and panics "No master key provided".
+  args = ["start-from-init", "--masterkeyFromEnv", "--tlsMode", "disabled"]
 
   # Zitadel is stateful at startup and behaves poorly with scale-to-zero cold
   # starts (it must stay reachable for token/JWKS validation by other services).
@@ -123,7 +127,8 @@ inputs = {
   ]
 
   # Secret-sourced env vars. Master key is passed via env (not the --masterkey
-  # arg) to avoid shell-quoting issues with special characters.
+  # arg) to avoid shell-quoting issues with special characters — requires the
+  # --masterkeyFromEnv flag in args above for Zitadel to actually read it.
   secret_env_vars = {
     "ZITADEL_MASTERKEY"                        = "zitadel-master-key"
     "ZITADEL_DATABASE_POSTGRES_USER_PASSWORD"  = "zitadel-db-password"
