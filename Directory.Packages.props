@@ -107,7 +107,7 @@
     <PackageVersion Include="Aspire.Hosting.Redis" Version="13.2.1" />
     <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.2.1" />
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.2.1" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.4.6" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.2.1" />
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.2.1" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
