@@ -34,7 +34,7 @@
     <PackageVersion Include="NATS.Client.JetStream" Version="2.7.2" />
     <PackageVersion Include="StackExchange.Redis" Version="2.11.0" />
     <PackageVersion Include="Azure.Identity" Version="1.18.0" />
-    <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.8.0" />
+    <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.11.0" />
   </ItemGroup>
   <ItemGroup Label="Container Management">
     <!-- Docker.DotNet.Enhanced is the maintained fork Testcontainers 4.11 depends on.
