@@ -4,7 +4,7 @@ include "root" {
 
 locals {
   env  = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals
-  name = "${local.env.project}-caj-zitadel-setup-${local.env.environment}"
+  name = "${local.env.project}-caj-zitadel-init-${local.env.environment}"
 }
 
 terraform {
@@ -72,20 +72,6 @@ dependency "secrets" {
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
 
-# Init job. Declaring it orders the `run --all` DAG so the eventstore-creating
-# `zitadel init` job is created before this setup job. init must also be EXECUTED
-# to completion before setup is run (see this unit's args comment) — `setup`
-# fails with "relation eventstore.events does not exist" otherwise.
-dependency "zitadel_init" {
-  config_path = "../zitadel-init"
-
-  mock_outputs = {
-    id   = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.App/jobs/mock-caj-init"
-    name = "mock-caj-zitadel-init"
-  }
-  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
-}
-
 inputs = {
   name                         = local.name
   location                     = local.env.location
@@ -93,35 +79,32 @@ inputs = {
   container_app_environment_id = dependency.environment.outputs.id
   managed_identity_id          = dependency.managed_identity.outputs.id
 
-  # Same pinned image as the zitadel service so the schema the job builds matches
-  # exactly what `zitadel start` expects.
+  # Same pinned image as the setup job + service.
   image = "ghcr.io/zitadel/zitadel:v2.66.3"
 
-  # `setup` runs DB migrations AND creates the first instance, then exits. It
-  # REQUIRES the `zitadel-init` job to have run first (init creates the eventstore
-  # schema + base tables setup migrates); without it setup dies with "relation
-  # eventstore.events does not exist". This is the ONLY place migrations run — the
-  # zitadel service runs `start` with no migrations, so overlapping service
-  # revisions during a rollout can never race the 03_default_instance migration.
-  # Bootstrap order: run zitadel-init to completion, then run this job, then
-  # (re)start the service. It is idempotent — re-running on a migrated DB is a
-  # no-op. --masterkeyFromEnv reads the 32-char master key from ZITADEL_MASTERKEY.
-  args = ["setup", "--masterkeyFromEnv"]
+  # `init` creates the eventstore schema, the base `eventstore.events`/`events2`
+  # tables, and the application DB role — the foundation that `zitadel setup`
+  # (migrations) and `zitadel start` both REQUIRE. Zitadel's own commands are
+  # layered: init -> setup -> start (the old `start-from-init` did all three in
+  # one process). Because the image is distroless, the three phases can't be
+  # chained in one container, so init is its own one-shot job that must run to
+  # completion BEFORE the setup job:
+  #   az containerapp job start --name <this job> -g <rg>   # wait for Succeeded
+  # It is idempotent — re-running against an initialized DB is a no-op.
+  args = ["init"]
 
   cpu    = 0.5
   memory = "1.0Gi"
 
+  # init connects as the Postgres admin to create the schema + the application
+  # role (whose password it sets from the user secret).
   kv_secrets = [
-    { name = "zitadel-master-key", key_vault_secret_id = dependency.secrets.outputs.zitadel_master_key_secret_id },
     { name = "zitadel-db-password", key_vault_secret_id = dependency.secrets.outputs.postgres_admin_password_secret_id },
-    { name = "zitadel-admin-password", key_vault_secret_id = dependency.secrets.outputs.zitadel_admin_password_secret_id },
   ]
 
   secret_env_vars = {
-    "ZITADEL_MASTERKEY"                        = "zitadel-master-key"
     "ZITADEL_DATABASE_POSTGRES_USER_PASSWORD"  = "zitadel-db-password"
     "ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD" = "zitadel-db-password"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD" = "zitadel-admin-password"
   }
 
   env_vars = {
@@ -133,28 +116,5 @@ inputs = {
     "ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE"  = "require"
     "ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME" = "pgadmin"
     "ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE" = "require"
-
-    # --- External addressing — must match the service so the issuer the first
-    # instance is created with equals the browser-facing host. ---
-    "ZITADEL_EXTERNALSECURE" = "true"
-    "ZITADEL_EXTERNALDOMAIN" = "${local.env.project}-ca-zitadel-${local.env.environment}.${dependency.environment.outputs.default_domain}"
-    "ZITADEL_EXTERNALPORT"   = "443"
-
-    # --- Machine ID (sonyflake) identification ---
-    # `setup` also generates sonyflake IDs (first instance/org/user), so it hits
-    # the same machine-ID panic as the service on ACA. Use hostname identification
-    # and disable the Private-IP + GCP-webhook methods that fail here. Must match
-    # the service's setting (see the zitadel unit for the full rationale).
-    "ZITADEL_MACHINE_IDENTIFICATION_HOSTNAME_ENABLED"  = "true"
-    "ZITADEL_MACHINE_IDENTIFICATION_PRIVATEIP_ENABLED" = "false"
-    "ZITADEL_MACHINE_IDENTIFICATION_WEBHOOK_ENABLED"   = "false"
-
-    # --- First-instance bootstrap: human admin (created during setup) ---
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME"               = "admin"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED" = "false"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS"          = "admin@signalbeam.local"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_VERIFIED"         = "true"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME"              = "SignalBeam"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME"               = "Admin"
   }
 }

@@ -164,5 +164,16 @@ inputs = {
     "ZITADEL_EXTERNALSECURE" = "true"
     "ZITADEL_EXTERNALDOMAIN" = "${local.name}.${dependency.environment.outputs.default_domain}"
     "ZITADEL_EXTERNALPORT"   = "443"
+
+    # --- Machine ID (sonyflake) identification ---
+    # Zitadel derives a per-machine sonyflake ID at startup. Its defaults
+    # (Private IP + GCP-metadata webhook) BOTH fail on ACA — the container has no
+    # private IP Zitadel can read and there's no GCP metadata server — so it
+    # panics: "none of the enabled methods for identifying the machine
+    # succeeded". ACA gives each replica a unique hostname (like a K8s pod), so
+    # switch to hostname identification and disable the two failing methods.
+    "ZITADEL_MACHINE_IDENTIFICATION_HOSTNAME_ENABLED"  = "true"
+    "ZITADEL_MACHINE_IDENTIFICATION_PRIVATEIP_ENABLED" = "false"
+    "ZITADEL_MACHINE_IDENTIFICATION_WEBHOOK_ENABLED"   = "false"
   }
 }
