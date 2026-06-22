@@ -29,7 +29,7 @@
     <PackageVersion Include="Dapper" Version="2.1.66" />
   </ItemGroup>
   <ItemGroup Label="Cloud-Native Integrations">
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.26.0" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.0" />
     <PackageVersion Include="NATS.Client.Core" Version="2.7.2" />
     <PackageVersion Include="NATS.Client.JetStream" Version="2.7.2" />
     <PackageVersion Include="StackExchange.Redis" Version="2.11.0" />
