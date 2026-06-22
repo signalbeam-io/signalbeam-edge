@@ -17,7 +17,8 @@ a public HTTPS endpoint the EdgeAgent can reach via `--cloud-url`.
 | `bundleorchestrator` | BundleOrchestrator | internal HTTPS | 0→1 | scale-to-zero |
 | `telemetryprocessor` | TelemetryProcessor | internal HTTPS | 0→1 | scale-to-zero |
 | `identitymanager` | IdentityManager | internal HTTPS | 0→1 | scale-to-zero |
-| `zitadel` | Zitadel OIDC provider | **external HTTPS** | **1** (always-on) | OIDC for the dashboard + IdentityManager; reuses the shared Postgres (#389) |
+| `zitadel-setup` | Zitadel migrations + first-instance bootstrap (Container App **Job**) | — | one-shot | Runs `zitadel setup` to completion; keeps migrations out of the service |
+| `zitadel` | Zitadel OIDC provider | **external HTTPS** | **1** (always-on) | Runs `zitadel start` (no migrations); OIDC for the dashboard + IdentityManager; reuses the shared Postgres (#389) |
 
 **Omitted for the lean dogfood:** Valkey (confirmed unused — caching is in-process
 `IMemoryCache`), ACR (images come from private GHCR). See issue #375 for the full
@@ -203,6 +204,15 @@ services talk to Zitadel **directly** at its own FQDN — not through the gatewa
 which avoids proxying Zitadel's gRPC APIs through YARP. `ZITADEL_EXTERNALDOMAIN` is
 set to that FQDN so issuer/discovery URLs match what the browser uses.
 
+**Migrations are split into a one-shot job.** The `zitadel-setup` Container App
+Job runs `zitadel setup` (schema/migrations + first instance) to completion, and
+the `zitadel` service runs `zitadel start` with **no** migrations. This is the fix
+for the `start-from-init` migration-race deadlock: because the service no longer
+migrates, overlapping replicas during an ACA rolling revision can never race the
+`03_default_instance` migration — so the service keeps a normal readiness probe
+and the old revision retires cleanly. The setup job (`parallelism = 1`) is
+idempotent, so re-running it on an up-to-date DB is a no-op.
+
 ```bash
 # FQDN + first-instance admin password
 terragrunt output --working-dir ./aca/zitadel fqdn
@@ -210,13 +220,13 @@ az keyvault secret show --vault-name sb-kv-dev-neu --name zitadel-admin-password
 # Admin console: https://<zitadel-fqdn>  (user: admin, pw: the secret above)
 ```
 
-### Prerequisite — grant DB ownership (run once, before Zitadel first boots)
+### Prerequisite — grant DB ownership (run once, before the setup job runs)
 
 Terraform pre-creates the `zitadel` database, so it is **not** owned by `pgadmin`
-(the server admin). Zitadel's `start-from-init` runs DDL (CREATE SCHEMA/ROLE/GRANT)
-and needs ownership, or it crash-loops on first boot. Grant it once, out-of-band
-(same pattern as running EF migrations — from a VNet-connected host or with your IP
-temporarily allowed):
+(the server admin). The `zitadel setup` job runs DDL (CREATE SCHEMA/ROLE/GRANT)
+and needs ownership, or it fails. Grant it once, out-of-band (same pattern as
+running EF migrations — from a VNet-connected host or with your IP temporarily
+allowed):
 
 ```bash
 PGPASSWORD=$(az keyvault secret show --vault-name sb-kv-dev-neu \
@@ -226,13 +236,34 @@ psql "host=sb-psql-dev-neu.postgres.database.azure.com user=pgadmin dbname=postg
   -c 'GRANT ALL PRIVILEGES ON DATABASE zitadel TO pgadmin;'
 ```
 
-Then start (or restart) the `zitadel` app so `start-from-init` runs against the
-now-owned database.
+### Deploy order — run the setup job, then the service
+
+`terragrunt run --all apply` creates both the job and the service (the `zitadel`
+unit depends on `zitadel-setup`, so the job is created first). The job is
+**manually triggered**, so after apply, run it to completion before the service
+can serve, then restart the service to pick up the migrated schema:
+
+```bash
+RG=$(terragrunt output --working-dir ./aca/resource-group name | tr -d '"')
+JOB=$(terragrunt output --working-dir ./aca/zitadel-setup name | tr -d '"')
+
+# Run migrations + create the first instance, and wait for it to finish
+az containerapp job start --name "$JOB" -g "$RG"
+az containerapp job execution list --name "$JOB" -g "$RG" \
+  --query "[0].properties.status" -o tsv   # → "Succeeded"
+
+# Then (re)start the service so `zitadel start` runs against the migrated DB
+az containerapp revision restart --name sb-ca-zitadel-dev -g "$RG" \
+  --revision "$(az containerapp show -n sb-ca-zitadel-dev -g "$RG" --query properties.latestRevisionName -o tsv)"
+```
+
+Re-run the job before any future Zitadel image upgrade that ships new migrations;
+it is idempotent on an already-migrated DB.
 
 ### One-time bootstrap (project + SPA client)
 
-`start-from-init` + the `ZITADEL_FIRSTINSTANCE_*` env vars create the instance and
-admin on first boot, but the **SignalBeam project + OIDC SPA app** must be created
+The `zitadel setup` job + the `ZITADEL_FIRSTINSTANCE_*` env vars create the
+instance and admin, but the **SignalBeam project + OIDC SPA app** must be created
 once. Use the `SignalBeam.ZitadelSetup` tool (now parameterised for the deployed
 host) — create a service user + PAT in the Zitadel console first, then:
 
