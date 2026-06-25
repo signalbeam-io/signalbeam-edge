@@ -411,6 +411,8 @@ AGENTS.md
 infra/terragrunt/**/.terragrunt-cache/
 infra/terragrunt/**/.terragrunt*
 infra/terragrunt/**/.terraform*
+# Provider binaries/locks from running `terraform init` directly in a module dir (e.g. validation)
+infra/terraform/modules/**/.terraform*
 # env.hcl holds the Azure subscription id — copy from env.hcl.example (kept local)
 infra/terragrunt/**/env.hcl
 .zitadel/

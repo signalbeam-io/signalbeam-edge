@@ -62,6 +62,7 @@ resource "azurerm_container_app" "this" {
       memory = var.memory
       # Use null (not []) when unset so the image's own entrypoint/CMD is preserved.
       command = length(var.command) > 0 ? var.command : null
+      args    = length(var.args) > 0 ? var.args : null
 
       # Plain environment variables
       dynamic "env" {

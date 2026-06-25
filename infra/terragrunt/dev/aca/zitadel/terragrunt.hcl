@@ -5,14 +5,8 @@ include "root" {
 locals {
   env  = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals
   name = "${local.env.project}-ca-zitadel-${local.env.environment}"
-
-  # ACA assigns an external app the FQDN "<name>.<env-default-domain>" (internal
-  # apps get "<name>.internal.<...>"). This is predictable before the app exists,
-  # so we can set Zitadel's EXTERNALDOMAIN without a self-referential output —
-  # which matters because Zitadel bakes this host into issuer/discovery URLs and
-  # it MUST equal the host the browser uses, or OIDC discovery + JWT issuer
-  # validation break.
-  external_domain = "${local.name}.${dependency.environment.outputs.default_domain}"
+  # The external FQDN is computed inline in env_vars below — a locals block can
+  # only reference other locals, not dependency outputs.
 }
 
 terraform {
@@ -80,6 +74,20 @@ dependency "secrets" {
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
 
+# Migration/bootstrap job. Declaring it here orders the `terragrunt run --all`
+# DAG so the schema-building `zitadel setup` job is created before this service.
+# The job still has to be EXECUTED (`az containerapp job start`) and finish
+# before this service can serve — see this unit's args comment.
+dependency "zitadel_setup" {
+  config_path = "../zitadel-setup"
+
+  mock_outputs = {
+    id   = "/subscriptions/00000000/resourceGroups/mock-rg/providers/Microsoft.App/jobs/mock-caj"
+    name = "mock-caj-zitadel-setup"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
 inputs = {
   name                         = local.name
   resource_group_name          = dependency.resource_group.outputs.name
@@ -90,10 +98,16 @@ inputs = {
   # version used by the Aspire AppHost for local dev, so behaviour is reproducible.
   image = "ghcr.io/zitadel/zitadel:v2.66.3"
 
-  # start-from-init runs DB setup/migrations then starts, in one idempotent
-  # process. TLS is terminated by the ACA Envoy ingress, so Zitadel serves plain
-  # HTTP (h2c) internally.
-  command = ["start-from-init", "--tlsMode", "disabled"]
+  # `start` ONLY runs the long-running HTTP server — it does NOT run migrations.
+  # All schema/migration + first-instance work is done by the separate
+  # `zitadel-setup` Container App Job (args = ["setup"]), which must finish before
+  # this service is deployed/restarted. Because the service no longer migrates,
+  # overlapping replicas during an ACA rolling revision can never race the
+  # 03_default_instance migration — which is the deadlock the combined
+  # `start-from-init` used to cause. TLS is terminated by the ACA Envoy ingress,
+  # so Zitadel serves plain HTTP (h2c) internally (--tlsMode disabled).
+  # --masterkeyFromEnv reads the 32-char master key from the ZITADEL_MASTERKEY env var.
+  args = ["start", "--masterkeyFromEnv", "--tlsMode", "disabled"]
 
   # Zitadel is stateful at startup and behaves poorly with scale-to-zero cold
   # starts (it must stay reachable for token/JWKS validation by other services).
@@ -110,49 +124,56 @@ inputs = {
   transport        = "http2"
   target_port      = 8080
 
-  # Readiness-only on purpose: Zitadel's first-run migrations can take 1–2 min,
-  # which exceeds the module's fixed liveness initial_delay and would restart-loop
-  # the container. A failing readiness probe only withholds traffic (no restart),
-  # which is exactly the right behaviour during init. /debug/ready is Zitadel's
-  # readiness endpoint (the setup scripts poll it).
+  # With migrations moved to the `zitadel-setup` job, `start` brings the HTTP
+  # server up quickly (no multi-minute migration before /debug/ready), so a
+  # readiness probe is safe again: the new revision reports ready within the
+  # normal window and the old one retires cleanly. This also lets ACA route
+  # traffic only once Zitadel can actually serve token/JWKS validation.
   readiness_probe_path = "/debug/ready"
 
+  # `start` connects as the application (user) role only — DB/role creation and
+  # the admin connection live in the setup job, so no admin password here.
   kv_secrets = [
     { name = "zitadel-master-key", key_vault_secret_id = dependency.secrets.outputs.zitadel_master_key_secret_id },
     { name = "zitadel-db-password", key_vault_secret_id = dependency.secrets.outputs.postgres_admin_password_secret_id },
-    { name = "zitadel-admin-password", key_vault_secret_id = dependency.secrets.outputs.zitadel_admin_password_secret_id },
   ]
 
   # Secret-sourced env vars. Master key is passed via env (not the --masterkey
-  # arg) to avoid shell-quoting issues with special characters.
+  # arg) to avoid shell-quoting issues with special characters — requires the
+  # --masterkeyFromEnv flag in args above for Zitadel to actually read it.
   secret_env_vars = {
-    "ZITADEL_MASTERKEY"                        = "zitadel-master-key"
-    "ZITADEL_DATABASE_POSTGRES_USER_PASSWORD"  = "zitadel-db-password"
-    "ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD" = "zitadel-db-password"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD" = "zitadel-admin-password"
+    "ZITADEL_MASTERKEY"                       = "zitadel-master-key"
+    "ZITADEL_DATABASE_POSTGRES_USER_PASSWORD" = "zitadel-db-password"
   }
 
   env_vars = {
     # --- Database (shared Postgres Flexible Server, dedicated `zitadel` DB) ---
-    "ZITADEL_DATABASE_POSTGRES_HOST"           = dependency.postgresql.outputs.fqdn
-    "ZITADEL_DATABASE_POSTGRES_PORT"           = "5432"
-    "ZITADEL_DATABASE_POSTGRES_DATABASE"       = "zitadel"
-    "ZITADEL_DATABASE_POSTGRES_USER_USERNAME"  = "pgadmin"
-    "ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE"  = "require"
-    "ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME" = "pgadmin"
-    "ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE" = "require"
+    # User (application) connection only — admin connection is used by the setup job.
+    "ZITADEL_DATABASE_POSTGRES_HOST"          = dependency.postgresql.outputs.fqdn
+    "ZITADEL_DATABASE_POSTGRES_PORT"          = "5432"
+    "ZITADEL_DATABASE_POSTGRES_DATABASE"      = "zitadel"
+    "ZITADEL_DATABASE_POSTGRES_USER_USERNAME" = "pgadmin"
+    "ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE" = "require"
 
     # --- External addressing (issuer/discovery host) ---
+    # ACA assigns an external app the FQDN "<name>.<env-default-domain>" (internal
+    # apps get "<name>.internal.<...>"), predictable before the app exists — so
+    # EXTERNALDOMAIN is set without a self-referential output. It MUST equal the
+    # browser-facing host AND the value the setup job used, or OIDC discovery +
+    # JWT issuer validation break.
     "ZITADEL_EXTERNALSECURE" = "true"
-    "ZITADEL_EXTERNALDOMAIN" = local.external_domain
+    "ZITADEL_EXTERNALDOMAIN" = "${local.name}.${dependency.environment.outputs.default_domain}"
     "ZITADEL_EXTERNALPORT"   = "443"
 
-    # --- First-instance bootstrap: human admin (login works on first boot) ---
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME"               = "admin"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED" = "false"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS"          = "admin@signalbeam.local"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_VERIFIED"         = "true"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME"              = "SignalBeam"
-    "ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME"               = "Admin"
+    # --- Machine ID (sonyflake) identification ---
+    # Zitadel derives a per-machine sonyflake ID at startup. Its defaults
+    # (Private IP + GCP-metadata webhook) BOTH fail on ACA — the container has no
+    # private IP Zitadel can read and there's no GCP metadata server — so it
+    # panics: "none of the enabled methods for identifying the machine
+    # succeeded". ACA gives each replica a unique hostname (like a K8s pod), so
+    # switch to hostname identification and disable the two failing methods.
+    "ZITADEL_MACHINE_IDENTIFICATION_HOSTNAME_ENABLED"  = "true"
+    "ZITADEL_MACHINE_IDENTIFICATION_PRIVATEIP_ENABLED" = "false"
+    "ZITADEL_MACHINE_IDENTIFICATION_WEBHOOK_ENABLED"   = "false"
   }
 }

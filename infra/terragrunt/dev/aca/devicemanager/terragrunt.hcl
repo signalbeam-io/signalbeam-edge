@@ -51,8 +51,9 @@ dependency "secrets" {
   config_path = "../secrets"
 
   mock_outputs = {
-    db_connection_secret_id = "https://mock-kv.vault.azure.net/secrets/db-connection-signalbeam"
-    ghcr_pat_secret_id      = "https://mock-kv.vault.azure.net/secrets/ghcr-pat"
+    db_connection_secret_id  = "https://mock-kv.vault.azure.net/secrets/db-connection-signalbeam"
+    ghcr_pat_secret_id       = "https://mock-kv.vault.azure.net/secrets/ghcr-pat"
+    tenant_api_key_secret_id = "https://mock-kv.vault.azure.net/secrets/tenant-api-key"
   }
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
@@ -76,15 +77,23 @@ inputs = {
   kv_secrets = [
     { name = "ghcr-pat", key_vault_secret_id = dependency.secrets.outputs.ghcr_pat_secret_id },
     { name = "db-conn", key_vault_secret_id = dependency.secrets.outputs.db_connection_secret_id },
+    { name = "tenant-api-key", key_vault_secret_id = dependency.secrets.outputs.tenant_api_key_secret_id },
   ]
 
   secret_env_vars = {
     "ConnectionStrings__signalbeam" = "db-conn"
+    # Strong tenant API key from Key Vault — overrides the guessable dev-api-key-1
+    # baked into appsettings.json (Authentication:ApiKeys:0) so it's invalid in the
+    # cloud even on already-built images.
+    "Authentication__ApiKeys__0" = "tenant-api-key"
   }
 
   env_vars = {
-    "ASPNETCORE_HTTP_PORTS"    = "8080"
-    "NATS__Url"                = "nats://${local.env.project}-ca-nats-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}:4222"
-    "IdentityManager__BaseUrl" = "https://${local.env.project}-ca-identitymanager-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
+    "ASPNETCORE_HTTP_PORTS" = "8080"
+    # Neutralize the second baked dev key (dev-api-key-2 at index 1): an empty
+    # entry is skipped by the validator. Remove once images ship without dev keys.
+    "Authentication__ApiKeys__1" = ""
+    "NATS__Url"                  = "nats://${local.env.project}-ca-nats-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}:4222"
+    "IdentityManager__BaseUrl"   = "https://${local.env.project}-ca-identitymanager-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
   }
 }

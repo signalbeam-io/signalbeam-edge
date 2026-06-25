@@ -132,3 +132,10 @@ cd infra/terragrunt/dev && terragrunt run --all destroy
 Postgres can also be stopped overnight to halve its cost. Destroying the ACA stack
 removes the NATS JetStream Azure Files share — acceptable for a dogfood, where
 message data is transient.
+
+## Cookbooks
+
+Reusable recipes for recurring operational tasks live in
+[`cookbooks/`](cookbooks/README.md) — e.g. [deploying a stateful app with DB
+migrations on ACA](cookbooks/stateful-app-with-migrations-on-aca.md) (the
+init→setup→start job pattern used by Zitadel).
