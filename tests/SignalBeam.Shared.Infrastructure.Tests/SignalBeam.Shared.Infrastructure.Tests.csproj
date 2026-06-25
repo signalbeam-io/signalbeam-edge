@@ -16,6 +16,11 @@
     <PackageReference Include="Moq" />
   </ItemGroup>
 
+  <!-- Needed to exercise middleware against HttpContext / IAuthenticationService -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Shared/SignalBeam.Shared.Infrastructure/SignalBeam.Shared.Infrastructure.csproj" />
   </ItemGroup>
