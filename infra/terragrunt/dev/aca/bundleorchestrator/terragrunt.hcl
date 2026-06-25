@@ -92,5 +92,14 @@ inputs = {
     # Neutralize the second baked dev key (dev-api-key-2 at index 1).
     "Authentication__ApiKeys__1" = ""
     "NATS__Url"                  = "nats://${local.env.project}-ca-nats-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}:4222"
+
+    # --- OIDC / JWT (Zitadel) ---
+    # The dashboard calls this service through the gateway with a Zitadel access
+    # token. Authority = Zitadel external FQDN (= token issuer); Audience = the
+    # Zitadel project ID the SPA requests as an aud scope. ValidateAudience is on,
+    # so without these JWT validation rejects every token.
+    "Authentication__Jwt__Authority"            = "https://${local.env.project}-ca-zitadel-${local.env.environment}.${dependency.environment.outputs.default_domain}"
+    "Authentication__Jwt__RequireHttpsMetadata" = "true"
+    "Authentication__Jwt__Audience"             = "378987614071444272"
   }
 }

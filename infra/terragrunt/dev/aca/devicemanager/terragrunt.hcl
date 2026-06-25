@@ -95,5 +95,16 @@ inputs = {
     "Authentication__ApiKeys__1" = ""
     "NATS__Url"                  = "nats://${local.env.project}-ca-nats-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}:4222"
     "IdentityManager__BaseUrl"   = "https://${local.env.project}-ca-identitymanager-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
+
+    # --- OIDC / JWT (Zitadel) ---
+    # The dashboard authenticates via Zitadel OIDC and calls this service through
+    # the gateway with the Zitadel access token. Authority = the Zitadel external
+    # FQDN (must equal the token issuer). Audience = the Zitadel project ID — the
+    # SPA requests the `urn:zitadel:iam:org:project:id:<projectId>:aud` scope, so
+    # the token's aud carries the project id, and this service validates it
+    # (ValidateAudience is on). Without these, JWT validation rejects every token.
+    "Authentication__Jwt__Authority"            = "https://${local.env.project}-ca-zitadel-${local.env.environment}.${dependency.environment.outputs.default_domain}"
+    "Authentication__Jwt__RequireHttpsMetadata" = "true"
+    "Authentication__Jwt__Audience"             = "378987614071444272"
   }
 }

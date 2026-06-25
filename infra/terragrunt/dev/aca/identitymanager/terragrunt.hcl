@@ -98,11 +98,10 @@ inputs = {
     "Authentication__Jwt__Authority"            = "https://${local.env.project}-ca-zitadel-${local.env.environment}.${dependency.environment.outputs.default_domain}"
     "Authentication__Jwt__RequireHttpsMetadata" = "true"
 
-    # Authentication__Jwt__Audience is intentionally NOT set here: the audience is
-    # the Zitadel project ID, which only exists after the one-time bootstrap
-    # (see aca/README.md). Set it out-of-band once known to enable audience
-    # validation:
-    #   az containerapp update -n <identitymanager-app> -g <rg> \
-    #     --set-env-vars Authentication__Jwt__Audience=<project-id>
+    # Audience = the Zitadel project ID created by the one-time SignalBeam.ZitadelSetup
+    # bootstrap (#419). The SPA requests `urn:zitadel:iam:org:project:id:<id>:aud`, so
+    # tokens carry the project id as aud; setting it here turns on audience validation
+    # (it was disabled while empty). Same value as DeviceManager/BundleOrchestrator.
+    "Authentication__Jwt__Audience" = "378987614071444272"
   }
 }
