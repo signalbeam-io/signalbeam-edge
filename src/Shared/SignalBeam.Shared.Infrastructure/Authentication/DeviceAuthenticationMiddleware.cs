@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -77,11 +78,30 @@ public class DeviceAuthenticationMiddleware
                 certResult.Error?.Message);
         }
 
-        // [2] If request has a Bearer token, skip this middleware and let JWT auth handle it
+        // [2] If the request carries a Bearer token, validate it via the JWT scheme.
+        // A token that fails validation (bad signature, wrong issuer/audience, or
+        // expired) MUST be rejected here. Previously any Bearer value was passed
+        // through unvalidated, so a caller with a bogus token reached endpoints that
+        // don't separately enforce authorization — returning tenant data
+        // unauthenticated (see #422). AuthenticateAsync runs the JWT handler and
+        // only sets the principal on success.
         var authHeader = context.Request.Headers.Authorization.ToString();
         if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
-            await _next(context);
+            var jwtResult = await context.AuthenticateAsync(AuthenticationConstants.JwtBearerScheme);
+            if (jwtResult.Succeeded && jwtResult.Principal is not null)
+            {
+                context.User = jwtResult.Principal;
+                await _next(context);
+                return;
+            }
+
+            _logger.LogWarning(
+                "Bearer token authentication failed: {Failure}",
+                jwtResult.Failure?.Message);
+            await RespondUnauthorized(context,
+                "INVALID_TOKEN",
+                "The provided bearer token is invalid or has expired.");
             return;
         }
 

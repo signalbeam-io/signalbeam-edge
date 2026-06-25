@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -36,11 +37,31 @@ public class ApiKeyAuthenticationMiddleware
             return;
         }
 
-        // If request has a Bearer token, skip API key auth and let JWT auth handle it
+        // If the request carries a Bearer token, validate it via the JWT scheme and
+        // reject it when validation fails. Previously any Bearer value was passed
+        // through unvalidated, letting a caller with a bogus token reach endpoints
+        // that don't separately enforce authorization (see #422). AuthenticateAsync
+        // runs the JWT handler and only sets the principal on success.
         var authHeader = context.Request.Headers.Authorization.ToString();
         if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
-            await _next(context);
+            var jwtResult = await context.AuthenticateAsync(AuthenticationConstants.JwtBearerScheme);
+            if (jwtResult.Succeeded && jwtResult.Principal is not null)
+            {
+                context.User = jwtResult.Principal;
+                await _next(context);
+                return;
+            }
+
+            _logger.LogWarning(
+                "Bearer token authentication failed: {Failure}",
+                jwtResult.Failure?.Message);
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "invalid_token",
+                message = "The provided bearer token is invalid or has expired."
+            });
             return;
         }
 

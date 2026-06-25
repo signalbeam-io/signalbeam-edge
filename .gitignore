@@ -425,3 +425,6 @@ tools/workflow-engine/node_modules/
 
 # External plugin repo (not part of this project)
 cloudstack-ai-plugins/
+
+# Playwright MCP run artifacts
+.playwright-mcp/
