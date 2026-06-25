@@ -21,7 +21,7 @@ These follow the repo naming convention `{project}-{kind}-{env}-{loc}`. For a ne
 env, only `ENV` / `LOC` / `SUB` change.
 
 ```bash
-SUB=3fee91b5-7993-40b1-93ba-b76893ff03db   # az subscription id
+SUB=<your-subscription-id>   # az subscription id (e.g. az account show --query id -o tsv)
 ENV=dev
 LOC=northeurope ; LOCSHORT=neu
 PROJECT=sb
