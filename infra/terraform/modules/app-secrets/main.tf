@@ -35,6 +35,49 @@ resource "azurerm_key_vault_secret" "ghcr_pat" {
   }
 }
 
+# Tenant API key for the MVP/dogfood auth path (X-Api-Key header). Generated
+# strong here and injected into the API-key services (DeviceManager,
+# BundleOrchestrator, IdentityManager) as a Key Vault reference, so the deployed
+# apps never rely on the guessable `dev-api-key-1` placeholders baked into
+# appsettings.json (those remain for LOCAL dev only). The env injection overrides
+# `Authentication:ApiKeys:0` at runtime, so the weak keys are invalid in the cloud
+# even on already-built images.
+#
+# Alphanumeric only (special = false): the key travels in an HTTP header and the
+# validator splits the composite on ':', so the key itself must contain no ':'.
+resource "random_password" "tenant_api_key" {
+  length  = 48
+  special = false
+}
+
+locals {
+  # Server-side tenant id the validator returns for this key. Kept as the existing
+  # dev tenant id so tenant-scoped data created during the dogfood stays addressable.
+  tenant_id = "00000000-0000-0000-0000-000000000001"
+  # All scopes across services in one key — each service only checks the scope its
+  # endpoint needs, so a superset is harmless and lets one dashboard key work
+  # everywhere (the same way the old dev-api-key-1 did).
+  tenant_api_scopes = "devices:read,devices:write,bundles:read,bundles:write,identity:read,identity:write"
+}
+
+# Composite `tenantId:key:scopes` — the exact string the ApiKeyValidator parses.
+# Referenced as `Authentication__ApiKeys__0` by the service apps.
+resource "azurerm_key_vault_secret" "tenant_api_key" {
+  name         = "tenant-api-key"
+  value        = "${local.tenant_id}:${random_password.tenant_api_key.result}:${local.tenant_api_scopes}"
+  key_vault_id = var.key_vault_id
+  tags         = var.tags
+}
+
+# The raw key value on its own — what a human pastes into the dashboard's API-key
+# login. (The composite above is for the services; this is for people.)
+resource "azurerm_key_vault_secret" "tenant_api_key_value" {
+  name         = "tenant-api-key-value"
+  value        = random_password.tenant_api_key.result
+  key_vault_id = var.key_vault_id
+  tags         = var.tags
+}
+
 # Zitadel first-instance admin password. Generated here (not out-of-band) because
 # it only ever seeds the initial admin login at bootstrap; rotate via the Zitadel
 # console afterwards. Complexity satisfies Zitadel's default password policy
