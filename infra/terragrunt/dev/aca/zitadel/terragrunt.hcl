@@ -104,10 +104,18 @@ inputs = {
   # this service is deployed/restarted. Because the service no longer migrates,
   # overlapping replicas during an ACA rolling revision can never race the
   # 03_default_instance migration — which is the deadlock the combined
-  # `start-from-init` used to cause. TLS is terminated by the ACA Envoy ingress,
-  # so Zitadel serves plain HTTP (h2c) internally (--tlsMode disabled).
+  # `start-from-init` used to cause.
+  #
+  # --tlsMode external (NOT disabled): TLS is terminated by the ACA Envoy ingress,
+  # so Zitadel serves plain HTTP internally — but `external` tells Zitadel the
+  # EXTERNAL scheme is https and to trust X-Forwarded-Proto. With `disabled`,
+  # Zitadel builds the console's `environment.json` `api` URL from the (plain http)
+  # request scheme, so it emits http:// while the issuer is https:// — the console
+  # (loaded over https) then violates its own CSP (`connect-src` matches the host
+  # on https only) when it calls the http api. `external` makes the api URL https
+  # and consistent. (ExternalSecure=true alone only fixes the issuer, not the api.)
   # --masterkeyFromEnv reads the 32-char master key from the ZITADEL_MASTERKEY env var.
-  args = ["start", "--masterkeyFromEnv", "--tlsMode", "disabled"]
+  args = ["start", "--masterkeyFromEnv", "--tlsMode", "external"]
 
   # Zitadel is stateful at startup and behaves poorly with scale-to-zero cold
   # starts (it must stay reachable for token/JWKS validation by other services).
