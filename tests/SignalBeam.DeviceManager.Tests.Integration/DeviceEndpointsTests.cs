@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
+using SignalBeam.DeviceManager.Host.Endpoints;
 using SignalBeam.DeviceManager.Tests.Integration.Infrastructure;
 
 namespace SignalBeam.DeviceManager.Tests.Integration;
@@ -43,6 +44,38 @@ public class DeviceEndpointsTests : IClassFixture<DeviceManagerWebApplicationFac
         result.Should().NotBeNull();
         result!.DeviceId.Should().Be(deviceId);
         result.Name.Should().Be("Test Device");
+    }
+
+    [Fact]
+    public async Task RegisterDevice_WithoutBodyTenantId_DerivesTenantFromAuthContext_AndRoundTrips()
+    {
+        // Regression for #384: POST /api/devices with a valid API key but no tenantId in the
+        // body must derive the tenant from the authenticated context (not 500 on Guid.Empty).
+        var deviceId = Guid.NewGuid();
+        var request = new RegisterDeviceRequest(
+            Name: "Tenant From Auth Device",
+            Metadata: "{\"location\":\"lab\"}",
+            DeviceId: deviceId);
+
+        // Act - create deriving tenant from the API key
+        var createResponse = await _client.PostAsJsonAsync("/api/devices", request);
+
+        // Assert - persisted and created (no 500)
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
+        created.Should().NotBeNull();
+        created!.DeviceId.Should().Be(deviceId);
+
+        // Act - read it back
+        var getResponse = await _client.GetAsync($"/api/devices/{deviceId}");
+
+        // Assert - round-trips, tenant resolved from the API key's tenant claim
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var device = await getResponse.Content.ReadFromJsonAsync<GetDeviceByIdResponse>();
+        device.Should().NotBeNull();
+        device!.Id.Should().Be(deviceId);
+        device.TenantId.Should().Be(_factory.DefaultTenantId);
+        device.Name.Should().Be("Tenant From Auth Device");
     }
 
     [Fact]

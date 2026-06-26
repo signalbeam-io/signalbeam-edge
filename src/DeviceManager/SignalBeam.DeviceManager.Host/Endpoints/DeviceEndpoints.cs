@@ -14,6 +14,21 @@ namespace SignalBeam.DeviceManager.Host.Endpoints;
 public record ClaimDeviceApiKeyRequest(string RegistrationToken);
 
 /// <summary>
+/// Request body for registering a device.
+/// <para>
+/// <see cref="TenantId"/> is optional: when an authenticated tenant API key is used, the
+/// tenant is derived from the auth context. It only needs to be supplied on the anonymous
+/// registration handshake, where the caller has no API key yet.
+/// </para>
+/// </summary>
+public record RegisterDeviceRequest(
+    string Name,
+    Guid? TenantId = null,
+    string? Metadata = null,
+    Guid? DeviceId = null,
+    string? RegistrationToken = null);
+
+/// <summary>
 /// Device API endpoints.
 /// </summary>
 public static class DeviceEndpoints
@@ -169,10 +184,29 @@ public static class DeviceEndpoints
     }
 
     private static async Task<IResult> RegisterDevice(
-        RegisterDeviceCommand command,
+        RegisterDeviceRequest request,
+        HttpContext context,
         [FromServices] RegisterDeviceHandler handler,
         CancellationToken cancellationToken)
     {
+        // Derive the tenant from the authenticated API-key context, falling back to a
+        // body-supplied value for the anonymous registration handshake (no API key yet).
+        if (!TryResolveTenantId(request.TenantId, context, out var tenantId))
+        {
+            return Results.BadRequest(new
+            {
+                error = "INVALID_TENANT_ID",
+                message = "Tenant ID could not be resolved from the request or authentication context."
+            });
+        }
+
+        var command = new RegisterDeviceCommand(
+            tenantId,
+            request.Name,
+            request.Metadata,
+            request.DeviceId,
+            request.RegistrationToken);
+
         var result = await handler.Handle(command, cancellationToken);
 
         return result.IsSuccess
@@ -183,6 +217,22 @@ public static class DeviceEndpoints
                 message = result.Error.Message,
                 type = result.Error.Type.ToString()
             });
+    }
+
+    /// <summary>
+    /// Resolves the tenant id, preferring an explicitly supplied value and falling back to the
+    /// authenticated tenant claim set by the auth middleware. Mirrors the BundleOrchestrator pattern.
+    /// </summary>
+    private static bool TryResolveTenantId(Guid? tenantId, HttpContext context, out Guid resolvedTenantId)
+    {
+        if (tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            resolvedTenantId = tenantId.Value;
+            return true;
+        }
+
+        var tenantIdClaim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
+        return Guid.TryParse(tenantIdClaim, out resolvedTenantId);
     }
 
     private static async Task<IResult> GetDevices(
