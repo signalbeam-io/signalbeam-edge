@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
+using SignalBeam.DeviceManager.Host.Endpoints;
 using SignalBeam.DeviceManager.Tests.Integration.Infrastructure;
 
 namespace SignalBeam.DeviceManager.Tests.Integration;
@@ -46,22 +48,71 @@ public class DeviceEndpointsTests : IClassFixture<DeviceManagerWebApplicationFac
     }
 
     [Fact]
+    public async Task RegisterDevice_WithoutBodyTenantId_DerivesTenantFromAuthContext_AndRoundTrips()
+    {
+        // Regression for #384: POST /api/devices with a valid API key but no tenantId in the
+        // body must derive the tenant from the authenticated context (not 500 on Guid.Empty).
+        var deviceId = Guid.NewGuid();
+        var request = new RegisterDeviceRequest(
+            Name: "Tenant From Auth Device",
+            Metadata: "{\"location\":\"lab\"}",
+            DeviceId: deviceId);
+
+        // Act - create deriving tenant from the API key
+        var createResponse = await _client.PostAsJsonAsync("/api/devices", request);
+
+        // Assert - persisted and created (no 500)
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
+        created.Should().NotBeNull();
+        created!.DeviceId.Should().Be(deviceId);
+
+        // Act - read it back
+        var getResponse = await _client.GetAsync($"/api/devices/{deviceId}");
+
+        // Assert - round-trips, tenant resolved from the API key's tenant claim
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var device = await getResponse.Content.ReadFromJsonAsync<GetDeviceByIdResponse>();
+        device.Should().NotBeNull();
+        device!.Id.Should().Be(deviceId);
+        device.TenantId.Should().Be(_factory.DefaultTenantId);
+        device.Name.Should().Be("Tenant From Auth Device");
+    }
+
+    [Fact]
     public async Task RegisterDevice_WithoutAuthentication_IsReachableAsPublicHandshake()
     {
         // Registration is a public handshake endpoint (#279): a brand-new device has no API key
         // yet, so the device-auth middleware must not reject it. Authorization is enforced
         // in-handler via the registration token, not by requiring a pre-shared API key.
         var unauthenticatedClient = _factory.CreateClient();
-        var request = new RegisterDeviceCommand(
+        var request = new RegisterDeviceRequest(
+            Name: "Test Device",
             TenantId: _factory.DefaultTenantId,
-            DeviceId: Guid.NewGuid(),
-            Name: "Test Device");
+            DeviceId: Guid.NewGuid());
 
         // Act
         var response = await unauthenticatedClient.PostAsJsonAsync("/api/devices", request);
 
         // Assert — reachable (not blocked by device-auth middleware)
         response.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task RegisterDevice_WithNoTenantInBodyOrAuthContext_ReturnsBadRequest()
+    {
+        // Regression for #384: when neither the body nor the auth context supplies a tenant, the
+        // endpoint must fail fast with 400 INVALID_TENANT_ID rather than 500 on new TenantId(Empty).
+        var unauthenticatedClient = _factory.CreateClient();
+        var request = new RegisterDeviceRequest(Name: "No Tenant Device");
+
+        // Act
+        var response = await unauthenticatedClient.PostAsJsonAsync("/api/devices", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("error").GetString().Should().Be("INVALID_TENANT_ID");
     }
 
     [Fact]

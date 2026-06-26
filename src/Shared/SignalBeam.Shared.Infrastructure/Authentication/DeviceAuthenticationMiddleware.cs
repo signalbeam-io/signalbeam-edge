@@ -43,11 +43,18 @@ public class DeviceAuthenticationMiddleware
             return;
         }
 
-        // Skip device-key auth for the registration handshake. These endpoints run before the
-        // device holds an API key and are each authenticated by other means in their handlers:
+        // Skip mandatory device-key auth for the registration handshake. These endpoints run before
+        // the device holds an API key and are each authenticated by other means in their handlers:
         // register and claim-key verify the registration token; registration-status returns no secrets.
+        //
+        // The handshake must stay reachable WITHOUT credentials, but when a caller DOES present
+        // valid ones (e.g. an operator registering a device with their tenant API key), authenticate
+        // them best-effort so the tenant can be derived from the auth context instead of the request
+        // body. Absent or invalid credentials simply fall through — never rejected here. (#384)
         if (IsRegistrationHandshake(context.Request))
         {
+            await TryAuthenticateOptionalAsync(
+                context, certificateValidator, apiKeyService, apiKeyValidator, tenantApiKeyValidator);
             await _next(context);
             return;
         }
@@ -218,6 +225,72 @@ public class DeviceAuthenticationMiddleware
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Best-effort authentication for the registration handshake: when valid credentials are
+    /// present it sets the principal (and tenant claim) so downstream handlers can derive the
+    /// tenant from the auth context. Unlike the main path it never rejects — absent or invalid
+    /// credentials leave the request anonymous so a brand-new device can still register.
+    /// <para>
+    /// JWT Bearer is intentionally not handled here: device/operator registration uses mTLS or
+    /// API keys, and a dashboard (JWT) caller still supplies the tenant in the request body. Adding
+    /// Bearer validation on the anonymous handshake would risk rejecting otherwise-valid requests.
+    /// </para>
+    /// </summary>
+    private async Task TryAuthenticateOptionalAsync(
+        HttpContext context,
+        IDeviceCertificateValidator? certificateValidator,
+        IDeviceApiKeyService? apiKeyService,
+        IDeviceApiKeyValidator? apiKeyValidator,
+        IApiKeyValidator? tenantApiKeyValidator)
+    {
+        // Certificate (mTLS) first, mirroring the main path's precedence.
+        var clientCert = context.Connection.ClientCertificate;
+        if (clientCert != null && certificateValidator != null)
+        {
+            var certResult = await certificateValidator.ValidateAsync(clientCert, context.RequestAborted);
+            if (certResult.IsSuccess)
+            {
+                SetUserPrincipal(context, certResult.Value, AuthenticationMethod.Certificate);
+                return;
+            }
+        }
+
+        if (!context.Request.Headers.TryGetValue(
+            AuthenticationConstants.ApiKeyHeaderName,
+            out var apiKeyValue))
+        {
+            return;
+        }
+
+        var apiKey = apiKeyValue.ToString();
+
+        // Device-specific API key (sb_device_{prefix}_{secret}).
+        if (apiKeyService != null && apiKeyValidator != null)
+        {
+            var keyPrefix = apiKeyService.ExtractKeyPrefix(apiKey);
+            if (!string.IsNullOrWhiteSpace(keyPrefix))
+            {
+                var apiKeyResult = await apiKeyValidator.ValidateAsync(
+                    apiKey, keyPrefix, context.RequestAborted);
+                if (apiKeyResult.IsSuccess)
+                {
+                    SetUserPrincipal(context, apiKeyResult.Value, AuthenticationMethod.ApiKey);
+                    return;
+                }
+            }
+        }
+
+        // Tenant-level API key ({tenantId}:{key}:{scopes}).
+        if (tenantApiKeyValidator != null)
+        {
+            var tenantKeyResult = await tenantApiKeyValidator.ValidateAsync(apiKey, context.RequestAborted);
+            if (tenantKeyResult.IsSuccess)
+            {
+                SetTenantPrincipal(context, tenantKeyResult.Value);
+            }
+        }
     }
 
     private void SetUserPrincipal(
