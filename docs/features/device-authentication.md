@@ -130,6 +130,14 @@ signalbeam-agent register \
   --device-name warehouse-01
 ```
 
+> **Tenant resolution:** registration (`POST /api/devices`) is a public handshake, so `--tenant-id`
+> (sent as `tenantId` in the request body) is required only on this **anonymous** path, where the
+> device has no API key yet. When the caller is already authenticated with a tenant API key — for
+> example an operator registering a device from a script or the dashboard — the tenant is derived
+> from the key's `tenant_id` claim and the body `tenantId` is optional (and cannot override the
+> authenticated tenant). If no tenant can be resolved from either source the endpoint returns
+> `400 INVALID_TENANT_ID`.
+
 Device status: **Pending** (awaiting approval)
 
 ### 3. Approve Device (Admin)

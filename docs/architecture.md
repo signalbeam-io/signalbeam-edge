@@ -273,10 +273,11 @@ VITE_ZITADEL_POST_LOGOUT_REDIRECT_URI=http://localhost:5173
 ```
 Edge Agent
     │
-    │ POST /api/devices (tenantId, deviceName, registrationToken)
+    │ POST /api/devices (name, registrationToken[, tenantId])
     ▼
 API Gateway → DeviceManager
     │
+    │ 0. Resolve tenant (auth claim first, else body tenantId)
     │ 1. Validate registration token
     │ 2. Check device quota
     │
@@ -305,6 +306,14 @@ DeviceManager
     ▼
 Response to Edge Agent
 ```
+
+> **Tenant resolution:** `POST /api/devices` is a public registration handshake, so it
+> authenticates *best-effort* — it accepts mTLS or an API key when present but never rejects an
+> anonymous request (a brand-new device has no key yet). The tenant is taken from the
+> authenticated `tenant_id` claim when present, so a `tenantId` in the request body is **optional**
+> and is honoured only on the anonymous path. Supplying a body `tenantId` that differs from the
+> authenticated tenant does not override it. If neither source yields a tenant the endpoint
+> returns `400 INVALID_TENANT_ID` (rather than a 500).
 
 ### User Registration and Workspace Creation
 

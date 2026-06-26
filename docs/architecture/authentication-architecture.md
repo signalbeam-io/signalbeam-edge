@@ -814,6 +814,17 @@ public class RegisterDeviceHandler
 └─────────────┘
 ```
 
+> **Note — registration handshake and tenant resolution.** The endpoint is `POST /api/devices`,
+> and it is a *public registration handshake*: the device-auth middleware authenticates
+> best-effort (mTLS or API key when present) but never rejects an anonymous request, since a
+> brand-new device has no credentials yet. The tenant is resolved **claim-first** — the
+> authenticated `tenant_id` claim (from an mTLS cert or tenant/device API key) takes precedence,
+> and the `tenantId` in the request body is used only as a fallback on the anonymous path and
+> cannot override an authenticated tenant. The diagram above shows the JWT/operator path
+> conceptually; note that Bearer tokens are **not** validated on the handshake itself, so a
+> dashboard (JWT) caller supplies the tenant in the request body. When no tenant can be resolved,
+> the endpoint returns `400 INVALID_TENANT_ID` instead of a 500.
+
 ## Security Architecture
 
 ### Defense in Depth
