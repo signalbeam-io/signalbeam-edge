@@ -189,14 +189,15 @@ public static class DeviceEndpoints
         [FromServices] RegisterDeviceHandler handler,
         CancellationToken cancellationToken)
     {
-        // Derive the tenant from the authenticated API-key context, falling back to a
-        // body-supplied value for the anonymous registration handshake (no API key yet).
+        // Derive the tenant from the authenticated context, falling back to a body-supplied
+        // value only for the anonymous registration handshake (no API key yet).
         if (!TryResolveTenantId(request.TenantId, context, out var tenantId))
         {
             return Results.BadRequest(new
             {
                 error = "INVALID_TENANT_ID",
-                message = "Tenant ID could not be resolved from the request or authentication context."
+                message = "Tenant ID could not be resolved from the request or authentication context.",
+                type = nameof(ErrorType.Validation)
             });
         }
 
@@ -220,19 +221,27 @@ public static class DeviceEndpoints
     }
 
     /// <summary>
-    /// Resolves the tenant id, preferring an explicitly supplied value and falling back to the
-    /// authenticated tenant claim set by the auth middleware. Mirrors the BundleOrchestrator pattern.
+    /// Resolves the tenant id for device registration. The authenticated tenant claim takes
+    /// precedence so an authenticated caller cannot register a device under a different tenant by
+    /// passing an arbitrary <c>TenantId</c> in the body; the body value is only honoured for the
+    /// anonymous registration handshake, where a brand-new device has no API key and thus no claim.
     /// </summary>
     private static bool TryResolveTenantId(Guid? tenantId, HttpContext context, out Guid resolvedTenantId)
     {
+        var tenantIdClaim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
+        if (Guid.TryParse(tenantIdClaim, out resolvedTenantId) && resolvedTenantId != Guid.Empty)
+        {
+            return true;
+        }
+
         if (tenantId.HasValue && tenantId.Value != Guid.Empty)
         {
             resolvedTenantId = tenantId.Value;
             return true;
         }
 
-        var tenantIdClaim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
-        return Guid.TryParse(tenantIdClaim, out resolvedTenantId);
+        resolvedTenantId = Guid.Empty;
+        return false;
     }
 
     private static async Task<IResult> GetDevices(

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Host.Endpoints;
@@ -85,16 +86,33 @@ public class DeviceEndpointsTests : IClassFixture<DeviceManagerWebApplicationFac
         // yet, so the device-auth middleware must not reject it. Authorization is enforced
         // in-handler via the registration token, not by requiring a pre-shared API key.
         var unauthenticatedClient = _factory.CreateClient();
-        var request = new RegisterDeviceCommand(
+        var request = new RegisterDeviceRequest(
+            Name: "Test Device",
             TenantId: _factory.DefaultTenantId,
-            DeviceId: Guid.NewGuid(),
-            Name: "Test Device");
+            DeviceId: Guid.NewGuid());
 
         // Act
         var response = await unauthenticatedClient.PostAsJsonAsync("/api/devices", request);
 
         // Assert — reachable (not blocked by device-auth middleware)
         response.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task RegisterDevice_WithNoTenantInBodyOrAuthContext_ReturnsBadRequest()
+    {
+        // Regression for #384: when neither the body nor the auth context supplies a tenant, the
+        // endpoint must fail fast with 400 INVALID_TENANT_ID rather than 500 on new TenantId(Empty).
+        var unauthenticatedClient = _factory.CreateClient();
+        var request = new RegisterDeviceRequest(Name: "No Tenant Device");
+
+        // Act
+        var response = await unauthenticatedClient.PostAsJsonAsync("/api/devices", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("error").GetString().Should().Be("INVALID_TENANT_ID");
     }
 
     [Fact]

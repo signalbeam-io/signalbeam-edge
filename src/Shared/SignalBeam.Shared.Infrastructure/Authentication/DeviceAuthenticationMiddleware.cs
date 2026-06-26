@@ -232,6 +232,11 @@ public class DeviceAuthenticationMiddleware
     /// present it sets the principal (and tenant claim) so downstream handlers can derive the
     /// tenant from the auth context. Unlike the main path it never rejects — absent or invalid
     /// credentials leave the request anonymous so a brand-new device can still register.
+    /// <para>
+    /// JWT Bearer is intentionally not handled here: device/operator registration uses mTLS or
+    /// API keys, and a dashboard (JWT) caller still supplies the tenant in the request body. Adding
+    /// Bearer validation on the anonymous handshake would risk rejecting otherwise-valid requests.
+    /// </para>
     /// </summary>
     private async Task TryAuthenticateOptionalAsync(
         HttpContext context,
