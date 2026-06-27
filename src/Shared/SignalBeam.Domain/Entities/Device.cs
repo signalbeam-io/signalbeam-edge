@@ -184,12 +184,20 @@ public class Device : AggregateRoot<DeviceId>
         else if (status == Enums.BundleDeploymentStatus.Completed)
         {
             Status = DeviceStatus.Online;
-            RaiseDomainEvent(new BundleUpdateCompletedEvent(Id, AssignedBundleId!.Value, timestamp));
+            // Only raise the bundle event when a bundle is actually assigned — a device can report
+            // a terminal deployment status with no assigned bundle (e.g. initial state reporting).
+            if (AssignedBundleId is not null)
+            {
+                RaiseDomainEvent(new BundleUpdateCompletedEvent(Id, AssignedBundleId.Value, timestamp));
+            }
         }
         else if (status == Enums.BundleDeploymentStatus.Failed)
         {
             Status = DeviceStatus.Error;
-            RaiseDomainEvent(new BundleUpdateFailedEvent(Id, AssignedBundleId!.Value, timestamp));
+            if (AssignedBundleId is not null)
+            {
+                RaiseDomainEvent(new BundleUpdateFailedEvent(Id, AssignedBundleId.Value, timestamp));
+            }
         }
     }
 

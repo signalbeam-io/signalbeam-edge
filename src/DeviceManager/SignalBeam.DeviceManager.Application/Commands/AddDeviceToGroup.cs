@@ -120,6 +120,11 @@ public class AddDeviceToGroupHandler
         await _membershipRepository.AddAsync(membership, cancellationToken);
         await _membershipRepository.SaveChangesAsync(cancellationToken);
 
+        // Keep Device.DeviceGroupId in sync with the membership table so the group-by-device read
+        // path (GetDevicesByGroup) reflects static memberships, not just the membership queries.
+        device.AssignToGroup(deviceGroupId);
+        await _deviceRepository.SaveChangesAsync(cancellationToken);
+
         return Result<AddDeviceToGroupResponse>.Success(new AddDeviceToGroupResponse(
             MembershipId: membership.Id.Value,
             DeviceGroupId: membership.GroupId.Value,
