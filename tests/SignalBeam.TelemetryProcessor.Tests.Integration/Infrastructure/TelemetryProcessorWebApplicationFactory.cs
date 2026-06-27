@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using NATS.Client.Core;
 using SignalBeam.TelemetryProcessor.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
@@ -45,8 +46,13 @@ public class TelemetryProcessorWebApplicationFactory : WebApplicationFactory<Pro
                 options.UseNpgsql(_postgresContainer.GetConnectionString());
             });
 
-            // Keep NATS connection as-is (assumes local NATS for integration tests)
-            // For true isolation, you could mock the NATS connection here
+            // Replace the dependency health checks (NATS broker + external Postgres) with a single
+            // self check. This harness has no NATS broker, and NatsConnection connects lazily so its
+            // state would be non-deterministic; the database path is exercised directly by the
+            // repository integration tests. Clearing then re-adding keeps /health deterministic.
+            services.Configure<HealthCheckServiceOptions>(options => options.Registrations.Clear());
+            services.AddHealthChecks()
+                .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live", "ready" });
         });
 
         builder.UseEnvironment("Testing");
@@ -56,10 +62,11 @@ public class TelemetryProcessorWebApplicationFactory : WebApplicationFactory<Pro
     {
         await _postgresContainer.StartAsync();
 
-        // Apply migrations
+        // Build the schema from the model (the Infrastructure project ships no migration files, so
+        // MigrateAsync() would be a no-op leaving the tables missing).
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TelemetryDbContext>();
-        await context.Database.MigrateAsync();
+        await context.Database.EnsureCreatedAsync();
     }
 
     public new async Task DisposeAsync()

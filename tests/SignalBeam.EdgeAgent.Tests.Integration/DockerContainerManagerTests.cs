@@ -124,9 +124,11 @@ public class DockerContainerManagerTests : IAsyncLifetime
     [Fact]
     public async Task StopContainerAsync_ShouldStopContainer()
     {
-        // Arrange
+        // Arrange — use a long-running image (nginx stays in the foreground). A bare alpine:latest
+        // runs its default /bin/sh and exits immediately, so it would never appear in the running
+        // list for the test to find and stop.
         const string containerName = "test-stop-container";
-        const string image = "alpine:latest";
+        const string image = "nginx:alpine";
 
         var spec = new Application.Services.ContainerSpec(
             Name: containerName,
