@@ -1,5 +1,6 @@
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Mvc;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
@@ -61,10 +62,24 @@ public static class GroupEndpoints
     }
 
     private static async Task<IResult> GetDeviceGroups(
-        [AsParameters] GetDeviceGroupsQuery query,
+        HttpContext context,
         [FromServices] GetDeviceGroupsHandler handler,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? tenantId = null)
     {
+        // Resolve tenant from the explicit query value or the authenticated context. Binding a
+        // required non-nullable Guid from the query string would 400 before the handler runs.
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
+        {
+            return Results.BadRequest(new
+            {
+                error = "INVALID_TENANT_ID",
+                message = "Tenant ID could not be resolved from the request or authentication context.",
+                type = "Validation"
+            });
+        }
+
+        var query = new GetDeviceGroupsQuery(resolvedTenantId);
         var result = await handler.Handle(query, cancellationToken);
 
         return result.IsSuccess
@@ -97,24 +112,56 @@ public static class GroupEndpoints
     private static async Task<IResult> AddDeviceToGroup(
         Guid groupId,
         AddDeviceToGroupRequest request,
-        [FromServices] AssignDeviceToGroupHandler handler,
-        CancellationToken cancellationToken)
+        HttpContext context,
+        [FromServices] AddDeviceToGroupHandler handler,
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? tenantId = null)
     {
-        // Use the existing AssignDeviceToGroup command with the groupId from route
-        var command = new AssignDeviceToGroupCommand(
-            DeviceId: request.DeviceId,
-            DeviceGroupId: groupId);
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
+        {
+            return Results.BadRequest(new
+            {
+                error = "INVALID_TENANT_ID",
+                message = "Tenant ID could not be resolved from the request or authentication context.",
+                type = "Validation"
+            });
+        }
 
+        // Add the device to the static group's membership table (the source of truth that the
+        // bulk-tag and membership reads expect). Assigning Device.DeviceGroupId alone is not enough.
+        var command = new AddDeviceToGroupCommand(resolvedTenantId, groupId, request.DeviceId);
         var result = await handler.Handle(command, cancellationToken);
 
         return result.IsSuccess
             ? Results.Ok(result.Value)
-            : Results.BadRequest(new
+            : result.Error!.Code switch
             {
-                error = result.Error!.Code,
-                message = result.Error.Message,
-                type = result.Error.Type.ToString()
-            });
+                "DEVICE_GROUP_ACCESS_DENIED" or "DEVICE_ACCESS_DENIED" => Results.Forbid(),
+                "MEMBERSHIP_ALREADY_EXISTS" => Results.Conflict(result.Error),
+                // DEVICE_GROUP_NOT_FOUND / DEVICE_NOT_FOUND / INVALID_GROUP_TYPE -> 400
+                _ => Results.BadRequest(new
+                {
+                    error = result.Error.Code,
+                    message = result.Error.Message,
+                    type = result.Error.Type.ToString()
+                })
+            };
+    }
+
+    /// <summary>
+    /// Resolves the tenant id from an explicit query value, falling back to the authenticated
+    /// tenant claim set by the auth middleware.
+    /// </summary>
+    private static bool TryResolveTenantId(Guid? tenantId, HttpContext context, out Guid resolvedTenantId)
+    {
+        if (tenantId is { } value && value != Guid.Empty)
+        {
+            resolvedTenantId = value;
+            return true;
+        }
+
+        var tenantIdClaim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
+        return Guid.TryParse(tenantIdClaim, out resolvedTenantId) && resolvedTenantId != Guid.Empty;
     }
 
     private static async Task<IResult> UpdateDeviceGroup(

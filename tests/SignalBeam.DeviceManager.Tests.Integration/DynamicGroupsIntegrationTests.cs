@@ -104,12 +104,17 @@ public class DynamicGroupsIntegrationTests : IClassFixture<DeviceManagerWebAppli
     [Fact]
     public async Task DynamicGroup_AutomaticallyIncludesMatchingDevices_WhenDeviceTagsMatch()
     {
+        // Namespace tag values and the group name so the shared class database can't leak matches
+        // from sibling tests (group names are unique per tenant; the dynamic query matches by tag).
+        // Leading letter required: the tag-query tokenizer rejects identifiers that start with a digit.
+        var ns = $"n{Guid.NewGuid():N}"[..8];
+
         // Arrange - Create a dynamic group with a tag query
         var groupRequest = new CreateDeviceGroupCommand(
             TenantId: _factory.DefaultTenantId,
-            Name: "Production Devices Group",
+            Name: $"Production Devices Group-{ns}",
             Type: GroupType.Dynamic,
-            TagQuery: "environment=production");
+            TagQuery: $"environment={ns}production");
 
         var groupResponse = await _client.PostAsJsonAsync("/api/groups", groupRequest);
         var group = await groupResponse.Content.ReadFromJsonAsync<CreateDeviceGroupResponse>();
@@ -119,9 +124,9 @@ public class DynamicGroupsIntegrationTests : IClassFixture<DeviceManagerWebAppli
         var prodDevice2Id = await CreateTestDeviceAsync("prod-device-2");
         var devDeviceId = await CreateTestDeviceAsync("dev-device-1");
 
-        await _client.PostAsJsonAsync($"/api/devices/{prodDevice1Id}/tags", new AddDeviceTagCommand(prodDevice1Id, "environment=production"));
-        await _client.PostAsJsonAsync($"/api/devices/{prodDevice2Id}/tags", new AddDeviceTagCommand(prodDevice2Id, "environment=production"));
-        await _client.PostAsJsonAsync($"/api/devices/{devDeviceId}/tags", new AddDeviceTagCommand(devDeviceId, "environment=dev"));
+        await _client.PostAsJsonAsync($"/api/devices/{prodDevice1Id}/tags", new AddDeviceTagCommand(prodDevice1Id, $"environment={ns}production"));
+        await _client.PostAsJsonAsync($"/api/devices/{prodDevice2Id}/tags", new AddDeviceTagCommand(prodDevice2Id, $"environment={ns}production"));
+        await _client.PostAsJsonAsync($"/api/devices/{devDeviceId}/tags", new AddDeviceTagCommand(devDeviceId, $"environment={ns}dev"));
 
         // Act - Trigger dynamic group membership update manually
         using var scope = _factory.Services.CreateScope();
@@ -308,7 +313,7 @@ public class DynamicGroupsIntegrationTests : IClassFixture<DeviceManagerWebAppli
             Name: name,
             Metadata: null);
 
-        var response = await _client.PostAsJsonAsync("/api/devices/register", registerCommand);
+        var response = await _client.PostAsJsonAsync("/api/devices", registerCommand);
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<RegisterDeviceResponse>();

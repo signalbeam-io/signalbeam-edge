@@ -82,7 +82,11 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Add Rate Limiting
+// Add Rate Limiting. Limits are configurable (RateLimiting:*) so they can be tuned per
+// environment and made deterministic in tests; the defaults preserve the original behaviour.
+var rateLimitPermit = builder.Configuration.GetValue<int?>("RateLimiting:PermitLimit") ?? 100;
+var rateLimitWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:WindowSeconds") ?? 60;
+var rateLimitQueueLimit = builder.Configuration.GetValue<int?>("RateLimiting:QueueLimit") ?? 10;
 builder.Services.AddRateLimiter(options =>
 {
     options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
@@ -94,10 +98,10 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: tenantId,
             factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = rateLimitPermit,
+                Window = TimeSpan.FromSeconds(rateLimitWindowSeconds),
                 QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
-                QueueLimit = 10
+                QueueLimit = rateLimitQueueLimit
             });
     });
 
@@ -254,8 +258,9 @@ if (!app.Environment.IsEnvironment("Testing"))
     }
 }
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+// Configure the HTTP request pipeline. API docs are exposed in Development and in the integration
+// Testing environment (so the docs endpoints can be verified), but never in Production.
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.MapOpenApi();
     app.MapScalarApiReference(options =>

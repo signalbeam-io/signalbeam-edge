@@ -251,9 +251,11 @@ public class GroupEndpointsTests : IClassFixture<DeviceManagerWebApplicationFact
     /// </summary>
     private async Task<Guid> CreateTestGroupAsync(string name)
     {
+        // Suffix the name to keep it unique within the class-shared database (group names must be
+        // unique per tenant), so sibling tests creating a same-named group don't collide.
         var request = new CreateDeviceGroupCommand(
             TenantId: _factory.DefaultTenantId,
-            Name: name);
+            Name: $"{name}-{Guid.NewGuid():N}");
 
         var response = await _client.PostAsJsonAsync("/api/groups", request);
         var group = await response.Content.ReadFromJsonAsync<CreateDeviceGroupResponse>();
