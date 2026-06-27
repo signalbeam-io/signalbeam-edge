@@ -95,11 +95,17 @@ public static class DependencyInjection
         var identityManagerUrl = configuration.GetValue<string>("IdentityManager:BaseUrl")
             ?? "http://localhost:5002"; // Default for local development
 
+        var quotaResilience = QuotaCheckResilienceOptions.FromConfiguration(configuration);
         services.AddHttpClient<IDeviceQuotaValidator, IdentityManagerClient>(client =>
         {
             client.BaseAddress = new Uri(identityManagerUrl);
-            client.Timeout = TimeSpan.FromSeconds(10);
-        });
+            // Generous overall ceiling; the resilience handler below owns per-attempt + total
+            // timeouts. A short HttpClient.Timeout would cap the whole retry pipeline.
+            client.Timeout = TimeSpan.FromSeconds(60);
+        })
+        .AddResilienceHandler(
+            "identity-manager-quota",
+            builder => QuotaCheckResilience.Configure(builder, quotaResilience));
 
         // NATS message publisher
         var natsUrl = configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222";
