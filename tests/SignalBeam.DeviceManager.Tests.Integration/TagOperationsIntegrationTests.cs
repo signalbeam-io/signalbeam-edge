@@ -163,12 +163,15 @@ public class TagOperationsIntegrationTests : IClassFixture<DeviceManagerWebAppli
         var device2Id = await CreateTestDeviceAsync("search-test-warehouse-2");
         var device3Id = await CreateTestDeviceAsync("search-test-office");
 
-        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, "location=warehouse-seattle"));
-        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, "location=warehouse-portland"));
-        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, "location=office-nyc"));
+        // Namespace tag values so the shared class database can't leak matches from sibling tests.
+        // Leading letter required: the tag-query tokenizer rejects identifiers that start with a digit.
+        var ns = $"n{Guid.NewGuid():N}"[..8];
+        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, $"location={ns}warehouse-seattle"));
+        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, $"location={ns}warehouse-portland"));
+        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, $"location={ns}office-nyc"));
 
         // Act - Search with wildcard
-        var query = "location=warehouse-*";
+        var query = $"location={ns}warehouse-*";
         var response = await _client.GetAsync($"/api/devices/search?tenantId={_factory.DefaultTenantId}&query={Uri.EscapeDataString(query)}");
 
         // Assert
@@ -218,12 +221,15 @@ public class TagOperationsIntegrationTests : IClassFixture<DeviceManagerWebAppli
         var device2Id = await CreateTestDeviceAsync("search-test-or-2");
         var device3Id = await CreateTestDeviceAsync("search-test-or-3");
 
-        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, "hardware=rpi4"));
-        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, "hardware=rpi5"));
-        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, "hardware=x86"));
+        // Namespace tag values so the shared class database can't leak matches from sibling tests.
+        // Leading letter required: the tag-query tokenizer rejects identifiers that start with a digit.
+        var ns = $"n{Guid.NewGuid():N}"[..8];
+        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, $"hardware={ns}rpi4"));
+        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, $"hardware={ns}rpi5"));
+        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, $"hardware={ns}x86"));
 
         // Act
-        var query = "hardware=rpi4 OR hardware=rpi5";
+        var query = $"hardware={ns}rpi4 OR hardware={ns}rpi5";
         var response = await _client.GetAsync($"/api/devices/search?tenantId={_factory.DefaultTenantId}&query={Uri.EscapeDataString(query)}");
 
         // Assert
@@ -267,24 +273,28 @@ public class TagOperationsIntegrationTests : IClassFixture<DeviceManagerWebAppli
         var device3Id = await CreateTestDeviceAsync("complex-search-3");
         var device4Id = await CreateTestDeviceAsync("complex-search-4");
 
+        // Namespace tag values so the shared class database can't leak matches from sibling tests.
+        // Leading letter required: the tag-query tokenizer rejects identifiers that start with a digit.
+        var ns = $"n{Guid.NewGuid():N}"[..8];
+
         // Production warehouse device
-        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, "environment=production"));
-        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, "location=warehouse-seattle"));
+        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, $"environment={ns}production"));
+        await _client.PostAsJsonAsync($"/api/devices/{device1Id}/tags", new AddDeviceTagCommand(device1Id, $"location={ns}warehouse-seattle"));
 
         // Staging warehouse device
-        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, "environment=staging"));
-        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, "location=warehouse-portland"));
+        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, $"environment={ns}staging"));
+        await _client.PostAsJsonAsync($"/api/devices/{device2Id}/tags", new AddDeviceTagCommand(device2Id, $"location={ns}warehouse-portland"));
 
         // Production office device (should not match)
-        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, "environment=production"));
-        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, "location=office-nyc"));
+        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, $"environment={ns}production"));
+        await _client.PostAsJsonAsync($"/api/devices/{device3Id}/tags", new AddDeviceTagCommand(device3Id, $"location={ns}office-nyc"));
 
         // Dev warehouse device (should not match)
-        await _client.PostAsJsonAsync($"/api/devices/{device4Id}/tags", new AddDeviceTagCommand(device4Id, "environment=dev"));
-        await _client.PostAsJsonAsync($"/api/devices/{device4Id}/tags", new AddDeviceTagCommand(device4Id, "location=warehouse-austin"));
+        await _client.PostAsJsonAsync($"/api/devices/{device4Id}/tags", new AddDeviceTagCommand(device4Id, $"environment={ns}dev"));
+        await _client.PostAsJsonAsync($"/api/devices/{device4Id}/tags", new AddDeviceTagCommand(device4Id, $"location={ns}warehouse-austin"));
 
         // Act
-        var query = "(environment=production OR environment=staging) AND location=warehouse-*";
+        var query = $"(environment={ns}production OR environment={ns}staging) AND location={ns}warehouse-*";
         var response = await _client.GetAsync($"/api/devices/search?tenantId={_factory.DefaultTenantId}&query={Uri.EscapeDataString(query)}");
 
         // Assert
@@ -322,7 +332,7 @@ public class TagOperationsIntegrationTests : IClassFixture<DeviceManagerWebAppli
             Name: name,
             Metadata: null);
 
-        var response = await _client.PostAsJsonAsync("/api/devices/register", registerCommand);
+        var response = await _client.PostAsJsonAsync("/api/devices", registerCommand);
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<RegisterDeviceResponse>();

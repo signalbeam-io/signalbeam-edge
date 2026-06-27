@@ -284,7 +284,7 @@ public class BulkOperationsIntegrationTests : IClassFixture<DeviceManagerWebAppl
             Name: name,
             Metadata: null);
 
-        var response = await _client.PostAsJsonAsync("/api/devices/register", registerCommand);
+        var response = await _client.PostAsJsonAsync("/api/devices", registerCommand);
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<RegisterDeviceResponse>();

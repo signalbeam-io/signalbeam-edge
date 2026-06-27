@@ -22,22 +22,19 @@ public class AuthenticationAndRateLimitingTests : IClassFixture<DeviceManagerWeb
     [Fact]
     public async Task Request_WithoutApiKey_ReturnsUnauthorized()
     {
-        // Arrange
+        // Arrange — device registration (POST /api/devices) is now a public handshake (#279), so
+        // assert the no-credentials rejection against a still-protected endpoint (device lookup).
         var client = _factory.CreateClient();
-        var request = new RegisterDeviceCommand(
-            TenantId: _factory.DefaultTenantId,
-            DeviceId: Guid.NewGuid(),
-            Name: "Test Device");
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/devices", request);
+        var response = await client.GetAsync($"/api/devices/{Guid.NewGuid()}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
         error.Should().NotBeNull();
-        error!.Error.Should().Be("missing_api_key");
+        error!.Error.Should().Be("MISSING_CREDENTIALS");
     }
 
     [Fact]
@@ -131,33 +128,24 @@ public class AuthenticationAndRateLimitingTests : IClassFixture<DeviceManagerWeb
     [Fact]
     public async Task RateLimiting_ExceedingLimit_ReturnsTooManyRequests()
     {
-        // Arrange
+        // Arrange — fire concurrently and exceed the 100-permit window. Requests must be concurrent:
+        // sequential awaited calls would each acquire a fresh permit as the window rolls and never
+        // be rejected. The test environment sets QueueLimit=0 so excess requests reject immediately.
         var client = _factory.CreateAuthenticatedClient();
-        var successfulRequests = 0;
-        var rateLimitedRequests = 0;
+        const int totalRequests = 150;
 
-        // Act - Send many requests rapidly (more than the limit)
-        for (int i = 0; i < 105; i++) // Limit is 100 per minute
-        {
-            var request = new RegisterDeviceCommand(
+        // Act
+        var responses = await Task.WhenAll(Enumerable.Range(0, totalRequests).Select(i =>
+            client.PostAsJsonAsync("/api/devices", new RegisterDeviceCommand(
                 TenantId: _factory.DefaultTenantId,
                 DeviceId: Guid.NewGuid(),
-                Name: $"Device {i}");
+                Name: $"Device {i}"))));
 
-            var response = await client.PostAsJsonAsync("/api/devices", request);
-
-            if (response.StatusCode == HttpStatusCode.Created)
-            {
-                successfulRequests++;
-            }
-            else if (response.StatusCode == HttpStatusCode.TooManyRequests)
-            {
-                rateLimitedRequests++;
-            }
-        }
+        var successfulRequests = responses.Count(r => r.StatusCode == HttpStatusCode.Created);
+        var rateLimitedRequests = responses.Count(r => r.StatusCode == HttpStatusCode.TooManyRequests);
 
         // Assert - Should have some rate-limited requests
-        rateLimitedRequests.Should().BeGreaterThan(0, "Rate limiting should kick in after 100 requests");
+        rateLimitedRequests.Should().BeGreaterThan(0, "Rate limiting should reject requests beyond the permit limit");
         successfulRequests.Should().BeLessThanOrEqualTo(100, "Should not exceed the rate limit");
     }
 
