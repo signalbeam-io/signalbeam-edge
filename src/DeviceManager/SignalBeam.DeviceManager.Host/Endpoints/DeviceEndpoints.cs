@@ -5,6 +5,7 @@ using SignalBeam.Domain.Enums;
 using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Results;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
 
@@ -44,7 +45,9 @@ public static class DeviceEndpoints
         group.MapPost("/", RegisterDevice)
             .WithName("RegisterDevice")
             .WithSummary("Register a new device")
-            .WithDescription("Registers a new device in the system with the specified tenant and metadata.");
+            .WithDescription("Registers a new device in the system with the specified tenant and metadata.")
+            // Anonymous handshake — rate-limit per client IP so it can't be used to flood Pending devices.
+            .RequireRateLimiting(RateLimitPolicies.DeviceRegistration);
 
         group.MapGet("/{deviceId:guid}/registration-status", GetRegistrationStatus)
             .WithName("GetRegistrationStatus")
@@ -187,8 +190,22 @@ public static class DeviceEndpoints
         RegisterDeviceRequest request,
         HttpContext context,
         [FromServices] RegisterDeviceHandler handler,
+        [FromServices] IOptions<DeviceRegistrationOptions> registrationOptions,
         CancellationToken cancellationToken)
     {
+        // Optionally require a registration token even for the initial handshake, so operators who
+        // don't use tokenless onboarding can close the anonymous-registration surface entirely.
+        if (registrationOptions.Value.RequireRegistrationToken
+            && string.IsNullOrWhiteSpace(request.RegistrationToken))
+        {
+            return Results.BadRequest(new
+            {
+                error = "REGISTRATION_TOKEN_REQUIRED",
+                message = "A registration token is required to register a device.",
+                type = nameof(ErrorType.Validation)
+            });
+        }
+
         // Derive the tenant from the authenticated context, falling back to a body-supplied
         // value only for the anonymous registration handshake (no API key yet).
         if (!TryResolveTenantId(request.TenantId, context, out var tenantId))
