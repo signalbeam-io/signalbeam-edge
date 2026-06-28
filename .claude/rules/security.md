@@ -38,6 +38,7 @@ Every new endpoint MUST have authentication. The project uses a layered auth mid
 - Every new endpoint requires auth unless it is a health check, metrics, or explicitly public registration endpoint
 - If an endpoint must be public, annotate with `.AllowAnonymous()` and add a code comment explaining why
 - Service-to-service endpoints (e.g., quota checks) that use `.AllowAnonymous()` must validate the caller via other means (internal network, service token)
+- The anonymous device-registration handshake (`POST /api/devices`) is rate-limited per client IP (`RateLimitPolicies.DeviceRegistration`, configurable via `RateLimiting:Registration:*`) so it can't be used to flood Pending devices; operators that don't use tokenless onboarding can require a token via `Registration:RequireRegistrationToken`
 - Never add a new service without authentication middleware — TelemetryProcessor and ApiGateway are known gaps to be fixed
 - Path exclusions in middleware (health, metrics, scalar, openapi) must use exact prefix matching, not contains
 

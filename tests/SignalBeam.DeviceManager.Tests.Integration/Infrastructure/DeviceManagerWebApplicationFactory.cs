@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SignalBeam.DeviceManager.Application.Services;
+using SignalBeam.DeviceManager.Host;
 using SignalBeam.DeviceManager.Infrastructure.Persistence;
 using SignalBeam.Shared.Infrastructure.Authentication;
 using Testcontainers.PostgreSql;
@@ -65,6 +66,12 @@ public class DeviceManagerWebApplicationFactory : WebApplicationFactory<Program>
             // registration doesn't make a real HTTP call to a non-running IdentityManager.
             services.RemoveAll<IDeviceQuotaValidator>();
             services.AddSingleton<IDeviceQuotaValidator>(new TestDeviceQuotaValidator());
+
+            // Functional tests register several devices from the same loopback IP within the window;
+            // keep the per-IP registration limit effectively disabled here. The dedicated
+            // registration rate-limit test overrides this with a low value. (Configured via DI
+            // because ConfigureAppConfiguration does not override startup-read config in the WAF.)
+            services.Configure<RegistrationRateLimitOptions>(o => o.PermitLimit = int.MaxValue);
         });
 
         builder.UseEnvironment("Testing");

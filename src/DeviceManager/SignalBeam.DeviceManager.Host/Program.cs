@@ -1,6 +1,7 @@
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Application.Validators;
+using SignalBeam.DeviceManager.Host;
 using SignalBeam.DeviceManager.Host.Endpoints;
 using SignalBeam.DeviceManager.Host.Metrics;
 using SignalBeam.DeviceManager.Host.Middleware;
@@ -13,6 +14,8 @@ using SignalBeam.Shared.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -87,6 +90,15 @@ builder.Services.AddAuthorization();
 var rateLimitPermit = builder.Configuration.GetValue<int?>("RateLimiting:PermitLimit") ?? 100;
 var rateLimitWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:WindowSeconds") ?? 60;
 var rateLimitQueueLimit = builder.Configuration.GetValue<int?>("RateLimiting:QueueLimit") ?? 10;
+
+// Device registration (POST /api/devices) is an anonymous handshake, so the global limiter buckets
+// every unauthenticated caller into one shared "anonymous" partition. Add a tighter, per-client-IP
+// limit dedicated to registration so a single source can't flood a tenant with Pending devices.
+// Bound as options and resolved per request so the limit can be overridden (e.g. in tests).
+builder.Services.Configure<RegistrationRateLimitOptions>(
+    builder.Configuration.GetSection(RegistrationRateLimitOptions.SectionName));
+builder.Services.Configure<DeviceRegistrationOptions>(
+    builder.Configuration.GetSection(DeviceRegistrationOptions.SectionName));
 builder.Services.AddRateLimiter(options =>
 {
     options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
@@ -102,6 +114,22 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromSeconds(rateLimitWindowSeconds),
                 QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
                 QueueLimit = rateLimitQueueLimit
+            });
+    });
+
+    options.AddPolicy(RateLimitPolicies.DeviceRegistration, context =>
+    {
+        var registration = context.RequestServices
+            .GetRequiredService<IOptions<RegistrationRateLimitOptions>>().Value;
+
+        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"reg:{GetClientIpAddress(context)}",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = registration.PermitLimit,
+                Window = TimeSpan.FromSeconds(registration.WindowSeconds),
+                QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
             });
     });
 
@@ -329,6 +357,23 @@ static string? GetAudienceFromZitadelConfig(IConfiguration configuration)
     }
 
     return null;
+}
+
+// Resolves the originating client IP for rate-limit partitioning. Behind the ACA ingress / gateway
+// the socket address is the proxy, so prefer the first hop of X-Forwarded-For.
+static string GetClientIpAddress(HttpContext context)
+{
+    var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+    if (!string.IsNullOrWhiteSpace(forwardedFor))
+    {
+        var firstHop = forwardedFor.Split(',')[0].Trim();
+        if (!string.IsNullOrEmpty(firstHop))
+        {
+            return firstHop;
+        }
+    }
+
+    return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 }
 
 // Make Program accessible to WebApplicationFactory in tests
