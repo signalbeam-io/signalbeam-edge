@@ -98,7 +98,7 @@ public class DeviceAuthenticationMiddleware
             var jwtResult = await context.AuthenticateAsync(AuthenticationConstants.JwtBearerScheme);
             if (jwtResult.Succeeded && jwtResult.Principal is not null)
             {
-                TagAuthMethod(jwtResult.Principal, AuthenticationConstants.AuthMethodJwt);
+                AuthMethodClaimStamp.Apply(jwtResult.Principal, AuthenticationConstants.AuthMethodJwt);
                 context.User = jwtResult.Principal;
                 await _next(context);
                 return;
@@ -351,24 +351,6 @@ public class DeviceAuthenticationMiddleware
         context.Items["TenantId"] = result.TenantId;
         context.Items["AuthenticationMethod"] = "TenantApiKey";
         context.Items["Scopes"] = result.Scopes;
-    }
-
-    /// <summary>
-    /// Records how the caller authenticated on the principal so authorization policies can tell an
-    /// operator JWT apart from a device or tenant key. Adds the claim to the primary identity when it
-    /// is mutable, otherwise attaches a lightweight marker identity.
-    /// </summary>
-    private static void TagAuthMethod(ClaimsPrincipal principal, string method)
-    {
-        if (principal.Identity is ClaimsIdentity identity)
-        {
-            identity.AddClaim(new Claim(AuthenticationConstants.AuthMethodClaimType, method));
-        }
-        else
-        {
-            principal.AddIdentity(new ClaimsIdentity(
-                new[] { new Claim(AuthenticationConstants.AuthMethodClaimType, method) }));
-        }
     }
 
     private async Task RespondUnauthorized(

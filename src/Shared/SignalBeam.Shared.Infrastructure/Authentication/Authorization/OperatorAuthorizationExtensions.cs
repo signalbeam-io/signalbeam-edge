@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
@@ -20,7 +21,9 @@ public static class OperatorAuthorizationExtensions
         this IServiceCollection services,
         bool allowTenantApiKeyFallback)
     {
-        services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, OperatorAccessHandler>();
+        // TryAdd so a second call (e.g. a test overriding the policy via ConfigureTestServices to
+        // simulate Production) doesn't accumulate duplicate handler instances in the container.
+        services.TryAddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, OperatorAccessHandler>();
 
         services.AddAuthorization(options =>
         {

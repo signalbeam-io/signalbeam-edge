@@ -48,11 +48,7 @@ public class ApiKeyAuthenticationMiddleware
             var jwtResult = await context.AuthenticateAsync(AuthenticationConstants.JwtBearerScheme);
             if (jwtResult.Succeeded && jwtResult.Principal is not null)
             {
-                if (jwtResult.Principal.Identity is ClaimsIdentity jwtIdentity)
-                {
-                    jwtIdentity.AddClaim(new Claim(
-                        AuthenticationConstants.AuthMethodClaimType, AuthenticationConstants.AuthMethodJwt));
-                }
+                AuthMethodClaimStamp.Apply(jwtResult.Principal, AuthenticationConstants.AuthMethodJwt);
                 context.User = jwtResult.Principal;
                 await _next(context);
                 return;
