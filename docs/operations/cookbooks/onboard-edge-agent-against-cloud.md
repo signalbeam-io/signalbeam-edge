@@ -43,15 +43,22 @@ curl -sS --http1.1 "$GATEWAY/api/devices"            # -> 401 MISSING_CREDENTIAL
 
 ## 1. (Operator) Generate a registration token
 
-Requires an authenticated admin call. With a tenant API key or dashboard JWT:
+Minting a registration token is an **operator** action, so it requires a Zitadel/OIDC JWT
+(`Authorization: Bearer <jwt>`) — the dashboard already sends one. Grab a token from the dashboard
+session (or an OIDC client-credentials flow) and call:
 
 ```bash
 curl -sS --http1.1 -X POST "$GATEWAY/api/registration-tokens" \
-  -H "X-Api-Key: <admin-tenant-api-key>" \
+  -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"'"$TENANT_ID"'","autoApprove":true}'
 # -> { "token": "sbt_…", ... }   (auto-approve skips the manual approval step)
 ```
+
+> **Auth note (#431):** operator/control-plane endpoints require a JWT. The plaintext
+> `X-Api-Key: <tenant-api-key>` shortcut works **only in non-Production** (a dev/test escape hatch) —
+> in Production it is rejected with `403`. Device endpoints (registration handshake, heartbeat,
+> desired-state, key rotation) still use the device's own credential and are unaffected.
 
 ## 2. (On the Pi) Build & run the agent
 

@@ -1,5 +1,6 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -13,8 +14,11 @@ public static class RolloutEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapRolloutEndpoints(this IEndpointRouteBuilder app)
     {
+        // Rollout management is operator-only — the agent reports reconciliation status but never
+        // drives rollouts.
         var group = app.MapGroup("/api/rollouts")
-            .WithTags("Rollouts");
+            .WithTags("Rollouts")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("", GetRollouts)
             .WithName("GetRollouts")

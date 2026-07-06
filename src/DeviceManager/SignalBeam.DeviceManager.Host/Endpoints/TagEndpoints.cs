@@ -1,5 +1,6 @@
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
@@ -14,8 +15,10 @@ public static class TagEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapTagEndpoints(this IEndpointRouteBuilder app)
     {
+        // Tag management and tag-search are operator/dashboard features — devices never call them.
         var group = app.MapGroup("/api/tags")
-            .WithTags("Tags");
+            .WithTags("Tags")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/", GetAllTags)
             .WithName("GetAllTags")
@@ -28,7 +31,8 @@ public static class TagEndpoints
             .WithDescription("Removes a specific tag from a device.");
 
         var searchGroup = app.MapGroup("/api/devices")
-            .WithTags("Devices");
+            .WithTags("Devices")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         searchGroup.MapGet("/search", SearchDevicesByTagQuery)
             .WithName("SearchDevicesByTagQuery")

@@ -34,6 +34,26 @@ Every new endpoint MUST have authentication. The project uses a layered auth mid
 **BundleOrchestrator** — `UseApiKeyAuthentication()` middleware handles: tenant API key → JWT Bearer passthrough
 **IdentityManager** — JWT Bearer only via standard ASP.NET Core middleware
 
+### Operator vs device endpoints (#431)
+
+The middleware chain above only *authenticates* — it does not decide whether a given credential is
+strong enough for a given endpoint. That split is enforced by the `OperatorAccess` authorization
+policy:
+
+- **Operator / control-plane endpoints require a Zitadel JWT.** Approve/reject devices, mint/revoke
+  registration tokens, generate/revoke device keys, device/group/tag management reads and writes,
+  bundle CRUD, bundle assignment, rollout management, and certificate issue/revoke are all annotated
+  with `.RequireAuthorization(AuthorizationPolicies.OperatorAccess)`. The plaintext tenant API key
+  authorizes these **only in non-Production** (the dev/test escape hatch) — in Production only a JWT
+  does. The policy reads the unambiguous `auth_method` claim the middleware stamps on the principal.
+- **Device endpoints keep the hashed device key / mTLS.** The registration handshake
+  (`POST /api/devices`, `registration-status`, `claim-key`), heartbeat, `state`/`current-state`,
+  metrics reporting, `rotate-key`, `reconciliation-status`, `desired-state`, and `sign-csr` are NOT
+  operator-gated — a device authenticates itself with its own credential and must never be able to
+  reach operator endpoints. `OperatorAccessHandler` rejects device credentials outright.
+- Wire the policy with `services.AddOperatorAuthorization(!builder.Environment.IsProduction())` and
+  apply `.RequireAuthorization(AuthorizationPolicies.OperatorAccess)` per endpoint or per group.
+
 **Rules:**
 - Every new endpoint requires auth unless it is a health check, metrics, or explicitly public registration endpoint
 - If an endpoint must be public, annotate with `.AllowAnonymous()` and add a code comment explaining why
@@ -66,7 +86,7 @@ Every new endpoint MUST have authentication. The project uses a layered auth mid
 
 ## API Key Security
 
-- Tenant API keys (MVP): plain config-backed `tenantId:key:scopes` format — acceptable for dev only
+- Tenant API keys (MVP): plain config-backed `tenantId:key:scopes` format — acceptable for dev only, and ring-fenced by the `OperatorAccess` policy so they cannot authorize operator endpoints in Production (#431). Operators authenticate to the control plane via OIDC/JWT.
 - Device API keys: `sb_device_{prefix}_{secret}` format, BCrypt-hashed (work factor 12)
 - Registration tokens: `sbt_{prefix}_{secret}` format, BCrypt-hashed (work factor 12)
 - Key lookup: use the 8-char prefix for DB lookup, then BCrypt verify the full key

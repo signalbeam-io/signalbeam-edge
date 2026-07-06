@@ -17,6 +17,9 @@
     <!-- Pin MessagePack (pulled transitively by the Aspire AppHost / dashboard) to the
          latest patched 2.5.x release to clear GHSA-hv8m-jj95-wg3x without the 3.x major bump. -->
     <PackageVersion Include="MessagePack" Version="2.5.302" />
+    <!-- Pin Microsoft.OpenApi (pulled transitively via Scalar / AspNetCore.OpenApi) to the first
+         patched release to clear GHSA-v5pm-xwqc-g5wc (NU1903). -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
   </ItemGroup>
   <ItemGroup Label="Messaging and CQRS">
     <PackageVersion Include="WolverineFx" Version="5.27.0" />

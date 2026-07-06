@@ -1,5 +1,6 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
@@ -14,8 +15,10 @@ public static class PhasedRolloutEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapPhasedRolloutEndpoints(this IEndpointRouteBuilder app)
     {
+        // Phased-rollout management is operator-only.
         var group = app.MapGroup("/api/phased-rollouts")
-            .WithTags("Phased Rollouts");
+            .WithTags("Phased Rollouts")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         // Query endpoints
         group.MapGet("", ListPhasedRollouts)

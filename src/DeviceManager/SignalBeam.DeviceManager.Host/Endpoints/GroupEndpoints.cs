@@ -1,6 +1,7 @@
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
@@ -15,8 +16,10 @@ public static class GroupEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapGroupEndpoints(this IEndpointRouteBuilder app)
     {
+        // Device-group management is entirely an operator concern — devices never call it.
         var group = app.MapGroup("/api/groups")
-            .WithTags("Device Groups");
+            .WithTags("Device Groups")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/", GetDeviceGroups)
             .WithName("GetDeviceGroups")
