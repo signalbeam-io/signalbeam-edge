@@ -48,6 +48,11 @@ public class ApiKeyAuthenticationMiddleware
             var jwtResult = await context.AuthenticateAsync(AuthenticationConstants.JwtBearerScheme);
             if (jwtResult.Succeeded && jwtResult.Principal is not null)
             {
+                if (jwtResult.Principal.Identity is ClaimsIdentity jwtIdentity)
+                {
+                    jwtIdentity.AddClaim(new Claim(
+                        AuthenticationConstants.AuthMethodClaimType, AuthenticationConstants.AuthMethodJwt));
+                }
                 context.User = jwtResult.Principal;
                 await _next(context);
                 return;
@@ -103,7 +108,11 @@ public class ApiKeyAuthenticationMiddleware
         var claims = new List<Claim>
         {
             new(AuthenticationConstants.TenantIdClaimType, result.TenantId),
-            new(ClaimTypes.AuthenticationMethod, AuthenticationConstants.ApiKeyScheme)
+            new(ClaimTypes.AuthenticationMethod, AuthenticationConstants.ApiKeyScheme),
+            // This middleware only validates the config-backed tenant key (no device keys), so the
+            // API-key path here is always a tenant key — tag it so the operator policy treats it as
+            // the dev-only escape hatch.
+            new(AuthenticationConstants.AuthMethodClaimType, AuthenticationConstants.AuthMethodTenantApiKey)
         };
 
         foreach (var scope in result.Scopes)

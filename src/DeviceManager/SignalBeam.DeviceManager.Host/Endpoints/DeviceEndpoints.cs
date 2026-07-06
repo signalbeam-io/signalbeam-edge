@@ -3,6 +3,7 @@ using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Infrastructure.Queries;
 using SignalBeam.Domain.Enums;
 using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using SignalBeam.Shared.Infrastructure.Results;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -57,27 +58,32 @@ public static class DeviceEndpoints
         group.MapGet("/", GetDevices)
             .WithName("GetDevices")
             .WithSummary("Get devices with filters")
-            .WithDescription("Retrieves a paginated list of devices with optional filters.");
+            .WithDescription("Retrieves a paginated list of devices with optional filters.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/by-status/{status}", GetDevicesByRegistrationStatus)
             .WithName("GetDevicesByRegistrationStatus")
             .WithSummary("Get devices by registration status")
-            .WithDescription("Retrieves devices filtered by registration status (Pending, Approved, Rejected).");
+            .WithDescription("Retrieves devices filtered by registration status (Pending, Approved, Rejected).")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/{deviceId:guid}", GetDeviceById)
             .WithName("GetDeviceById")
             .WithSummary("Get device by ID")
-            .WithDescription("Retrieves detailed information about a specific device.");
+            .WithDescription("Retrieves detailed information about a specific device.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPut("/{deviceId:guid}", UpdateDevice)
             .WithName("UpdateDevice")
             .WithSummary("Update device")
-            .WithDescription("Updates device name and/or metadata.");
+            .WithDescription("Updates device name and/or metadata.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/{deviceId:guid}/tags", AddDeviceTag)
             .WithName("AddDeviceTag")
             .WithSummary("Add tag to device")
-            .WithDescription("Adds a tag to a device for categorization.");
+            .WithDescription("Adds a tag to a device for categorization.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/{deviceId:guid}/heartbeat", RecordHeartbeat)
             .WithName("RecordHeartbeat")
@@ -87,7 +93,8 @@ public static class DeviceEndpoints
         group.MapPut("/{deviceId:guid}/group", AssignDeviceToGroup)
             .WithName("AssignDeviceToGroup")
             .WithSummary("Assign device to group")
-            .WithDescription("Assigns a device to a device group or removes it from a group.");
+            .WithDescription("Assigns a device to a device group or removes it from a group.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/{deviceId:guid}/state", ReportDeviceState)
             .WithName("ReportDeviceState")
@@ -97,12 +104,14 @@ public static class DeviceEndpoints
         group.MapGet("/{deviceId:guid}/health", GetDeviceHealth)
             .WithName("GetDeviceHealth")
             .WithSummary("Get device health")
-            .WithDescription("Retrieves health information about a specific device.");
+            .WithDescription("Retrieves health information about a specific device.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/groups/{deviceGroupId:guid}", GetDevicesByGroup)
             .WithName("GetDevicesByGroup")
             .WithSummary("Get devices by group")
-            .WithDescription("Retrieves all devices in a specific device group with optional filters.");
+            .WithDescription("Retrieves all devices in a specific device group with optional filters.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/{deviceId:guid}/metrics", UpdateDeviceMetrics)
             .WithName("UpdateDeviceMetrics")
@@ -112,23 +121,27 @@ public static class DeviceEndpoints
         group.MapGet("/{deviceId:guid}/metrics", GetDeviceMetrics)
             .WithName("GetDeviceMetrics")
             .WithSummary("Get device metrics history")
-            .WithDescription("Retrieves historical metrics data for a device with optional date range filtering.");
+            .WithDescription("Retrieves historical metrics data for a device with optional date range filtering.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/{deviceId:guid}/activity-log", GetDeviceActivityLog)
             .WithName("GetDeviceActivityLog")
             .WithSummary("Get device activity log")
-            .WithDescription("Retrieves the activity log for a specific device.");
+            .WithDescription("Retrieves the activity log for a specific device.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         // Device registration approval and API key management
         group.MapPost("/{deviceId:guid}/approve", ApproveDeviceRegistration)
             .WithName("ApproveDeviceRegistration")
             .WithSummary("Approve device registration")
-            .WithDescription("Approves a pending device registration and generates an API key.");
+            .WithDescription("Approves a pending device registration and generates an API key.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/{deviceId:guid}/reject", RejectDeviceRegistration)
             .WithName("RejectDeviceRegistration")
             .WithSummary("Reject device registration")
-            .WithDescription("Rejects a pending device registration.");
+            .WithDescription("Rejects a pending device registration.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/{deviceId:guid}/claim-key", ClaimDeviceApiKey)
             .WithName("ClaimDeviceApiKey")
@@ -141,7 +154,8 @@ public static class DeviceEndpoints
         group.MapPost("/{deviceId:guid}/api-keys", GenerateDeviceApiKey)
             .WithName("GenerateDeviceApiKey")
             .WithSummary("Generate device API key")
-            .WithDescription("Generates a new API key for a device (for key rotation).");
+            .WithDescription("Generates a new API key for a device (for key rotation).")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/{deviceId:guid}/rotate-key", RotateDeviceApiKey)
             .WithName("RotateDeviceApiKey")
@@ -152,11 +166,14 @@ public static class DeviceEndpoints
         group.MapDelete("/api-keys/{apiKeyId:guid}", RevokeDeviceApiKey)
             .WithName("RevokeDeviceApiKey")
             .WithSummary("Revoke device API key")
-            .WithDescription("Revokes an existing device API key.");
+            .WithDescription("Revokes an existing device API key.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
-        // Registration token management
+        // Registration token management — operator-only (minting tokens is the highest-value
+        // control-plane action). Requires a JWT; the plaintext tenant key only works in dev/test.
         var tokenGroup = app.MapGroup("/api/registration-tokens")
-            .WithTags("Registration Tokens");
+            .WithTags("Registration Tokens")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         tokenGroup.MapPost("/", GenerateRegistrationToken)
             .WithName("GenerateRegistrationToken")

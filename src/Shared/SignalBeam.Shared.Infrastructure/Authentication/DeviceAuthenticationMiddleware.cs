@@ -98,6 +98,7 @@ public class DeviceAuthenticationMiddleware
             var jwtResult = await context.AuthenticateAsync(AuthenticationConstants.JwtBearerScheme);
             if (jwtResult.Succeeded && jwtResult.Principal is not null)
             {
+                TagAuthMethod(jwtResult.Principal, AuthenticationConstants.AuthMethodJwt);
                 context.User = jwtResult.Principal;
                 await _next(context);
                 return;
@@ -298,11 +299,19 @@ public class DeviceAuthenticationMiddleware
         dynamic result, // Can be from either validator
         AuthenticationMethod method)
     {
+        // Unambiguous auth-method marker for authorization policies. Device credentials (hashed key
+        // or certificate) must never satisfy the operator policy, so tag them distinctly rather than
+        // reusing the overloaded ClaimsIdentity scheme name.
+        var authMethodValue = method == AuthenticationMethod.Certificate
+            ? AuthenticationConstants.AuthMethodCertificate
+            : AuthenticationConstants.AuthMethodDeviceApiKey;
+
         var claims = new List<Claim>
         {
             new(AuthenticationConstants.DeviceIdClaimType, result.DeviceId.ToString()),
             new(AuthenticationConstants.TenantIdClaimType, result.TenantId.ToString()),
-            new(ClaimTypes.AuthenticationMethod, method.ToString())
+            new(ClaimTypes.AuthenticationMethod, method.ToString()),
+            new(AuthenticationConstants.AuthMethodClaimType, authMethodValue)
         };
 
         var schemeName = method == AuthenticationMethod.Certificate
@@ -325,7 +334,8 @@ public class DeviceAuthenticationMiddleware
         var claims = new List<Claim>
         {
             new(AuthenticationConstants.TenantIdClaimType, result.TenantId),
-            new(ClaimTypes.AuthenticationMethod, "TenantApiKey")
+            new(ClaimTypes.AuthenticationMethod, "TenantApiKey"),
+            new(AuthenticationConstants.AuthMethodClaimType, AuthenticationConstants.AuthMethodTenantApiKey)
         };
 
         // Add scopes as claims
@@ -341,6 +351,24 @@ public class DeviceAuthenticationMiddleware
         context.Items["TenantId"] = result.TenantId;
         context.Items["AuthenticationMethod"] = "TenantApiKey";
         context.Items["Scopes"] = result.Scopes;
+    }
+
+    /// <summary>
+    /// Records how the caller authenticated on the principal so authorization policies can tell an
+    /// operator JWT apart from a device or tenant key. Adds the claim to the primary identity when it
+    /// is mutable, otherwise attaches a lightweight marker identity.
+    /// </summary>
+    private static void TagAuthMethod(ClaimsPrincipal principal, string method)
+    {
+        if (principal.Identity is ClaimsIdentity identity)
+        {
+            identity.AddClaim(new Claim(AuthenticationConstants.AuthMethodClaimType, method));
+        }
+        else
+        {
+            principal.AddIdentity(new ClaimsIdentity(
+                new[] { new Claim(AuthenticationConstants.AuthMethodClaimType, method) }));
+        }
     }
 
     private async Task RespondUnauthorized(

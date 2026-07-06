@@ -1,5 +1,6 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -13,8 +14,10 @@ public static class RolloutStatusEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapRolloutStatusEndpoints(this IEndpointRouteBuilder app)
     {
+        // Rollout-status reads are operator/dashboard-facing.
         var group = app.MapGroup("/api/rollouts")
-            .WithTags("Rollout Status");
+            .WithTags("Rollout Status")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/bundles/{bundleId}", GetRolloutStatus)
             .WithName("GetRolloutStatus")

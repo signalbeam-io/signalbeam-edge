@@ -4,6 +4,7 @@ using SignalBeam.BundleOrchestrator.Application.Queries;
 using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.BundleOrchestrator.Application.Storage;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -17,8 +18,11 @@ public static class BundleVersionEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapBundleVersionEndpoints(this IEndpointRouteBuilder app)
     {
+        // Bundle-version management/reads are operator/dashboard-facing. The agent never calls these
+        // — it reconciles from the inline definition returned by GET /api/devices/{id}/desired-state.
         var group = app.MapGroup("/api/bundles/{bundleId}/versions")
-            .WithTags("Bundle Versions");
+            .WithTags("Bundle Versions")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/", CreateBundleVersion)
             .WithName("CreateBundleVersion")

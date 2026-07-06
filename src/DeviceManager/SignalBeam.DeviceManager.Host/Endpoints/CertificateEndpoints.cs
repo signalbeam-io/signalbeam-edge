@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using SignalBeam.DeviceManager.Application.Commands;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.DeviceManager.Application.Services;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
 
@@ -23,11 +24,14 @@ public static class CertificateEndpoints
         var group = app.MapGroup("/api/certificates")
             .WithTags("Certificates");
 
+        // Operator action: minting a certificate for a device is a control-plane operation.
         group.MapPost("/{deviceId:guid}/issue", IssueCertificate)
             .WithName("IssueCertificate")
             .WithSummary("Issue a new certificate for an approved device")
-            .WithDescription("Generates and issues a new mTLS client certificate for an approved device.");
+            .WithDescription("Generates and issues a new mTLS client certificate for an approved device.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
+        // Device action: the agent signs its own CSR during enrolment — keep the existing auth path.
         group.MapPost("/{deviceId:guid}/sign-csr", SignDeviceCsr)
             .WithName("SignDeviceCsr")
             .WithSummary("Sign a device-generated CSR")
@@ -42,12 +46,14 @@ public static class CertificateEndpoints
         group.MapDelete("/{serialNumber}", RevokeCertificate)
             .WithName("RevokeCertificate")
             .WithSummary("Revoke a device certificate")
-            .WithDescription("Revokes a certificate, preventing further authentication with it.");
+            .WithDescription("Revokes a certificate, preventing further authentication with it.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/device/{deviceId:guid}", GetDeviceCertificates)
             .WithName("GetDeviceCertificates")
             .WithSummary("Get all certificates for a device")
-            .WithDescription("Retrieves all certificates (active and revoked) for a specific device.");
+            .WithDescription("Retrieves all certificates (active and revoked) for a specific device.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         // Public endpoint - no authentication required
         group.MapGet("/ca", GetCaCertificate)

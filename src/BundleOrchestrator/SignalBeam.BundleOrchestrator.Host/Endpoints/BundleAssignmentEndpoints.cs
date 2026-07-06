@@ -1,5 +1,6 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -16,18 +17,24 @@ public static class BundleAssignmentEndpoints
         var deviceGroup = app.MapGroup("/api/devices")
             .WithTags("Bundle Assignments");
 
+        // Operator action: assigning a bundle to a device is a control-plane write.
         deviceGroup.MapPost("/{deviceId}/bundle", AssignBundleToDevice)
             .WithName("AssignBundleToDevice")
             .WithSummary("Assign bundle to device")
-            .WithDescription("Assigns a specific bundle version to a device, updating its desired state.");
+            .WithDescription("Assigns a specific bundle version to a device, updating its desired state.")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
+        // Device action: the agent polls its own desired state to reconcile — keep the existing auth
+        // path (this is the reconcile/desired-state endpoint the device-endpoint carve-out preserves).
         deviceGroup.MapGet("/{deviceId}/desired-state", GetDeviceDesiredState)
             .WithName("GetDeviceDesiredState")
             .WithSummary("Get device desired state")
             .WithDescription("Retrieves the desired bundle state for a specific device.");
 
+        // Operator action: assigning a bundle to a whole group.
         var groupGroup = app.MapGroup("/api/device-groups")
-            .WithTags("Bundle Assignments");
+            .WithTags("Bundle Assignments")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         groupGroup.MapPost("/{deviceGroupId}/bundle", AssignBundleToGroup)
             .WithName("AssignBundleToGroup")

@@ -11,6 +11,7 @@ using Serilog;
 using SignalBeam.ServiceDefaults;
 using Scalar.AspNetCore;
 using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
@@ -83,7 +84,10 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+// Operator/control-plane endpoints require a Zitadel JWT. Outside Production the plaintext tenant
+// API key is also accepted (dev/test escape hatch) so local dev and the integration suite work
+// without a running OIDC provider; in Production only the JWT authorizes. (#431)
+builder.Services.AddOperatorAuthorization(!builder.Environment.IsProduction());
 
 // Add Rate Limiting. Limits are configurable (RateLimiting:*) so they can be tuned per
 // environment and made deterministic in tests; the defaults preserve the original behaviour.

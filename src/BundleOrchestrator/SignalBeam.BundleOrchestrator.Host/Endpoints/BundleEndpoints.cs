@@ -2,6 +2,7 @@ using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Models;
 using SignalBeam.BundleOrchestrator.Application.Queries;
 using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -59,8 +60,11 @@ public static class BundleEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapBundleEndpoints(this IEndpointRouteBuilder app)
     {
+        // Bundle CRUD is an operator/dashboard concern — require a JWT (dev/test tenant-key hatch).
+        // The agent never reads bundles directly; it reconciles from GET /api/devices/{id}/desired-state.
         var group = app.MapGroup("/api/bundles")
-            .WithTags("Bundles");
+            .WithTags("Bundles")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapPost("/", CreateBundle)
             .WithName("CreateBundle")
