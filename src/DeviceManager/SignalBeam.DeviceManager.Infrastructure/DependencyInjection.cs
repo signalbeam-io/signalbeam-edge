@@ -179,6 +179,19 @@ public static class DependencyInjection
             services.AddHostedService<CertificateExpirationCheckService>();
         }
 
+        // Register pending-device prune service if enabled
+        services.Configure<PendingDevicePruneOptions>(
+            configuration.GetSection(PendingDevicePruneOptions.SectionName));
+
+        var prunePendingOptions = configuration
+            .GetSection(PendingDevicePruneOptions.SectionName)
+            .Get<PendingDevicePruneOptions>() ?? new PendingDevicePruneOptions();
+
+        if (prunePendingOptions.PruneEnabled)
+        {
+            services.AddHostedService<PendingDevicePruneService>();
+        }
+
         return services;
     }
 }
