@@ -43,6 +43,16 @@ resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
   value     = "TIMESCALEDB,UUID-OSSP,PG_STAT_STATEMENTS"
 }
 
+# timescaledb must also be preloaded, or CREATE EXTENSION fails at migration time.
+# Static parameter: requires a server restart to take effect
+# (az postgres flexible-server restart) — Azure does not restart automatically,
+# so run the restart before any service that migrates TimescaleDB tables starts.
+resource "azurerm_postgresql_flexible_server_configuration" "shared_preload_libraries" {
+  server_id = azurerm_postgresql_flexible_server.this.id
+  name      = "shared_preload_libraries"
+  value     = "timescaledb,pg_stat_statements"
+}
+
 resource "azurerm_postgresql_flexible_server_configuration" "log_min_duration" {
   server_id = azurerm_postgresql_flexible_server.this.id
   name      = "log_min_duration_statement"

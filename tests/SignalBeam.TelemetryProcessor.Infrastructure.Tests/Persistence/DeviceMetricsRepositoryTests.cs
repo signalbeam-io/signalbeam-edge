@@ -40,8 +40,8 @@ public class DeviceMetricsRepositoryTests : IAsyncLifetime
 
         _context = new TelemetryDbContext(options);
 
-        // Create schema and tables from model
-        await _context.Database.EnsureCreatedAsync();
+        // Apply the real migrations (hypertables + continuous aggregates included)
+        await _context.Database.MigrateAsync();
 
         // Create repository
         _repository = new DeviceMetricsRepository(_context);
@@ -201,7 +201,7 @@ public class DeviceMetricsRepositoryTests : IAsyncLifetime
         latest.Should().BeNull();
     }
 
-    [Fact(Skip = "Requires TimescaleDB continuous aggregates created by migrations")]
+    [Fact]
     public async Task GetHourlyAggregatesAsync_ShouldReturnAggregatedData()
     {
         // Arrange
@@ -229,9 +229,10 @@ public class DeviceMetricsRepositoryTests : IAsyncLifetime
         await _repository!.AddRangeAsync(metrics);
         await _repository.SaveChangesAsync();
 
-        // Wait for continuous aggregate to refresh (in real scenario)
-        // For tests, we might need to manually refresh or wait
-        await Task.Delay(1000);
+        // The aggregate is created WITH NO DATA and its refresh policy won't fire
+        // during the test, so materialize it explicitly.
+        await _context!.Database.ExecuteSqlRawAsync(
+            "CALL refresh_continuous_aggregate('telemetry_processor.device_metrics_hourly', NULL, NULL);");
 
         // Act
         var aggregates = await _repository.GetHourlyAggregatesAsync(

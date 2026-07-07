@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using SignalBeam.ServiceDefaults;
 using SignalBeam.TelemetryProcessor.Application.BackgroundServices;
@@ -75,6 +76,27 @@ builder.Services.AddHostedService<NotificationDispatcherService>();
 builder.Services.AddHostedService<NotificationRetryService>();
 
 var app = builder.Build();
+
+// Apply database migrations automatically (skip in Testing environment)
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using var scope = app.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var context = services.GetRequiredService<SignalBeam.TelemetryProcessor.Infrastructure.Persistence.TelemetryDbContext>();
+
+        logger.LogInformation("Applying database migrations...");
+        await context.Database.MigrateAsync();
+        logger.LogInformation("Database migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred while applying database migrations.");
+        throw;
+    }
+}
 
 // Configure the HTTP request pipeline
 app.UseSerilogRequestLogging();
