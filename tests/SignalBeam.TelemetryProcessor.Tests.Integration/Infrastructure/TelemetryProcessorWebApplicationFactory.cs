@@ -62,11 +62,11 @@ public class TelemetryProcessorWebApplicationFactory : WebApplicationFactory<Pro
     {
         await _postgresContainer.StartAsync();
 
-        // Build the schema from the model (the Infrastructure project ships no migration files, so
-        // MigrateAsync() would be a no-op leaving the tables missing).
+        // Apply the real migrations so tests exercise the production schema path,
+        // including TimescaleDB hypertables and continuous aggregates (#428).
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TelemetryDbContext>();
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
     }
 
     public new async Task DisposeAsync()

@@ -36,8 +36,8 @@ public class DeviceHeartbeatRepositoryTests : IAsyncLifetime
             .Options;
 
         _context = new TelemetryDbContext(options);
-        // Create schema and tables from model
-        await _context.Database.EnsureCreatedAsync();
+        // Apply the real migrations (hypertables + continuous aggregates included)
+        await _context.Database.MigrateAsync();
 
         _repository = new DeviceHeartbeatRepository(_context);
     }

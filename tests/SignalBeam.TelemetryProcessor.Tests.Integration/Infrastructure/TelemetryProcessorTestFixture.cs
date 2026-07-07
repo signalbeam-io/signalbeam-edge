@@ -40,11 +40,9 @@ public class TelemetryProcessorTestFixture : IAsyncLifetime
         var serviceProvider = services.BuildServiceProvider();
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<TelemetryDbContext>();
-        // Build the schema from the model. The TelemetryProcessor.Infrastructure project ships only a
-        // model snapshot (no migration files), so MigrateAsync() is a no-op and leaves the tables
-        // missing ("relation telemetry_processor.* does not exist"). EnsureCreated mirrors the
-        // DeviceManager integration fixture.
-        await context.Database.EnsureCreatedAsync();
+        // Apply the real migrations so tests exercise the production schema path,
+        // including TimescaleDB hypertables and continuous aggregates (#428).
+        await context.Database.MigrateAsync();
 
         // Initialize NATS connection (assumes NATS is running locally or in CI)
         // For true isolation, you could use a NATS container, but NATS is lightweight enough to run locally
