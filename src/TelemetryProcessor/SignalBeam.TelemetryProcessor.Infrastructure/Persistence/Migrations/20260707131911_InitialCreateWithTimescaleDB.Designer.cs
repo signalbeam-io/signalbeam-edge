@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SignalBeam.TelemetryProcessor.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SignalBeam.TelemetryProcessor.Infrastructure.Persistence;
 namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(TelemetryDbContext))]
-    partial class TelemetryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260707131911_InitialCreateWithTimescaleDB")]
+    partial class InitialCreateWithTimescaleDB
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
