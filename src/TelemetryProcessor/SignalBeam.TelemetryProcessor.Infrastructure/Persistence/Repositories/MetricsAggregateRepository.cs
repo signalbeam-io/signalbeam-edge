@@ -63,15 +63,15 @@ public class MetricsAggregateRepository : IMetricsAggregateRepository
             results.Add(new HourlyMetricsAggregate(
                 DeviceId: new DeviceId(reader.GetGuid(0)),
                 Bucket: new DateTimeOffset(reader.GetDateTime(1)),
-                AvgCpuUsage: Convert.ToDouble(reader.GetDecimal(2)),
-                MaxCpuUsage: Convert.ToDouble(reader.GetDecimal(3)),
-                MinCpuUsage: Convert.ToDouble(reader.GetDecimal(4)),
-                AvgMemoryUsage: Convert.ToDouble(reader.GetDecimal(5)),
-                MaxMemoryUsage: Convert.ToDouble(reader.GetDecimal(6)),
-                MinMemoryUsage: Convert.ToDouble(reader.GetDecimal(7)),
-                AvgDiskUsage: Convert.ToDouble(reader.GetDecimal(8)),
-                MaxDiskUsage: Convert.ToDouble(reader.GetDecimal(9)),
-                MinDiskUsage: Convert.ToDouble(reader.GetDecimal(10)),
+                AvgCpuUsage: Convert.ToDouble(reader.GetValue(2)),
+                MaxCpuUsage: Convert.ToDouble(reader.GetValue(3)),
+                MinCpuUsage: Convert.ToDouble(reader.GetValue(4)),
+                AvgMemoryUsage: Convert.ToDouble(reader.GetValue(5)),
+                MaxMemoryUsage: Convert.ToDouble(reader.GetValue(6)),
+                MinMemoryUsage: Convert.ToDouble(reader.GetValue(7)),
+                AvgDiskUsage: Convert.ToDouble(reader.GetValue(8)),
+                MaxDiskUsage: Convert.ToDouble(reader.GetValue(9)),
+                MinDiskUsage: Convert.ToDouble(reader.GetValue(10)),
                 DataPoints: Convert.ToInt32(reader.GetInt64(11))
             ));
         }
@@ -126,15 +126,15 @@ public class MetricsAggregateRepository : IMetricsAggregateRepository
             results.Add(new DailyMetricsAggregate(
                 DeviceId: new DeviceId(reader.GetGuid(0)),
                 Bucket: new DateTimeOffset(reader.GetDateTime(1)),
-                AvgCpuUsage: Convert.ToDouble(reader.GetDecimal(2)),
-                MaxCpuUsage: Convert.ToDouble(reader.GetDecimal(3)),
-                MinCpuUsage: Convert.ToDouble(reader.GetDecimal(4)),
-                AvgMemoryUsage: Convert.ToDouble(reader.GetDecimal(5)),
-                MaxMemoryUsage: Convert.ToDouble(reader.GetDecimal(6)),
-                MinMemoryUsage: Convert.ToDouble(reader.GetDecimal(7)),
-                AvgDiskUsage: Convert.ToDouble(reader.GetDecimal(8)),
-                MaxDiskUsage: Convert.ToDouble(reader.GetDecimal(9)),
-                MinDiskUsage: Convert.ToDouble(reader.GetDecimal(10)),
+                AvgCpuUsage: Convert.ToDouble(reader.GetValue(2)),
+                MaxCpuUsage: Convert.ToDouble(reader.GetValue(3)),
+                MinCpuUsage: Convert.ToDouble(reader.GetValue(4)),
+                AvgMemoryUsage: Convert.ToDouble(reader.GetValue(5)),
+                MaxMemoryUsage: Convert.ToDouble(reader.GetValue(6)),
+                MinMemoryUsage: Convert.ToDouble(reader.GetValue(7)),
+                AvgDiskUsage: Convert.ToDouble(reader.GetValue(8)),
+                MaxDiskUsage: Convert.ToDouble(reader.GetValue(9)),
+                MinDiskUsage: Convert.ToDouble(reader.GetValue(10)),
                 DataPoints: Convert.ToInt32(reader.GetInt64(11))
             ));
         }
@@ -191,15 +191,15 @@ public class MetricsAggregateRepository : IMetricsAggregateRepository
             results.Add(new HourlyMetricsAggregate(
                 DeviceId: new DeviceId(reader.GetGuid(0)),
                 Bucket: new DateTimeOffset(reader.GetDateTime(1)),
-                AvgCpuUsage: Convert.ToDouble(reader.GetDecimal(2)),
-                MaxCpuUsage: Convert.ToDouble(reader.GetDecimal(3)),
-                MinCpuUsage: Convert.ToDouble(reader.GetDecimal(4)),
-                AvgMemoryUsage: Convert.ToDouble(reader.GetDecimal(5)),
-                MaxMemoryUsage: Convert.ToDouble(reader.GetDecimal(6)),
-                MinMemoryUsage: Convert.ToDouble(reader.GetDecimal(7)),
-                AvgDiskUsage: Convert.ToDouble(reader.GetDecimal(8)),
-                MaxDiskUsage: Convert.ToDouble(reader.GetDecimal(9)),
-                MinDiskUsage: Convert.ToDouble(reader.GetDecimal(10)),
+                AvgCpuUsage: Convert.ToDouble(reader.GetValue(2)),
+                MaxCpuUsage: Convert.ToDouble(reader.GetValue(3)),
+                MinCpuUsage: Convert.ToDouble(reader.GetValue(4)),
+                AvgMemoryUsage: Convert.ToDouble(reader.GetValue(5)),
+                MaxMemoryUsage: Convert.ToDouble(reader.GetValue(6)),
+                MinMemoryUsage: Convert.ToDouble(reader.GetValue(7)),
+                AvgDiskUsage: Convert.ToDouble(reader.GetValue(8)),
+                MaxDiskUsage: Convert.ToDouble(reader.GetValue(9)),
+                MinDiskUsage: Convert.ToDouble(reader.GetValue(10)),
                 DataPoints: Convert.ToInt32(reader.GetInt64(11))
             ));
         }

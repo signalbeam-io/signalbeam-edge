@@ -166,20 +166,22 @@ public class DeviceMetricsRepository : IDeviceMetricsRepository
 
         while (await reader.ReadAsync(cancellationToken))
         {
+            // AVG/MAX/MIN over double precision columns come back as double, while
+            // AVG over bigint/integer comes back as numeric — Convert handles both.
             results.Add(new HourlyMetrics
             {
                 Bucket = reader.GetDateTime(0),
-                AvgCpuUsage = reader.GetDecimal(1),
-                MaxCpuUsage = reader.GetDecimal(2),
-                MinCpuUsage = reader.GetDecimal(3),
-                AvgMemoryUsage = reader.GetDecimal(4),
-                MaxMemoryUsage = reader.GetDecimal(5),
-                MinMemoryUsage = reader.GetDecimal(6),
-                AvgDiskUsage = reader.GetDecimal(7),
-                MaxDiskUsage = reader.GetDecimal(8),
-                MinDiskUsage = reader.GetDecimal(9),
-                AvgUptimeSeconds = reader.GetDouble(10),
-                AvgRunningContainers = reader.GetDouble(11),
+                AvgCpuUsage = Convert.ToDecimal(reader.GetValue(1)),
+                MaxCpuUsage = Convert.ToDecimal(reader.GetValue(2)),
+                MinCpuUsage = Convert.ToDecimal(reader.GetValue(3)),
+                AvgMemoryUsage = Convert.ToDecimal(reader.GetValue(4)),
+                MaxMemoryUsage = Convert.ToDecimal(reader.GetValue(5)),
+                MinMemoryUsage = Convert.ToDecimal(reader.GetValue(6)),
+                AvgDiskUsage = Convert.ToDecimal(reader.GetValue(7)),
+                MaxDiskUsage = Convert.ToDecimal(reader.GetValue(8)),
+                MinDiskUsage = Convert.ToDecimal(reader.GetValue(9)),
+                AvgUptimeSeconds = Convert.ToDouble(reader.GetValue(10)),
+                AvgRunningContainers = Convert.ToDouble(reader.GetValue(11)),
                 SampleCount = reader.GetInt64(12)
             });
         }
@@ -236,17 +238,17 @@ public class DeviceMetricsRepository : IDeviceMetricsRepository
             results.Add(new DailyMetrics
             {
                 Bucket = reader.GetDateTime(0),
-                AvgCpuUsage = reader.GetDecimal(1),
-                MaxCpuUsage = reader.GetDecimal(2),
-                MinCpuUsage = reader.GetDecimal(3),
-                AvgMemoryUsage = reader.GetDecimal(4),
-                MaxMemoryUsage = reader.GetDecimal(5),
-                MinMemoryUsage = reader.GetDecimal(6),
-                AvgDiskUsage = reader.GetDecimal(7),
-                MaxDiskUsage = reader.GetDecimal(8),
-                MinDiskUsage = reader.GetDecimal(9),
-                AvgUptimeSeconds = reader.GetDouble(10),
-                AvgRunningContainers = reader.GetDouble(11),
+                AvgCpuUsage = Convert.ToDecimal(reader.GetValue(1)),
+                MaxCpuUsage = Convert.ToDecimal(reader.GetValue(2)),
+                MinCpuUsage = Convert.ToDecimal(reader.GetValue(3)),
+                AvgMemoryUsage = Convert.ToDecimal(reader.GetValue(4)),
+                MaxMemoryUsage = Convert.ToDecimal(reader.GetValue(5)),
+                MinMemoryUsage = Convert.ToDecimal(reader.GetValue(6)),
+                AvgDiskUsage = Convert.ToDecimal(reader.GetValue(7)),
+                MaxDiskUsage = Convert.ToDecimal(reader.GetValue(8)),
+                MinDiskUsage = Convert.ToDecimal(reader.GetValue(9)),
+                AvgUptimeSeconds = Convert.ToDouble(reader.GetValue(10)),
+                AvgRunningContainers = Convert.ToDouble(reader.GetValue(11)),
                 SampleCount = reader.GetInt64(12)
             });
         }
