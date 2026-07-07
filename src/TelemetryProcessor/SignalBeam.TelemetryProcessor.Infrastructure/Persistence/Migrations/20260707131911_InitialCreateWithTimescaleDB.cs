@@ -320,6 +320,15 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(@"
+                SELECT remove_retention_policy('telemetry_processor.device_heartbeats', if_exists => true);
+                SELECT remove_retention_policy('telemetry_processor.device_metrics', if_exists => true);
+                SELECT remove_retention_policy('telemetry_processor.device_health_scores', if_exists => true);
+                SELECT remove_compression_policy('telemetry_processor.device_heartbeats', if_exists => true);
+                SELECT remove_compression_policy('telemetry_processor.device_metrics', if_exists => true);
+                SELECT remove_compression_policy('telemetry_processor.device_health_scores', if_exists => true);
+            ");
+
             migrationBuilder.DropTable(
                 name: "alert_notifications",
                 schema: "telemetry_processor");

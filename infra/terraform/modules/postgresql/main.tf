@@ -44,7 +44,9 @@ resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
 }
 
 # timescaledb must also be preloaded, or CREATE EXTENSION fails at migration time.
-# Static parameter: takes effect only after a server restart.
+# Static parameter: requires a server restart to take effect
+# (az postgres flexible-server restart) — Azure does not restart automatically,
+# so run the restart before any service that migrates TimescaleDB tables starts.
 resource "azurerm_postgresql_flexible_server_configuration" "shared_preload_libraries" {
   server_id = azurerm_postgresql_flexible_server.this.id
   name      = "shared_preload_libraries"

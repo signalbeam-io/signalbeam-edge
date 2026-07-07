@@ -88,7 +88,7 @@ if (!app.Environment.IsEnvironment("Testing"))
         var context = services.GetRequiredService<SignalBeam.TelemetryProcessor.Infrastructure.Persistence.TelemetryDbContext>();
 
         logger.LogInformation("Applying database migrations...");
-        context.Database.Migrate();
+        await context.Database.MigrateAsync();
         logger.LogInformation("Database migrations applied successfully.");
     }
     catch (Exception ex)
