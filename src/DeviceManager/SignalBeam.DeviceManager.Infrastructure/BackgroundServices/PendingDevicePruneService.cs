@@ -106,7 +106,8 @@ public class PendingDevicePruneOptions
     public double PruneIntervalHours { get; set; } = 6.0;
 
     /// <summary>
-    /// Enable or disable the background service. Default: true.
+    /// Enable or disable the background service. Default: true. Named PruneEnabled because the
+    /// section is shared with the Host's registration-handshake options.
     /// </summary>
-    public bool Enabled { get; set; } = true;
+    public bool PruneEnabled { get; set; } = true;
 }

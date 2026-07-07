@@ -187,7 +187,7 @@ public static class DependencyInjection
             .GetSection(PendingDevicePruneOptions.SectionName)
             .Get<PendingDevicePruneOptions>() ?? new PendingDevicePruneOptions();
 
-        if (prunePendingOptions.Enabled)
+        if (prunePendingOptions.PruneEnabled)
         {
             services.AddHostedService<PendingDevicePruneService>();
         }

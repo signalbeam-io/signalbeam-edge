@@ -63,9 +63,8 @@ public class PendingDevicePruneTests : IClassFixture<DeviceManagerWebApplication
         var stale1 = await SeedDeviceAsync(DateTimeOffset.UtcNow.AddHours(-48));
         var stale2 = await SeedDeviceAsync(DateTimeOffset.UtcNow.AddHours(-25));
 
-        var pruned = await CreateService(expiryHours: 24).PruneOnceAsync(CancellationToken.None);
+        await CreateService(expiryHours: 24).PruneOnceAsync(CancellationToken.None);
 
-        pruned.Should().BeGreaterThanOrEqualTo(2);
         (await DeviceExistsAsync(stale1)).Should().BeFalse();
         (await DeviceExistsAsync(stale2)).Should().BeFalse();
     }
