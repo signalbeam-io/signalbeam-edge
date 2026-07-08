@@ -92,7 +92,11 @@ public static class DependencyInjection
             {
                 Url = natsUrl,
                 Name = "TelemetryProcessor",
-                ConnectTimeout = TimeSpan.FromSeconds(5)
+                ConnectTimeout = TimeSpan.FromSeconds(5),
+                MaxReconnectRetry = -1, // Unlimited reconnect attempts
+                ReconnectWaitMin = TimeSpan.FromSeconds(2),
+                ReconnectWaitMax = TimeSpan.FromSeconds(30), // Exponential backoff cap
+                ReconnectJitter = TimeSpan.FromMilliseconds(500)
             };
 
             logger.LogInformation("Connecting to NATS at {NatsUrl}", natsUrl);

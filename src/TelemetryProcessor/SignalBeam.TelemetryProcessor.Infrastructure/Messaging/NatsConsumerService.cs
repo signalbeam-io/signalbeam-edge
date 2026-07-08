@@ -17,6 +17,9 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Messaging;
 /// </summary>
 public class NatsConsumerService : BackgroundService
 {
+    private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(1);
+
     private readonly ILogger<NatsConsumerService> _logger;
     private readonly NatsConnection _connection;
     private readonly INatsJSContext _jetStreamContext;
@@ -43,28 +46,43 @@ public class NatsConsumerService : BackgroundService
 
         try
         {
-            // Ensure streams exist
-            await EnsureStreamsExistAsync(stoppingToken);
+            // Retry until NATS is reachable — the service must survive a broker
+            // outage at startup and recover without a redeploy (#387).
+            var delay = InitialRetryDelay;
+            while (true)
+            {
+                try
+                {
+                    await EnsureStreamsExistAsync(stoppingToken);
+                    break;
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to ensure JetStream streams (NATS may be unavailable); retrying in {DelaySeconds}s",
+                        delay.TotalSeconds);
+                    await Task.Delay(delay, stoppingToken);
+                    delay = Grow(delay);
+                }
+            }
 
-            // Start consuming device metrics
+            // Each consumer is self-healing; these only complete on cancellation.
             var metricsTask = ConsumeDeviceMetricsAsync(stoppingToken);
-
-            // Start consuming device heartbeats
             var heartbeatsTask = ConsumeDeviceHeartbeatsAsync(stoppingToken);
-
-            // Wait for both consumers to complete (which should be never unless cancellation is requested)
             await Task.WhenAll(metricsTask, heartbeatsTask);
         }
         catch (OperationCanceledException)
         {
             _logger.LogInformation("NATS Consumer Service stopping due to cancellation...");
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Fatal error in NATS Consumer Service");
-            throw;
-        }
     }
+
+    private static TimeSpan Grow(TimeSpan delay) =>
+        delay * 2 > MaxRetryDelay ? MaxRetryDelay : delay * 2;
 
     private async Task EnsureStreamsExistAsync(CancellationToken cancellationToken)
     {
@@ -73,7 +91,7 @@ public class NatsConsumerService : BackgroundService
         // Ensure DEVICE_METRICS stream exists
         try
         {
-            var metricsStream = await _jetStreamContext.GetStreamAsync(
+            _ = await _jetStreamContext.GetStreamAsync(
                 _natsOptions.Streams.DeviceMetrics);
 
             _logger.LogInformation("Stream {StreamName} already exists", _natsOptions.Streams.DeviceMetrics);
@@ -98,7 +116,7 @@ public class NatsConsumerService : BackgroundService
         // Ensure DEVICE_HEARTBEATS stream exists
         try
         {
-            var heartbeatsStream = await _jetStreamContext.GetStreamAsync(
+            _ = await _jetStreamContext.GetStreamAsync(
                 _natsOptions.Streams.DeviceHeartbeats);
 
             _logger.LogInformation("Stream {StreamName} already exists", _natsOptions.Streams.DeviceHeartbeats);
@@ -121,154 +139,123 @@ public class NatsConsumerService : BackgroundService
         }
     }
 
-    private async Task ConsumeDeviceMetricsAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Starting Device Metrics consumer...");
-
-        var consumer = await _jetStreamContext.CreateOrUpdateConsumerAsync(
+    private Task ConsumeDeviceMetricsAsync(CancellationToken cancellationToken) =>
+        ConsumeLoopAsync<DeviceMetricsMessage>(
             _natsOptions.Streams.DeviceMetrics,
-            new ConsumerConfig
-            {
-                Name = "telemetry-processor-metrics",
-                DurableName = "telemetry-processor-metrics",
-                AckPolicy = ConsumerConfigAckPolicy.Explicit,
-                AckWait = TimeSpan.FromSeconds(30),
-                MaxDeliver = 3,
-                FilterSubject = _natsOptions.Subjects.DeviceMetrics
-            },
+            "telemetry-processor-metrics",
+            _natsOptions.Subjects.DeviceMetrics,
+            "Device Metrics",
+            (scope, message, token) => scope.ServiceProvider
+                .GetRequiredService<DeviceMetricsMessageHandler>()
+                .Handle(message, token),
             cancellationToken);
 
-        _logger.LogInformation("Device Metrics consumer created, starting message processing...");
-
-        // Consume messages in a loop
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                // Fetch and process messages
-                await foreach (var msg in consumer.FetchAsync<byte[]>(
-                    new NatsJSFetchOpts { MaxMsgs = 10, Expires = TimeSpan.FromSeconds(5) },
-                    serializer: default,
-                    cancellationToken))
-                {
-                    try
-                    {
-                        // Deserialize message
-                        var message = JsonSerializer.Deserialize<DeviceMetricsMessage>(msg.Data);
-                        if (message == null)
-                        {
-                            _logger.LogWarning("Received null metrics message, skipping");
-                            await msg.AckAsync(cancellationToken: cancellationToken);
-                            continue;
-                        }
-
-                        // Create scope to resolve scoped handler
-                        using (var scope = _scopeFactory.CreateScope())
-                        {
-                            var handler = scope.ServiceProvider.GetRequiredService<DeviceMetricsMessageHandler>();
-                            await handler.Handle(message, cancellationToken);
-                        }
-
-                        // Acknowledge successful processing
-                        await msg.AckAsync(cancellationToken: cancellationToken);
-                    }
-                    catch (JsonException ex)
-                    {
-                        _logger.LogError(ex, "Failed to deserialize metrics message");
-                        await msg.AckAsync(cancellationToken: cancellationToken); // Ack to skip bad message
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error processing metrics message");
-                        await msg.NakAsync(delay: TimeSpan.FromSeconds(5), cancellationToken: cancellationToken);
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogInformation("Device Metrics consumer cancelled");
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in Device Metrics consumer loop, retrying...");
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-            }
-        }
-    }
-
-    private async Task ConsumeDeviceHeartbeatsAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Starting Device Heartbeats consumer...");
-
-        var consumer = await _jetStreamContext.CreateOrUpdateConsumerAsync(
+    private Task ConsumeDeviceHeartbeatsAsync(CancellationToken cancellationToken) =>
+        ConsumeLoopAsync<DeviceHeartbeatMessage>(
             _natsOptions.Streams.DeviceHeartbeats,
-            new ConsumerConfig
-            {
-                Name = "telemetry-processor-heartbeats",
-                DurableName = "telemetry-processor-heartbeats",
-                AckPolicy = ConsumerConfigAckPolicy.Explicit,
-                AckWait = TimeSpan.FromSeconds(30),
-                MaxDeliver = 3,
-                FilterSubject = _natsOptions.Subjects.DeviceHeartbeats
-            },
+            "telemetry-processor-heartbeats",
+            _natsOptions.Subjects.DeviceHeartbeats,
+            "Device Heartbeats",
+            (scope, message, token) => scope.ServiceProvider
+                .GetRequiredService<DeviceHeartbeatMessageHandler>()
+                .Handle(message, token),
             cancellationToken);
 
-        _logger.LogInformation("Device Heartbeats consumer created, starting message processing...");
+    /// <summary>
+    /// Self-healing consume loop: the JetStream consumer is (re)created inside the
+    /// retry loop so a broker outage recovers without a redeploy (#387).
+    /// </summary>
+    private async Task ConsumeLoopAsync<TMessage>(
+        string streamName,
+        string consumerName,
+        string filterSubject,
+        string description,
+        Func<IServiceScope, TMessage, CancellationToken, Task> handleAsync,
+        CancellationToken cancellationToken)
+        where TMessage : class
+    {
+        _logger.LogInformation("Starting {Description} consumer...", description);
 
-        // Consume messages in a loop
+        var delay = InitialRetryDelay;
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                // Fetch and process messages
-                await foreach (var msg in consumer.FetchAsync<byte[]>(
-                    new NatsJSFetchOpts { MaxMsgs = 10, Expires = TimeSpan.FromSeconds(5) },
-                    serializer: default,
-                    cancellationToken))
+                var consumer = await _jetStreamContext.CreateOrUpdateConsumerAsync(
+                    streamName,
+                    new ConsumerConfig
+                    {
+                        Name = consumerName,
+                        DurableName = consumerName,
+                        AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                        AckWait = TimeSpan.FromSeconds(30),
+                        MaxDeliver = 3,
+                        FilterSubject = filterSubject
+                    },
+                    cancellationToken);
+
+                _logger.LogInformation("{Description} consumer created, starting message processing...", description);
+                delay = InitialRetryDelay;
+
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    try
+                    // Fetch and process messages
+                    await foreach (var msg in consumer.FetchAsync<byte[]>(
+                        new NatsJSFetchOpts { MaxMsgs = 10, Expires = TimeSpan.FromSeconds(5) },
+                        serializer: default,
+                        cancellationToken))
                     {
-                        // Deserialize message
-                        var message = JsonSerializer.Deserialize<DeviceHeartbeatMessage>(msg.Data);
-                        if (message == null)
+                        try
                         {
-                            _logger.LogWarning("Received null heartbeat message, skipping");
+                            var message = JsonSerializer.Deserialize<TMessage>(msg.Data);
+                            if (message == null)
+                            {
+                                _logger.LogWarning("Received null {Description} message, skipping", description);
+                                await msg.AckAsync(cancellationToken: cancellationToken);
+                                continue;
+                            }
+
+                            // Create scope to resolve scoped handler
+                            using (var scope = _scopeFactory.CreateScope())
+                            {
+                                await handleAsync(scope, message, cancellationToken);
+                            }
+
+                            // Acknowledge successful processing
                             await msg.AckAsync(cancellationToken: cancellationToken);
-                            continue;
                         }
-
-                        // Create scope to resolve scoped handler
-                        using (var scope = _scopeFactory.CreateScope())
+                        catch (JsonException ex)
                         {
-                            var handler = scope.ServiceProvider.GetRequiredService<DeviceHeartbeatMessageHandler>();
-                            await handler.Handle(message, cancellationToken);
+                            _logger.LogError(ex, "Failed to deserialize {Description} message", description);
+                            await msg.AckAsync(cancellationToken: cancellationToken); // Ack to skip bad message
                         }
-
-                        // Acknowledge successful processing
-                        await msg.AckAsync(cancellationToken: cancellationToken);
-                    }
-                    catch (JsonException ex)
-                    {
-                        _logger.LogError(ex, "Failed to deserialize heartbeat message");
-                        await msg.AckAsync(cancellationToken: cancellationToken); // Ack to skip bad message
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error processing heartbeat message");
-                        await msg.NakAsync(delay: TimeSpan.FromSeconds(5), cancellationToken: cancellationToken);
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error processing {Description} message", description);
+                            await msg.NakAsync(delay: TimeSpan.FromSeconds(5), cancellationToken: cancellationToken);
+                        }
                     }
                 }
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("Device Heartbeats consumer cancelled");
+                _logger.LogInformation("{Description} consumer cancelled", description);
                 break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in Device Heartbeats consumer loop, retrying...");
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                _logger.LogWarning(ex,
+                    "{Description} consumer failed (NATS may be unavailable); recreating consumer in {DelaySeconds}s",
+                    description, delay.TotalSeconds);
+                try
+                {
+                    await Task.Delay(delay, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                delay = Grow(delay);
             }
         }
     }
