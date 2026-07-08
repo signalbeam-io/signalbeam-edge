@@ -91,7 +91,7 @@ public class NatsConsumerService : BackgroundService
         // Ensure DEVICE_METRICS stream exists
         try
         {
-            var metricsStream = await _jetStreamContext.GetStreamAsync(
+            _ = await _jetStreamContext.GetStreamAsync(
                 _natsOptions.Streams.DeviceMetrics);
 
             _logger.LogInformation("Stream {StreamName} already exists", _natsOptions.Streams.DeviceMetrics);
@@ -116,7 +116,7 @@ public class NatsConsumerService : BackgroundService
         // Ensure DEVICE_HEARTBEATS stream exists
         try
         {
-            var heartbeatsStream = await _jetStreamContext.GetStreamAsync(
+            _ = await _jetStreamContext.GetStreamAsync(
                 _natsOptions.Streams.DeviceHeartbeats);
 
             _logger.LogInformation("Stream {StreamName} already exists", _natsOptions.Streams.DeviceHeartbeats);

@@ -21,6 +21,7 @@ namespace SignalBeam.TelemetryProcessor.Tests.Integration;
 /// and recover on their own once NATS becomes reachable — no redeploy needed.
 /// Each test picks a free host port so NATS can be started *after* the service.
 /// </summary>
+[Trait("Category", "Integration")]
 public class NatsReconnectTests
 {
     private static readonly TimeSpan RecoveryTimeout = TimeSpan.FromSeconds(120);
@@ -28,7 +29,8 @@ public class NatsReconnectTests
     [Fact]
     public async Task NatsConsumerService_WhenNatsIsDownAtStartup_KeepsRetryingWithoutCrashing()
     {
-        var port = GetFreePort();
+        using var reservedPort = new ReservedPort();
+        var port = reservedPort.Port;
         await using var connection = CreateConnection(port);
         var service = CreateConsumerService(connection);
 
@@ -47,7 +49,8 @@ public class NatsReconnectTests
     [Fact]
     public async Task NatsConsumerService_WhenNatsComesUpAfterOutage_CreatesStreamsAndConsumers()
     {
-        var port = GetFreePort();
+        using var reservedPort = new ReservedPort();
+        var port = reservedPort.Port;
         await using var connection = CreateConnection(port);
         var service = CreateConsumerService(connection);
 
@@ -56,6 +59,7 @@ public class NatsReconnectTests
         await Task.Delay(TimeSpan.FromSeconds(2));
 
         await using var nats = BuildNatsContainer(port);
+        reservedPort.Release();
         await nats.StartAsync();
 
         // The service should now create the streams and durable consumers.
@@ -96,7 +100,8 @@ public class NatsReconnectTests
     [Fact]
     public async Task NatsSseBridgeService_WhenNatsComesUpAfterOutage_ResumesFanOut()
     {
-        var port = GetFreePort();
+        using var reservedPort = new ReservedPort();
+        var port = reservedPort.Port;
         await using var connection = CreateConnection(port);
         var connectionManager = new SseConnectionManager(NullLogger<SseConnectionManager>.Instance);
         var service = new NatsSseBridgeService(
@@ -107,6 +112,7 @@ public class NatsReconnectTests
         await Task.Delay(TimeSpan.FromSeconds(2));
 
         await using var nats = BuildNatsContainer(port);
+        reservedPort.Release();
         await nats.StartAsync();
 
         var deviceId = Guid.NewGuid();
@@ -154,6 +160,8 @@ public class NatsReconnectTests
 
     private static NatsConsumerService CreateConsumerService(NatsConnection connection)
     {
+        // Intentionally empty: no messages are published in these tests, so the
+        // message handlers are never resolved — only connectivity is exercised.
         var scopeFactory = new ServiceCollection()
             .BuildServiceProvider()
             .GetRequiredService<IServiceScopeFactory>();
@@ -183,12 +191,29 @@ public class NatsReconnectTests
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Server is ready"))
             .Build();
 
-    private static int GetFreePort()
+    /// <summary>
+    /// Holds a bound listener so the chosen port can't be grabbed by another
+    /// process; released just before the NATS container binds it.
+    /// </summary>
+    private sealed class ReservedPort : IDisposable
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
+        private TcpListener? _listener;
+
+        public ReservedPort()
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+        }
+
+        public int Port { get; }
+
+        public void Release()
+        {
+            _listener?.Stop();
+            _listener = null;
+        }
+
+        public void Dispose() => Release();
     }
 }
