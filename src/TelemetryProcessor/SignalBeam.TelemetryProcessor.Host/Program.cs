@@ -19,10 +19,10 @@ builder.Host.UseSerilog((context, configuration) =>
 builder.AddServiceDefaults();
 
 // A broker outage must not take down the whole service. The NATS background
-// services (consumer + SSE bridge) throw a fatal exception when NATS is
-// unreachable; with the default StopHost behavior that crashes the host and the
-// container crash-loops. Ignore lets the host stay up (serving HTTP + health)
-// while NATS-dependent features degrade until connectivity is restored.
+// services (consumer + SSE bridge) retry with backoff and recover on their own
+// (#387); Ignore remains as a guard so an unexpected fatal exception in any
+// other background service degrades that feature instead of crash-looping the
+// host (which serves HTTP + health).
 builder.Services.Configure<HostOptions>(options =>
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 

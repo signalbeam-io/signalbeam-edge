@@ -29,40 +29,62 @@ public class NatsSseBridgeService : BackgroundService
         _connectionManager = connectionManager;
     }
 
+    private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(1);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("NATS SSE Bridge starting, subscribing to {Subject}", MetricsSubject);
 
-        try
+        // Resubscribe with backoff instead of dying permanently, so the bridge
+        // recovers when NATS returns after an outage (#387).
+        var delay = InitialRetryDelay;
+        while (!stoppingToken.IsCancellationRequested)
         {
-            await foreach (var msg in _connection.SubscribeAsync<byte[]>(MetricsSubject, cancellationToken: stoppingToken))
+            try
             {
-                try
+                await foreach (var msg in _connection.SubscribeAsync<byte[]>(MetricsSubject, cancellationToken: stoppingToken))
                 {
-                    if (msg.Data is null)
-                        continue;
+                    delay = InitialRetryDelay;
 
-                    var message = JsonSerializer.Deserialize<DeviceMetricsMessage>(msg.Data);
-                    if (message is null)
-                        continue;
+                    try
+                    {
+                        if (msg.Data is null)
+                            continue;
 
-                    var deviceId = message.DeviceId.ToString();
-                    _connectionManager.Publish(deviceId, message);
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogWarning(ex, "Failed to deserialize metrics message for SSE bridge");
+                        var message = JsonSerializer.Deserialize<DeviceMetricsMessage>(msg.Data);
+                        if (message is null)
+                            continue;
+
+                        var deviceId = message.DeviceId.ToString();
+                        _connectionManager.Publish(deviceId, message);
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to deserialize metrics message for SSE bridge");
+                    }
                 }
             }
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("NATS SSE Bridge stopping due to cancellation");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Fatal error in NATS SSE Bridge");
-            throw;
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("NATS SSE Bridge stopping due to cancellation");
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "NATS SSE Bridge subscription failed (NATS may be unavailable); resubscribing in {DelaySeconds}s",
+                    delay.TotalSeconds);
+                try
+                {
+                    await Task.Delay(delay, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                delay = delay * 2 > MaxRetryDelay ? MaxRetryDelay : delay * 2;
+            }
         }
     }
 }
