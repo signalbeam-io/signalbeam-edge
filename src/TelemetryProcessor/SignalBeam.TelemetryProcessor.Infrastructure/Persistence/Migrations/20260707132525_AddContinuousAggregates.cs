@@ -5,18 +5,20 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
 {
     /// <summary>
-    /// TimescaleDB continuous aggregates (hourly/daily rollups) queried by the
-    /// metrics and heartbeat repositories for dashboard reads.
+    /// Hourly/daily rollup views queried by the metrics and heartbeat repositories.
+    /// Plain SQL views rather than TimescaleDB continuous aggregates: Azure
+    /// PostgreSQL ships the Apache-2 edition, which rejects continuous aggregates
+    /// (0A000) at parse time — even behind IF NOT EXISTS — so a single portable
+    /// definition is used on every edition. Revisit materialized rollups when
+    /// query volume warrants it.
     /// </summary>
     public partial class AddContinuousAggregates : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Continuous aggregates cannot be created inside a transaction block
             migrationBuilder.Sql(@"
-                CREATE MATERIALIZED VIEW telemetry_processor.device_metrics_hourly
-                WITH (timescaledb.continuous) AS
+                CREATE VIEW telemetry_processor.device_metrics_hourly AS
                 SELECT
                     time_bucket('1 hour', timestamp) AS bucket,
                     device_id,
@@ -33,20 +35,11 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
                     AVG(running_containers) as avg_running_containers,
                     COUNT(*) as sample_count
                 FROM telemetry_processor.device_metrics
-                GROUP BY bucket, device_id
-                WITH NO DATA;
-            ", suppressTransaction: true);
+                GROUP BY bucket, device_id;
+            ");
 
             migrationBuilder.Sql(@"
-                SELECT add_continuous_aggregate_policy('telemetry_processor.device_metrics_hourly',
-                    start_offset => INTERVAL '3 hours',
-                    end_offset => INTERVAL '30 minutes',
-                    schedule_interval => INTERVAL '30 minutes');
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                CREATE MATERIALIZED VIEW telemetry_processor.device_metrics_daily
-                WITH (timescaledb.continuous) AS
+                CREATE VIEW telemetry_processor.device_metrics_daily AS
                 SELECT
                     time_bucket('1 day', timestamp) AS bucket,
                     device_id,
@@ -63,20 +56,11 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
                     AVG(running_containers) as avg_running_containers,
                     COUNT(*) as sample_count
                 FROM telemetry_processor.device_metrics
-                GROUP BY bucket, device_id
-                WITH NO DATA;
-            ", suppressTransaction: true);
+                GROUP BY bucket, device_id;
+            ");
 
             migrationBuilder.Sql(@"
-                SELECT add_continuous_aggregate_policy('telemetry_processor.device_metrics_daily',
-                    start_offset => INTERVAL '7 days',
-                    end_offset => INTERVAL '1 hour',
-                    schedule_interval => INTERVAL '2 hours');
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                CREATE MATERIALIZED VIEW telemetry_processor.device_heartbeats_hourly
-                WITH (timescaledb.continuous) AS
+                CREATE VIEW telemetry_processor.device_heartbeats_hourly AS
                 SELECT
                     time_bucket('1 hour', timestamp) AS bucket,
                     device_id,
@@ -84,59 +68,16 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
                     COUNT(*) as heartbeat_count,
                     COUNT(DISTINCT ip_address) as unique_ip_count
                 FROM telemetry_processor.device_heartbeats
-                GROUP BY bucket, device_id
-                WITH NO DATA;
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                SELECT add_continuous_aggregate_policy('telemetry_processor.device_heartbeats_hourly',
-                    start_offset => INTERVAL '3 hours',
-                    end_offset => INTERVAL '30 minutes',
-                    schedule_interval => INTERVAL '30 minutes');
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                CREATE INDEX ix_device_metrics_hourly_device_bucket
-                ON telemetry_processor.device_metrics_hourly (device_id, bucket DESC);
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                CREATE INDEX ix_device_metrics_daily_device_bucket
-                ON telemetry_processor.device_metrics_daily (device_id, bucket DESC);
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                CREATE INDEX ix_device_heartbeats_hourly_device_bucket
-                ON telemetry_processor.device_heartbeats_hourly (device_id, bucket DESC);
-            ", suppressTransaction: true);
+                GROUP BY bucket, device_id;
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql(@"
-                SELECT remove_continuous_aggregate_policy('telemetry_processor.device_metrics_hourly', if_exists => true);
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                SELECT remove_continuous_aggregate_policy('telemetry_processor.device_metrics_daily', if_exists => true);
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                SELECT remove_continuous_aggregate_policy('telemetry_processor.device_heartbeats_hourly', if_exists => true);
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                DROP MATERIALIZED VIEW IF EXISTS telemetry_processor.device_heartbeats_hourly CASCADE;
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                DROP MATERIALIZED VIEW IF EXISTS telemetry_processor.device_metrics_daily CASCADE;
-            ", suppressTransaction: true);
-
-            migrationBuilder.Sql(@"
-                DROP MATERIALIZED VIEW IF EXISTS telemetry_processor.device_metrics_hourly CASCADE;
-            ", suppressTransaction: true);
+            migrationBuilder.Sql("DROP VIEW IF EXISTS telemetry_processor.device_heartbeats_hourly CASCADE;");
+            migrationBuilder.Sql("DROP VIEW IF EXISTS telemetry_processor.device_metrics_daily CASCADE;");
+            migrationBuilder.Sql("DROP VIEW IF EXISTS telemetry_processor.device_metrics_hourly CASCADE;");
         }
     }
 }

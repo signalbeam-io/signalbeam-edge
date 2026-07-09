@@ -268,52 +268,38 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
                     if_not_exists => TRUE);
             ");
 
+            // Compression and retention policies are Timescale-License features.
+            // Azure PostgreSQL Flexible Server ships the Apache-2 edition, which
+            // rejects them with 0A000 — skip there, hypertables still apply.
             migrationBuilder.Sql(@"
-                ALTER TABLE telemetry_processor.device_heartbeats SET (
-                    timescaledb.compress,
-                    timescaledb.compress_segmentby = 'device_id',
-                    timescaledb.compress_orderby = 'timestamp DESC'
-                );
-            ");
-
-            migrationBuilder.Sql(@"
-                ALTER TABLE telemetry_processor.device_metrics SET (
-                    timescaledb.compress,
-                    timescaledb.compress_segmentby = 'device_id',
-                    timescaledb.compress_orderby = 'timestamp DESC'
-                );
-            ");
-
-            migrationBuilder.Sql(@"
-                ALTER TABLE telemetry_processor.device_health_scores SET (
-                    timescaledb.compress,
-                    timescaledb.compress_segmentby = 'device_id',
-                    timescaledb.compress_orderby = 'timestamp DESC'
-                );
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_compression_policy('telemetry_processor.device_heartbeats', INTERVAL '7 days', if_not_exists => TRUE);
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_compression_policy('telemetry_processor.device_metrics', INTERVAL '7 days', if_not_exists => TRUE);
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_compression_policy('telemetry_processor.device_health_scores', INTERVAL '7 days', if_not_exists => TRUE);
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_retention_policy('telemetry_processor.device_heartbeats', INTERVAL '90 days', if_not_exists => TRUE);
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_retention_policy('telemetry_processor.device_metrics', INTERVAL '90 days', if_not_exists => TRUE);
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_retention_policy('telemetry_processor.device_health_scores', INTERVAL '90 days', if_not_exists => TRUE);
+                DO $$
+                BEGIN
+                    IF current_setting('timescaledb.license', true) = 'timescale' THEN
+                        ALTER TABLE telemetry_processor.device_heartbeats SET (
+                            timescaledb.compress,
+                            timescaledb.compress_segmentby = 'device_id',
+                            timescaledb.compress_orderby = 'timestamp DESC'
+                        );
+                        ALTER TABLE telemetry_processor.device_metrics SET (
+                            timescaledb.compress,
+                            timescaledb.compress_segmentby = 'device_id',
+                            timescaledb.compress_orderby = 'timestamp DESC'
+                        );
+                        ALTER TABLE telemetry_processor.device_health_scores SET (
+                            timescaledb.compress,
+                            timescaledb.compress_segmentby = 'device_id',
+                            timescaledb.compress_orderby = 'timestamp DESC'
+                        );
+                        PERFORM add_compression_policy('telemetry_processor.device_heartbeats', INTERVAL '7 days', if_not_exists => TRUE);
+                        PERFORM add_compression_policy('telemetry_processor.device_metrics', INTERVAL '7 days', if_not_exists => TRUE);
+                        PERFORM add_compression_policy('telemetry_processor.device_health_scores', INTERVAL '7 days', if_not_exists => TRUE);
+                        PERFORM add_retention_policy('telemetry_processor.device_heartbeats', INTERVAL '90 days', if_not_exists => TRUE);
+                        PERFORM add_retention_policy('telemetry_processor.device_metrics', INTERVAL '90 days', if_not_exists => TRUE);
+                        PERFORM add_retention_policy('telemetry_processor.device_health_scores', INTERVAL '90 days', if_not_exists => TRUE);
+                    ELSE
+                        RAISE NOTICE 'timescaledb apache edition: skipping compression and retention policies';
+                    END IF;
+                END $$;
             ");
         }
 
@@ -321,12 +307,17 @@ namespace SignalBeam.TelemetryProcessor.Infrastructure.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
-                SELECT remove_retention_policy('telemetry_processor.device_heartbeats', if_exists => true);
-                SELECT remove_retention_policy('telemetry_processor.device_metrics', if_exists => true);
-                SELECT remove_retention_policy('telemetry_processor.device_health_scores', if_exists => true);
-                SELECT remove_compression_policy('telemetry_processor.device_heartbeats', if_exists => true);
-                SELECT remove_compression_policy('telemetry_processor.device_metrics', if_exists => true);
-                SELECT remove_compression_policy('telemetry_processor.device_health_scores', if_exists => true);
+                DO $$
+                BEGIN
+                    IF current_setting('timescaledb.license', true) = 'timescale' THEN
+                        PERFORM remove_retention_policy('telemetry_processor.device_heartbeats', if_exists => true);
+                        PERFORM remove_retention_policy('telemetry_processor.device_metrics', if_exists => true);
+                        PERFORM remove_retention_policy('telemetry_processor.device_health_scores', if_exists => true);
+                        PERFORM remove_compression_policy('telemetry_processor.device_heartbeats', if_exists => true);
+                        PERFORM remove_compression_policy('telemetry_processor.device_metrics', if_exists => true);
+                        PERFORM remove_compression_policy('telemetry_processor.device_health_scores', if_exists => true);
+                    END IF;
+                END $$;
             ");
 
             migrationBuilder.DropTable(

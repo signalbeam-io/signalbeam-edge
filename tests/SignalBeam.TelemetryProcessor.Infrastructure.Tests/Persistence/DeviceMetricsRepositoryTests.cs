@@ -229,10 +229,8 @@ public class DeviceMetricsRepositoryTests : IAsyncLifetime
         await _repository!.AddRangeAsync(metrics);
         await _repository.SaveChangesAsync();
 
-        // The aggregate is created WITH NO DATA and its refresh policy won't fire
-        // during the test, so materialize it explicitly.
-        await _context!.Database.ExecuteSqlRawAsync(
-            "CALL refresh_continuous_aggregate('telemetry_processor.device_metrics_hourly', NULL, NULL);");
+        // device_metrics_hourly is a plain SQL view (portable across TimescaleDB
+        // editions), so the inserted metrics are visible immediately.
 
         // Act
         var aggregates = await _repository.GetHourlyAggregatesAsync(
