@@ -1,0 +1,149 @@
+{
+  "$schema": "https://raw.githubusercontent.com/makigjuro/cloudstack-ai-plugins/main/schema/cloudstack.schema.json",
+  "project": {
+    "name": "SignalBeam Edge",
+    "namespace": "SignalBeam",
+    "description": "Fleet management platform for edge devices running containerized applications"
+  },
+  "repository": {
+    "owner": "signalbeam-io",
+    "name": "signalbeam-edge",
+    "defaultBranch": "main"
+  },
+  "backend": {
+    "framework": "dotnet",
+    "dotnetVersion": "10.0",
+    "solutionPath": "src/SignalBeam.sln",
+    "sharedDomainPath": "src/Shared/SignalBeam.Domain",
+    "sharedInfraPath": "src/Shared/SignalBeam.Shared.Infrastructure",
+    "sharedPaths": [
+      "src/Shared/SignalBeam.Domain",
+      "src/Shared/SignalBeam.Shared.Infrastructure",
+      "src/SignalBeam.ServiceDefaults"
+    ],
+    "orm": "efcore",
+    "readQueryTool": "dapper",
+    "messaging": "wolverinefx",
+    "messageBroker": "nats",
+    "messagingConventions": {
+      "publisherInterface": "IMessagePublisher",
+      "subjectPrefix": "signalbeam"
+    },
+    "resultPattern": true,
+    "multiTenancy": true,
+    "devPort": 5000,
+    "services": [
+      {
+        "name": "DeviceManager",
+        "path": "src/DeviceManager",
+        "projectPrefix": "SignalBeam.DeviceManager",
+        "dbContext": "DeviceDbContext",
+        "aliases": ["dm", "device-manager"],
+        "labels": ["device-manager"],
+        "testProjects": {
+          "unit": ["tests/SignalBeam.DeviceManager.Tests.Unit"],
+          "integration": ["tests/SignalBeam.DeviceManager.Tests.Integration"]
+        }
+      },
+      {
+        "name": "BundleOrchestrator",
+        "path": "src/BundleOrchestrator",
+        "projectPrefix": "SignalBeam.BundleOrchestrator",
+        "dbContext": "BundleDbContext",
+        "aliases": ["bo", "bundle-orchestrator"],
+        "labels": ["bundle-orchestrator"],
+        "testProjects": {
+          "unit": [
+            "tests/SignalBeam.BundleOrchestrator.Tests.Unit",
+            "src/tests/SignalBeam.BundleOrchestrator.Application.Tests"
+          ],
+          "integration": ["src/tests/SignalBeam.BundleOrchestrator.Integration.Tests"]
+        }
+      },
+      {
+        "name": "TelemetryProcessor",
+        "path": "src/TelemetryProcessor",
+        "projectPrefix": "SignalBeam.TelemetryProcessor",
+        "dbContext": "TelemetryDbContext",
+        "aliases": ["tp", "telemetry-processor"],
+        "labels": ["telemetry-processor"],
+        "testProjects": {
+          "unit": ["tests/SignalBeam.TelemetryProcessor.Infrastructure.Tests"],
+          "integration": ["tests/SignalBeam.TelemetryProcessor.Tests.Integration"]
+        }
+      },
+      {
+        "name": "IdentityManager",
+        "path": "src/IdentityManager",
+        "projectPrefix": "SignalBeam.IdentityManager",
+        "dbContext": "IdentityDbContext",
+        "aliases": ["im", "identity-manager"],
+        "labels": ["identity-manager"],
+        "testProjects": {
+          "unit": ["tests/SignalBeam.IdentityManager.Application.Tests"],
+          "integration": []
+        }
+      },
+      {
+        "name": "EdgeAgent",
+        "path": "src/EdgeAgent",
+        "projectPrefix": "SignalBeam.EdgeAgent",
+        "aliases": ["ea", "edge-agent"],
+        "labels": ["edge-agent"],
+        "testProjects": {
+          "unit": ["tests/SignalBeam.EdgeAgent.Tests.Unit"],
+          "integration": ["tests/SignalBeam.EdgeAgent.Tests.Integration"]
+        }
+      }
+    ]
+  },
+  "frontend": {
+    "framework": "react",
+    "path": "web",
+    "language": "typescript",
+    "stateManagement": { "server": "tanstack-query", "client": "zustand" },
+    "uiLibrary": "shadcn",
+    "styling": "tailwind",
+    "router": "react-router-v6",
+    "bundler": "vite",
+    "devPort": 5173,
+    "defaultRoute": "/dashboard",
+    "smokeRoutes": ["/", "/devices", "/bundles", "/groups"]
+  },
+  "infrastructure": {
+    "cloud": "azure",
+    "iac": "terraform",
+    "iacWrapper": "terragrunt",
+    "terraformPath": "infra/terraform/modules",
+    "terragruntPath": "infra/terragrunt",
+    "kubernetes": "aks",
+    "charts": "helm",
+    "chartsPath": "deploy/charts",
+    "containerRegistry": "ghcr.io/signalbeam-io",
+    "namespace": "signalbeam",
+    "cicd": "github-actions"
+  },
+  "localDev": {
+    "orchestrator": "aspire",
+    "appHostPath": "src/SignalBeam.AppHost",
+    "dashboardPort": 15888,
+    "apiPort": 5000,
+    "ports": { "nats": 4222, "valkey": 6379, "zitadel": 8080 },
+    "authConfig": {
+      "storageKey": "auth-storage",
+      "state": { "isAuthenticated": true, "apiKey": "dev-api-key-1", "tenantId": "dev-tenant" },
+      "formFields": { "apiKey": "dev-api-key-1" }
+    }
+  },
+  "conventions": {
+    "branchFormat": "{username}/{issue}-{slug}",
+    "commitStyle": "lowercase-imperative",
+    "errorCodeStyle": "SCREAMING_SNAKE_CASE",
+    "terraformNaming": "{project}-{resource}-{environment}-{location_short}",
+    "projectPrefix": "sb",
+    "locationShort": { "westeurope": "weu", "northeurope": "neu" }
+  },
+  "validators": {
+    "mcpServer": "signalbeam-validator"
+  }
+}

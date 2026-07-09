@@ -252,16 +252,17 @@ When something goes wrong:
 
 ## Agents
 
-Specialized agents defined in `.claude/agents/` that run in isolated contexts:
+Specialized agents provided by the cloudstack-ai-plugins marketplace (dev-workflow, dotnet-architect, react-developer, cloud-infra) that run in isolated contexts:
 
 | Agent | Purpose | Model |
 |-------|---------|-------|
-| `reviewer` | Security, architecture, quality review (deep PR gate) | Sonnet |
-| `verifier` | Acceptance criteria verification | Sonnet |
-| `investigator` | Evidence gathering for diagnosis | Sonnet |
-| `analyzer` | Codebase analysis for new features | Opus |
+| `reviewer` | Security, architecture, quality review (deep PR gate) | inherits session model |
+| `verifier` | Acceptance criteria verification | inherits session model |
+| `investigator` | Evidence gathering for diagnosis | inherits session model |
+| `analyzer` | Codebase analysis for new features | inherits session model |
 | `doc-checker` | Detect stale docs relative to code changes | Haiku |
-| `infra-reviewer` | Terraform/Helm/CI review (infra-specific gate) | Sonnet |
+| `infra-reviewer` | Terraform/Helm/CI review (infra-specific gate) | inherits session model |
+| `frontend-reviewer` | Accessibility, React anti-patterns, frontend security | inherits session model |
 
 ## Pre-PR Checklist
 
