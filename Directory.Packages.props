@@ -88,7 +88,7 @@
     <PackageVersion Include="Serilog.Sinks.Seq" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup Label="Resilience">
-    <PackageVersion Include="Polly" Version="8.5.0" />
+    <PackageVersion Include="Polly" Version="8.7.0" />
     <PackageVersion Include="Polly.Extensions" Version="8.5.0" />
   </ItemGroup>
   <ItemGroup Label="Validation">
