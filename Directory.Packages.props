@@ -28,7 +28,7 @@
   <ItemGroup Label="Data Access">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageVersion Include="Dapper" Version="2.1.66" />
   </ItemGroup>
   <ItemGroup Label="Cloud-Native Integrations">
