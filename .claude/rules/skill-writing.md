@@ -1,6 +1,6 @@
 # Skill Writing Principles
 
-Follow these principles when creating or modifying skills in `.claude/skills/`.
+Follow these principles when creating or modifying skills. This project's skills live in the cloudstack-ai-plugins marketplace (github.com/makigjuro/cloudstack-ai-plugins) — project-specific values belong in `cloudstack.json` or `.claude/rules/`, not in skill forks.
 
 ## Description Frontmatter
 
