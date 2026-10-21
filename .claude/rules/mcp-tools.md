@@ -27,20 +27,9 @@ Before scaffolding code that uses a library, look up the current API to avoid ou
 
 Don't look up docs for every trivial operation — use it when the pattern is non-obvious, when hitting an error, or when a library feature might already exist for what you're building.
 
-## github-mcp-server — GitHub Operations
+## GitHub Operations
 
-Use structured MCP tools instead of `gh` CLI for GitHub operations. MCP tools return typed JSON directly without needing to parse CLI output.
-
-**Prefer MCP for:**
-- Reading issues: `mcp__github-mcp-server__get_issue` over `gh issue view`
-- Creating issues: `mcp__github-mcp-server__create_issue` over `gh issue create`
-- Creating PRs: `mcp__github-mcp-server__create_pull_request` over `gh pr create`
-- Searching: `mcp__github-mcp-server__search_issues`, `search_code`
-
-**Still use `gh` CLI for:**
-- `gh auth` operations
-- Complex queries with `gh api` that don't have an MCP equivalent
-- Quick one-liners in pre-flight checks where the overhead isn't worth it
+Use the `gh` CLI as the primary tool for GitHub operations (`gh issue view --json ...`, `gh issue create`, `gh pr create`) — it infers owner/repo from the git remote and needs no extra server. The GitHub MCP server is not configured in this repo; if one is available in a session, its typed-JSON tools may be used as an opportunistic upgrade.
 
 ## playwright — Browser Automation
 

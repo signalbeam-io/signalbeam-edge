@@ -18,6 +18,7 @@ paths:
 - Functions return typed `Promise<T>`
 - Use `URLSearchParams` for query parameters
 - Pagination via `pageNumber` and `pageSize` params
+- All list/detail API calls append tenant scope via `appendTenantId(params)` (or `withTenantId`) from `web/src/api/services/tenant` — multi-tenancy is mandatory on every data-fetching call
 - Response mapping functions: `mapDevice(response)` to convert API shapes to frontend types
 
 ## State Management
