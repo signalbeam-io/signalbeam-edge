@@ -13,10 +13,13 @@
          to the latest 10.0.x servicing release to clear NU1903/NU1904 audit advisories
          (GHSA-9mv3-2cwr-p262, GHSA-37gx-xxp4-5rgx, GHSA-w3x6-4m5h-cxqf). -->
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="10.0.9" />
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.9" />
+    <!-- Cryptography.Xml / .Pkcs 10.0.14 clear GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7,
+         GHSA-23rf-6693-g89p, GHSA-r955-8q5j-3h83 and related advisories (patched in 10.0.10–10.0.13). -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <!-- Pin MessagePack (pulled transitively by the Aspire AppHost / dashboard) to the
-         latest patched 2.5.x release to clear GHSA-hv8m-jj95-wg3x without the 3.x major bump. -->
-    <PackageVersion Include="MessagePack" Version="2.5.302" />
+         latest patched 2.5.x release to clear GHSA-hv8m-jj95-wg3x and GHSA-qhrr-8q5h-9q3h without the 3.x major bump. -->
+    <PackageVersion Include="MessagePack" Version="2.5.307" />
     <!-- Pin Microsoft.OpenApi (pulled transitively via Scalar / AspNetCore.OpenApi) to the first
          patched release to clear GHSA-v5pm-xwqc-g5wc (NU1903). -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
@@ -125,6 +128,10 @@
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="FluentAssertions" Version="8.9.0" />
     <PackageVersion Include="Testcontainers" Version="4.11.0" />
+    <!-- Pin SSH.NET (transitive via Testcontainers, used only for its SSH port forwarding) to
+         2026.0.0 to clear GHSA-mggc-4xg6-vcxf / GHSA-q939-rpr3-3284. Newer Testcontainers
+         releases ship it but require Docker.DotNet.Enhanced 4.x, a major bump for the EdgeAgent. -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.11.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
   </ItemGroup>
