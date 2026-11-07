@@ -46,7 +46,7 @@ public static class OpenTelemetryConfiguration
                     .AddHttpClientInstrumentation()
                     .AddEntityFrameworkCoreInstrumentation(options =>
                     {
-                        options.SetDbStatementForText = true;
+                        // SQL text is captured (sanitized) by default since 1.20; no opt-in needed.
                         options.EnrichWithIDbCommand = (activity, command) =>
                         {
                             activity.SetTag("db.query", command.CommandText);
