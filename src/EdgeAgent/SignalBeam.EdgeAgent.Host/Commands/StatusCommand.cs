@@ -12,10 +12,7 @@ public static class StatusCommand
     {
         var command = new Command("status", "Check device registration status and credentials");
 
-        command.SetHandler(async () =>
-        {
-            await ExecuteAsync();
-        });
+        command.SetAction((_, _) => ExecuteAsync());
 
         return command;
     }

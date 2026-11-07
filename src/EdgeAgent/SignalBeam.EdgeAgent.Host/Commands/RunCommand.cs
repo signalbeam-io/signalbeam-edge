@@ -15,10 +15,7 @@ public static class RunCommand
     {
         var command = new Command("run", "Run the SignalBeam agent (heartbeat + reconciliation loops)");
 
-        command.SetHandler(async () =>
-        {
-            await ExecuteAsync();
-        });
+        command.SetAction((_, _) => ExecuteAsync());
 
         return command;
     }

@@ -9,10 +9,10 @@ public static class VersionCommand
     {
         var command = new Command("version", "Show the SignalBeam agent version");
 
-        command.SetHandler(() =>
+        command.SetAction(_ =>
         {
             Execute();
-            return Task.FromResult(0);
+            return 0;
         });
 
         return command;

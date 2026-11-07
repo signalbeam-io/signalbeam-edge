@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
@@ -35,13 +34,15 @@ public class Program
             Description = "API key to send in X-Api-Key header (legacy mode - uses shared tenant key)."
         };
 
-        var useDeviceAuthOption = new Option<bool>("--use-device-auth", () => false)
+        var useDeviceAuthOption = new Option<bool>("--use-device-auth")
         {
+            DefaultValueFactory = _ => false,
             Description = "Use device-specific authentication (requires approval workflow)."
         };
 
-        var useMtlsOption = new Option<bool>("--use-mtls", () => false)
+        var useMtlsOption = new Option<bool>("--use-mtls")
         {
+            DefaultValueFactory = _ => false,
             Description = "Request and use mTLS certificate after device approval (requires --use-device-auth)."
         };
 
@@ -50,13 +51,15 @@ public class Program
             Description = "Path to store device credentials (default: ./sim-credentials-{deviceId}.json)."
         };
 
-        var waitForApprovalOption = new Option<bool>("--wait-for-approval", () => false)
+        var waitForApprovalOption = new Option<bool>("--wait-for-approval")
         {
+            DefaultValueFactory = _ => false,
             Description = "Wait for device approval before starting simulation."
         };
 
-        var approvalCheckIntervalOption = new Option<int>("--approval-check-interval", () => 10)
+        var approvalCheckIntervalOption = new Option<int>("--approval-check-interval")
         {
+            DefaultValueFactory = _ => 10,
             Description = "Interval in seconds to check for approval (when waiting)."
         };
 
@@ -80,68 +83,73 @@ public class Program
             Description = "Optional metadata for registration."
         };
 
-        var heartbeatIntervalOption = new Option<int>("--heartbeat-interval-seconds", () => 30)
+        var heartbeatIntervalOption = new Option<int>("--heartbeat-interval-seconds")
         {
+            DefaultValueFactory = _ => 30,
             Description = "Heartbeat interval in seconds."
         };
 
-        var metricsIntervalOption = new Option<int>("--metrics-interval-seconds", () => 30)
+        var metricsIntervalOption = new Option<int>("--metrics-interval-seconds")
         {
+            DefaultValueFactory = _ => 30,
             Description = "Metrics interval in seconds."
         };
 
-        var desiredStateIntervalOption = new Option<int>("--desired-state-interval-seconds", () => 60)
+        var desiredStateIntervalOption = new Option<int>("--desired-state-interval-seconds")
         {
+            DefaultValueFactory = _ => 60,
             Description = "Desired state polling interval in seconds."
         };
 
-        var iterationsOption = new Option<int>("--iterations", () => 0)
+        var iterationsOption = new Option<int>("--iterations")
         {
+            DefaultValueFactory = _ => 0,
             Description = "Number of loop iterations (0 = run until canceled)."
         };
 
-        var reportStateOption = new Option<bool>("--report-state", () => true)
+        var reportStateOption = new Option<bool>("--report-state")
         {
+            DefaultValueFactory = _ => true,
             Description = "Report bundle deployment status when desired state is present."
         };
 
-        rootCommand.AddOption(deviceManagerUrlOption);
-        rootCommand.AddOption(bundleOrchestratorUrlOption);
-        rootCommand.AddOption(apiKeyOption);
-        rootCommand.AddOption(useDeviceAuthOption);
-        rootCommand.AddOption(useMtlsOption);
-        rootCommand.AddOption(credentialsPathOption);
-        rootCommand.AddOption(waitForApprovalOption);
-        rootCommand.AddOption(approvalCheckIntervalOption);
-        rootCommand.AddOption(tenantIdOption);
-        rootCommand.AddOption(deviceIdOption);
-        rootCommand.AddOption(deviceNameOption);
-        rootCommand.AddOption(metadataOption);
-        rootCommand.AddOption(heartbeatIntervalOption);
-        rootCommand.AddOption(metricsIntervalOption);
-        rootCommand.AddOption(desiredStateIntervalOption);
-        rootCommand.AddOption(iterationsOption);
-        rootCommand.AddOption(reportStateOption);
+        rootCommand.Options.Add(deviceManagerUrlOption);
+        rootCommand.Options.Add(bundleOrchestratorUrlOption);
+        rootCommand.Options.Add(apiKeyOption);
+        rootCommand.Options.Add(useDeviceAuthOption);
+        rootCommand.Options.Add(useMtlsOption);
+        rootCommand.Options.Add(credentialsPathOption);
+        rootCommand.Options.Add(waitForApprovalOption);
+        rootCommand.Options.Add(approvalCheckIntervalOption);
+        rootCommand.Options.Add(tenantIdOption);
+        rootCommand.Options.Add(deviceIdOption);
+        rootCommand.Options.Add(deviceNameOption);
+        rootCommand.Options.Add(metadataOption);
+        rootCommand.Options.Add(heartbeatIntervalOption);
+        rootCommand.Options.Add(metricsIntervalOption);
+        rootCommand.Options.Add(desiredStateIntervalOption);
+        rootCommand.Options.Add(iterationsOption);
+        rootCommand.Options.Add(reportStateOption);
 
-        rootCommand.SetHandler(async (InvocationContext context) =>
+        rootCommand.SetAction(async (parseResult, _) =>
         {
-            var deviceManagerUrl = context.ParseResult.GetValueForOption(deviceManagerUrlOption);
-            var bundleOrchestratorUrl = context.ParseResult.GetValueForOption(bundleOrchestratorUrlOption);
-            var apiKey = context.ParseResult.GetValueForOption(apiKeyOption);
-            var useDeviceAuth = context.ParseResult.GetValueForOption(useDeviceAuthOption);
-            var useMtls = context.ParseResult.GetValueForOption(useMtlsOption);
-            var credentialsPath = context.ParseResult.GetValueForOption(credentialsPathOption);
-            var waitForApproval = context.ParseResult.GetValueForOption(waitForApprovalOption);
-            var approvalCheckInterval = context.ParseResult.GetValueForOption(approvalCheckIntervalOption);
-            var tenantId = context.ParseResult.GetValueForOption(tenantIdOption);
-            var deviceId = context.ParseResult.GetValueForOption(deviceIdOption);
-            var deviceName = context.ParseResult.GetValueForOption(deviceNameOption);
-            var metadata = context.ParseResult.GetValueForOption(metadataOption);
-            var heartbeatIntervalSeconds = context.ParseResult.GetValueForOption(heartbeatIntervalOption);
-            var metricsIntervalSeconds = context.ParseResult.GetValueForOption(metricsIntervalOption);
-            var desiredStateIntervalSeconds = context.ParseResult.GetValueForOption(desiredStateIntervalOption);
-            var iterations = context.ParseResult.GetValueForOption(iterationsOption);
-            var reportState = context.ParseResult.GetValueForOption(reportStateOption);
+            var deviceManagerUrl = parseResult.GetValue(deviceManagerUrlOption);
+            var bundleOrchestratorUrl = parseResult.GetValue(bundleOrchestratorUrlOption);
+            var apiKey = parseResult.GetValue(apiKeyOption);
+            var useDeviceAuth = parseResult.GetValue(useDeviceAuthOption);
+            var useMtls = parseResult.GetValue(useMtlsOption);
+            var credentialsPath = parseResult.GetValue(credentialsPathOption);
+            var waitForApproval = parseResult.GetValue(waitForApprovalOption);
+            var approvalCheckInterval = parseResult.GetValue(approvalCheckIntervalOption);
+            var tenantId = parseResult.GetValue(tenantIdOption);
+            var deviceId = parseResult.GetValue(deviceIdOption);
+            var deviceName = parseResult.GetValue(deviceNameOption);
+            var metadata = parseResult.GetValue(metadataOption);
+            var heartbeatIntervalSeconds = parseResult.GetValue(heartbeatIntervalOption);
+            var metricsIntervalSeconds = parseResult.GetValue(metricsIntervalOption);
+            var desiredStateIntervalSeconds = parseResult.GetValue(desiredStateIntervalOption);
+            var iterations = parseResult.GetValue(iterationsOption);
+            var reportState = parseResult.GetValue(reportStateOption);
 
             var resolvedDeviceManagerUrl = ResolveRequiredOption(
                 deviceManagerUrl,
@@ -247,7 +255,7 @@ public class Program
             await Task.WhenAll(tasks);
         });
 
-        return await rootCommand.InvokeAsync(args);
+        return await rootCommand.Parse(args).InvokeAsync();
     }
 
     private static HttpClient CreateClient(string baseUrl, string apiKey)
