@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Microsoft.Extensions.Configuration;
+using SignalBeam.EdgeAgent.Host.Configuration;
 
 namespace SignalBeam.EdgeAgent.Host.Commands;
 
@@ -35,13 +36,9 @@ public static class LogsCommand
         try
         {
             // Load configuration to get log file path
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false)
-                .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
-                .Build();
+            var configuration = HostBuilder.BuildConfiguration();
 
-            var logPath = configuration["Agent:LogFilePath"] ?? "/var/log/signalbeam-agent/agent.log";
+            var logPath = configuration["Agent:LogFilePath"] ?? AgentPaths.DefaultLogFilePath;
 
             if (!File.Exists(logPath))
             {

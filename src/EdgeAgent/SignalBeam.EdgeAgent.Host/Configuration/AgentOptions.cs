@@ -26,7 +26,17 @@ public class AgentOptions
     public int ReconciliationRetryDelaySeconds { get; set; } = 10;
     public int ImagePullTimeoutSeconds { get; set; } = 300;
     public int MaxRetries { get; set; } = 3;
-    public string LogFilePath { get; set; } = "/var/log/signalbeam-agent/agent.log";
+    public string LogFilePath { get; set; } = AgentPaths.DefaultLogFilePath;
+
+    /// <summary>
+    /// Writable directory for device state and certificates.
+    /// </summary>
+    public string StateDirectory { get; set; } = AgentPaths.DefaultStateDirectory;
+
+    /// <summary>
+    /// Directory holding device-credentials.json.
+    /// </summary>
+    public string CredentialsDirectory { get; set; } = AgentPaths.DefaultStateDirectory;
 
     /// <summary>
     /// Filesystem mount point whose usage is reported as the device disk metric.
