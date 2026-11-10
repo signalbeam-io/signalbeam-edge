@@ -23,8 +23,9 @@ public class DockerContainerManager : IContainerManager, IDisposable
                 ? "npipe://./pipe/docker_engine"
                 : "unix:///var/run/docker.sock");
 
-        _client = new DockerClientConfiguration(new Uri(dockerUri))
-            .CreateClient();
+        _client = new DockerClientBuilder()
+            .WithEndpoint(new Uri(dockerUri))
+            .Build();
 
         _logger.LogInformation("Docker client initialized with endpoint: {Endpoint}", dockerUri);
 
@@ -160,7 +161,7 @@ public class DockerContainerManager : IContainerManager, IDisposable
                     {
                         Name = spec.Name,
                         Image = spec.Image,
-                        Env = spec.Environment?.Select(kvp => $"{kvp.Key}={kvp.Value}").ToList(),
+                        Env = spec.Environment?.Select(kvp => $"{kvp.Key}={kvp.Value}").ToList() ?? [],
                         HostConfig = new HostConfig
                         {
                             PortBindings = spec.Ports?.ToDictionary(
@@ -169,8 +170,8 @@ public class DockerContainerManager : IContainerManager, IDisposable
                                 {
                                     new() { HostPort = kvp.Value }
                                 }
-                            ),
-                            Binds = spec.Volumes?.Select(kvp => $"{kvp.Key}:{kvp.Value}").ToList()
+                            ) ?? [],
+                            Binds = spec.Volumes?.Select(kvp => $"{kvp.Key}:{kvp.Value}").ToList() ?? []
                         }
                     },
                     cancellationToken));
@@ -302,17 +303,18 @@ public class DockerContainerManager : IContainerManager, IDisposable
             }
 
             // Calculate CPU percentage
-            var cpuDelta = statsResponse.CPUStats.CPUUsage.TotalUsage -
-                           statsResponse.PreCPUStats.CPUUsage.TotalUsage;
-            var systemDelta = statsResponse.CPUStats.SystemUsage -
-                              statsResponse.PreCPUStats.SystemUsage;
+            // Docker.DotNet 4 models every stats field as nullable; treat missing values as 0.
+            var cpuDelta = (statsResponse.CPUStats?.CPUUsage?.TotalUsage ?? 0) -
+                           (statsResponse.PreCPUStats?.CPUUsage?.TotalUsage ?? 0);
+            var systemDelta = (statsResponse.CPUStats?.SystemUsage ?? 0) -
+                              (statsResponse.PreCPUStats?.SystemUsage ?? 0);
             var cpuPercent = systemDelta > 0
                 ? (double)cpuDelta / systemDelta * 100.0
                 : 0.0;
 
             // Calculate memory percentage
-            var memoryUsage = statsResponse.MemoryStats.Usage;
-            var memoryLimit = statsResponse.MemoryStats.Limit;
+            var memoryUsage = statsResponse.MemoryStats?.Usage ?? 0;
+            var memoryLimit = statsResponse.MemoryStats?.Limit ?? 0;
             var memoryPercent = memoryLimit > 0
                 ? (double)memoryUsage / memoryLimit * 100.0
                 : 0.0;
@@ -322,10 +324,10 @@ public class DockerContainerManager : IContainerManager, IDisposable
             var networkTx = statsResponse.Networks?.Values.Sum(n => (long)n.TxBytes) ?? 0;
 
             // Calculate block I/O
-            var blockRead = statsResponse.BlkioStats.IoServiceBytesRecursive?
+            var blockRead = statsResponse.BlkioStats?.IoServiceBytesRecursive?
                 .Where(s => s.Op == "read")
                 .Sum(s => (long)s.Value) ?? 0;
-            var blockWrite = statsResponse.BlkioStats.IoServiceBytesRecursive?
+            var blockWrite = statsResponse.BlkioStats?.IoServiceBytesRecursive?
                 .Where(s => s.Op == "write")
                 .Sum(s => (long)s.Value) ?? 0;
 

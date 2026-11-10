@@ -10,13 +10,13 @@ public class Program
         var rootCommand = new RootCommand("SignalBeam Edge Agent - Manage your edge devices from the cloud");
 
         // Add all commands
-        rootCommand.AddCommand(RegisterCommand.Create());
-        rootCommand.AddCommand(RunCommand.Create());
-        rootCommand.AddCommand(RequestCertCommand.Create());
-        rootCommand.AddCommand(StatusCommand.Create());
-        rootCommand.AddCommand(VersionCommand.Create());
-        rootCommand.AddCommand(LogsCommand.Create());
+        rootCommand.Subcommands.Add(RegisterCommand.Create());
+        rootCommand.Subcommands.Add(RunCommand.Create());
+        rootCommand.Subcommands.Add(RequestCertCommand.Create());
+        rootCommand.Subcommands.Add(StatusCommand.Create());
+        rootCommand.Subcommands.Add(VersionCommand.Create());
+        rootCommand.Subcommands.Add(LogsCommand.Create());
 
-        return await rootCommand.InvokeAsync(args);
+        return await rootCommand.Parse(args).InvokeAsync();
     }
 }
