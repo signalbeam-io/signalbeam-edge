@@ -78,6 +78,10 @@ jobs:
           cp ./publish/${{ matrix.arch }}/SignalBeam.EdgeAgent.Host ${PACKAGE_DIR}/usr/local/bin/${{ env.PACKAGE_NAME }}
           chmod 755 ${PACKAGE_DIR}/usr/local/bin/${{ env.PACKAGE_NAME }}
 
+          # appsettings.json is not bundled into the single-file binary; the agent loads it
+          # (required) from the binary's directory, so it must ship next to it.
+          cp ./publish/${{ matrix.arch }}/appsettings.json ${PACKAGE_DIR}/usr/local/bin/
+
           # Copy systemd service
           cp src/EdgeAgent/systemd/signalbeam-agent.service ${PACKAGE_DIR}/etc/systemd/system/
 
