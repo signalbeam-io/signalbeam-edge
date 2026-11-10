@@ -235,7 +235,7 @@ main() {
     print_info "Next steps:"
     echo ""
     echo "  1. Register your device:"
-    echo "     signalbeam-agent register \\"
+    echo "     sudo -u signalbeam signalbeam-agent register \\"
     echo "       --tenant-id <your-tenant-id> \\"
     echo "       --device-id <unique-device-id> \\"
     echo "       --token <registration-token> \\"

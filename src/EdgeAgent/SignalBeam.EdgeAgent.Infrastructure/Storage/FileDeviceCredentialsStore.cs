@@ -23,7 +23,7 @@ public class FileDeviceCredentialsStore : IDeviceCredentialsStore
         _logger = logger;
 
         // Get credentials file path from configuration or use default
-        var baseDir = configuration["Agent:CredentialsDirectory"] ?? "/var/lib/signalbeam-agent";
+        var baseDir = configuration["Agent:CredentialsDirectory"] ?? "/var/lib/signalbeam";
         var fileName = "device-credentials.json";
         _credentialsFilePath = Path.Combine(baseDir, fileName);
 

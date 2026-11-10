@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SignalBeam.EdgeAgent.Application.Commands;
 using SignalBeam.EdgeAgent.Application.Services;
+using SignalBeam.EdgeAgent.Host.Configuration;
 using SignalBeam.EdgeAgent.Host.Services;
 using Wolverine;
 
@@ -56,6 +57,21 @@ public static class RegisterCommand
     {
         // Point the cloud client at the requested control plane before the provider is built.
         Environment.SetEnvironmentVariable("Agent__CloudUrl", cloudUrl);
+
+        // Persist the URL so `run` (e.g. the systemd service) talks to the same control plane.
+        // Non-fatal: in containers the URL usually comes from Agent__CloudUrl instead.
+        var configFilePath = AgentPaths.ConfigFilePath;
+        try
+        {
+            AgentConfigFile.SetCloudUrl(configFilePath, cloudUrl);
+            Console.WriteLine($"📝 Saved control-plane URL to {configFilePath}");
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            Console.WriteLine($"⚠️  Could not save the control-plane URL to {configFilePath}: {ex.Message}");
+            Console.WriteLine("   Run register as the 'signalbeam' user (sudo -u signalbeam ...) or set");
+            Console.WriteLine($"   Agent__CloudUrl={cloudUrl} for the service, otherwise 'run' uses the default URL.");
+        }
 
         var serviceProvider = HostBuilder.BuildServiceProvider();
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();

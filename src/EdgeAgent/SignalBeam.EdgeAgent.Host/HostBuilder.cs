@@ -35,7 +35,7 @@ public static class HostBuilder
                 services.Configure<AgentOptions>(context.Configuration.GetSection(AgentOptions.SectionName));
 
                 // State management
-                services.AddSingleton<DeviceStateManager>();
+                services.AddSingleton(_ => CreateDeviceStateManager(context.Configuration));
 
                 // Infrastructure
                 services.AddInfrastructure(context.Configuration);
@@ -92,7 +92,7 @@ public static class HostBuilder
         });
 
         // State management
-        services.AddSingleton<DeviceStateManager>();
+        services.AddSingleton(_ => CreateDeviceStateManager(configuration));
 
         // Infrastructure
         services.AddInfrastructure(configuration);
@@ -105,17 +105,29 @@ public static class HostBuilder
         return services.BuildServiceProvider();
     }
 
-    private static IConfiguration BuildConfiguration()
+    internal static IConfiguration BuildConfiguration() => BuildConfiguration(AgentPaths.ConfigFilePath);
+
+    /// <summary>
+    /// Precedence (last wins): appsettings.json → appsettings.{env}.json → machine config file
+    /// (written by <c>register</c>) → environment variables.
+    /// </summary>
+    internal static IConfiguration BuildConfiguration(string machineConfigFilePath)
     {
         var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
 
+        // Resolve appsettings next to the binary, not the working directory: under systemd the
+        // agent runs from /var/lib/signalbeam while the .deb installs appsettings in /usr/local/bin.
         var configuration = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
+            .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
+            .AddJsonFile(machineConfigFilePath, optional: true, reloadOnChange: false)
             .AddEnvironmentVariables()
             .Build();
 
         return configuration;
     }
+
+    private static DeviceStateManager CreateDeviceStateManager(IConfiguration configuration) =>
+        new(configuration["Agent:StateDirectory"] ?? AgentPaths.DefaultStateDirectory);
 }

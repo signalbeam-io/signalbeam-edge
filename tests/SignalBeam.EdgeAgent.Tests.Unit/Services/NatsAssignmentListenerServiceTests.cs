@@ -18,7 +18,7 @@ public class NatsAssignmentListenerServiceTests
         _messageBus = Substitute.For<IMessageBus>();
         _listener = Substitute.For<IAssignmentListener>();
         var logger = Substitute.For<ILogger<NatsAssignmentListenerService>>();
-        _sut = new NatsAssignmentListenerService(_messageBus, _listener, new DeviceStateManager(), logger);
+        _sut = new NatsAssignmentListenerService(_messageBus, _listener, new DeviceStateManager(Path.Combine(Path.GetTempPath(), $"sb-agent-{Guid.NewGuid():N}")), logger);
     }
 
     private static AssignmentReceivedEventArgs Assignment(Guid deviceId) => new()

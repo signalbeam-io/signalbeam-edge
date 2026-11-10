@@ -44,8 +44,7 @@ public static class DependencyInjection
         {
             var certDir = configuration["Agent:CertificateDirectory"]
                 ?? Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "signalbeam-agent",
+                    configuration["Agent:StateDirectory"] ?? "/var/lib/signalbeam",
                     "certs");
             return new FileCertificateStore(certDir);
         });

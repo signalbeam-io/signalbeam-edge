@@ -13,13 +13,12 @@ public class DeviceStateManager
     private string? _cloudEndpoint;
     private bool _isRegistered;
 
-    public DeviceStateManager()
+    /// <param name="dataDirectory">
+    /// Writable directory for the state file. Must be a path the service may write to
+    /// (the systemd unit only allows /var/lib/signalbeam and /var/log/signalbeam).
+    /// </param>
+    public DeviceStateManager(string dataDirectory)
     {
-        // Store state in user data directory
-        var dataDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "signalbeam-agent");
-
         Directory.CreateDirectory(dataDirectory);
         _stateFilePath = Path.Combine(dataDirectory, "device-state.json");
 

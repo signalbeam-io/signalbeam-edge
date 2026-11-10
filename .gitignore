@@ -427,3 +427,6 @@ tools/workflow-engine/node_modules/
 
 # Playwright MCP run artifacts
 .playwright-mcp/
+
+# Edge agent .deb build output
+src/EdgeAgent/package/build/
