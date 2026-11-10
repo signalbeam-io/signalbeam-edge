@@ -15,41 +15,40 @@ public static class RegisterCommand
     {
         var command = new Command("register", "Register this device with the SignalBeam cloud");
 
-        var tenantIdOption = new Option<Guid>(
-            name: "--tenant-id",
-            description: "The tenant ID for this device")
+        var tenantIdOption = new Option<Guid>("--tenant-id")
         {
-            IsRequired = true
+            Description = "The tenant ID for this device",
+            Required = true
         };
 
-        var deviceIdOption = new Option<string?>(
-            name: "--device-id",
-            description: "The unique device ID (auto-generated if not provided)")
+        var deviceIdOption = new Option<string?>("--device-id")
         {
-            IsRequired = false
+            Description = "The unique device ID (auto-generated if not provided)"
         };
 
-        var tokenOption = new Option<string>(
-            name: "--token",
-            description: "The registration token")
+        var tokenOption = new Option<string>("--token")
         {
-            IsRequired = true
+            Description = "The registration token",
+            Required = true
         };
 
-        var cloudUrlOption = new Option<string>(
-            name: "--cloud-url",
-            description: "The SignalBeam cloud API URL",
-            getDefaultValue: () => "https://api.signalbeam.com");
-
-        command.AddOption(tenantIdOption);
-        command.AddOption(deviceIdOption);
-        command.AddOption(tokenOption);
-        command.AddOption(cloudUrlOption);
-
-        command.SetHandler(async (tenantId, deviceId, token, cloudUrl) =>
+        var cloudUrlOption = new Option<string>("--cloud-url")
         {
-            await ExecuteAsync(tenantId, deviceId, token, cloudUrl);
-        }, tenantIdOption, deviceIdOption, tokenOption, cloudUrlOption);
+            Description = "The SignalBeam cloud API URL",
+            DefaultValueFactory = _ => "https://api.signalbeam.com"
+        };
+
+        command.Options.Add(tenantIdOption);
+        command.Options.Add(deviceIdOption);
+        command.Options.Add(tokenOption);
+        command.Options.Add(cloudUrlOption);
+
+        // Required options are validated by the parser, so GetValue never returns null for them.
+        command.SetAction((parseResult, _) => ExecuteAsync(
+            parseResult.GetValue(tenantIdOption),
+            parseResult.GetValue(deviceIdOption),
+            parseResult.GetValue(tokenOption)!,
+            parseResult.GetValue(cloudUrlOption)!));
 
         return command;
     }

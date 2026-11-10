@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NATS.Client.JetStream" VersionOverride="2.7.2" />
+    <PackageReference Include="NATS.Client.JetStream" />
     <ProjectReference Include="..\..\Shared\SignalBeam.Domain\SignalBeam.Domain.csproj" />
     <ProjectReference Include="..\..\Shared\SignalBeam.Shared.Infrastructure\SignalBeam.Shared.Infrastructure.csproj" />
   </ItemGroup>

@@ -15,7 +15,7 @@ public static class RequestCertCommand
     {
         var command = new Command("request-cert", "Provision an mTLS client certificate from the cloud CA");
 
-        command.SetHandler(async () => await ExecuteAsync());
+        command.SetAction((_, _) => ExecuteAsync());
 
         return command;
     }

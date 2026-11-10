@@ -10,23 +10,24 @@ public static class LogsCommand
     {
         var command = new Command("logs", "Show the SignalBeam agent logs");
 
-        var followOption = new Option<bool>(
-            name: "--follow",
-            description: "Follow log output",
-            getDefaultValue: () => false);
-
-        var linesOption = new Option<int>(
-            name: "--lines",
-            description: "Number of lines to show",
-            getDefaultValue: () => 50);
-
-        command.AddOption(followOption);
-        command.AddOption(linesOption);
-
-        command.SetHandler(async (follow, lines) =>
+        var followOption = new Option<bool>("--follow")
         {
-            await ExecuteAsync(follow, lines);
-        }, followOption, linesOption);
+            Description = "Follow log output",
+            DefaultValueFactory = _ => false
+        };
+
+        var linesOption = new Option<int>("--lines")
+        {
+            Description = "Number of lines to show",
+            DefaultValueFactory = _ => 50
+        };
+
+        command.Options.Add(followOption);
+        command.Options.Add(linesOption);
+
+        command.SetAction((parseResult, _) => ExecuteAsync(
+            parseResult.GetValue(followOption),
+            parseResult.GetValue(linesOption)));
 
         return command;
     }
