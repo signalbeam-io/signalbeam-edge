@@ -37,6 +37,25 @@ while (repoRoot is not null && !Directory.Exists(Path.Combine(repoRoot, ".git"))
 }
 
 repoRoot ??= appHostDir;
+
+// OpenTelemetry Collector between the services and the dashboard. Besides forwarding
+// everything to the dashboard it writes traces as JSON Lines to .tracebeam/otlp/, the
+// machine-readable record of system behaviour used by tracebeam and coding agents (#472).
+var traceExportDir = Path.Combine(repoRoot, ".tracebeam", "otlp");
+Directory.CreateDirectory(traceExportDir);
+
+builder.AddOpenTelemetryCollector("otel-collector", settings =>
+    {
+        // Pinned Docker Hub image instead of the integration's default ghcr.io ":latest"
+        // (reproducible, and avoids pull failures from stale ghcr.io credentials).
+        settings.Registry = "docker.io";
+        settings.Image = "otel/opentelemetry-collector-contrib";
+        settings.CollectorTag = "0.164.0";
+    })
+    .WithConfig(Path.Combine(builder.AppHostDirectory, "otel-collector.yaml"))
+    .WithBindMount(traceExportDir, "/tracebeam/otlp")
+    .WithAppForwarding();
+
 var zitadelPatDir = Path.Combine(repoRoot, ".zitadel");
 Directory.CreateDirectory(zitadelPatDir);
 var zitadelPatPath = Path.Combine(zitadelPatDir, "token");

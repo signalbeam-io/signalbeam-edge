@@ -1,0 +1,53 @@
+# OpenTelemetry Collector for local development (Aspire).
+#
+# Services → collector (via WithAppForwarding) → Aspire dashboard (all signals)
+#                                              → .tracebeam/otlp/traces.jsonl (traces)
+#
+# The JSON Lines file is the machine-readable copy of "production" behaviour that
+# tracebeam and coding agents read (see issue #472). ASPIRE_ENDPOINT and ASPIRE_API_KEY
+# are injected by CommunityToolkit.Aspire.Hosting.OpenTelemetryCollector, which also adds
+# the receiver TLS cert/key in the https profile.
+
+receivers:
+  otlp:
+    protocols:
+      # The collector defaults to localhost, which is unreachable from outside the container.
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 2s
+
+exporters:
+  otlp_grpc/aspire:
+    endpoint: ${env:ASPIRE_ENDPOINT}
+    headers:
+      x-otlp-api-key: ${env:ASPIRE_API_KEY}
+    tls:
+      # The dashboard uses the ASP.NET Core dev certificate in the https profile.
+      insecure_skip_verify: true
+
+  file/traces:
+    path: /tracebeam/otlp/traces.jsonl
+    format: json
+    rotation:
+      max_megabytes: 50
+      max_backups: 10
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp_grpc/aspire, file/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp_grpc/aspire]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp_grpc/aspire]
