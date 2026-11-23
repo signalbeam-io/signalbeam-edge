@@ -5,6 +5,9 @@ var postgresPassword = builder.AddParameter("postgres-password", secret: true);
 
 // Infrastructure
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
+    // Zitadel v2.66.3 cannot initialise on Postgres 18 (migration 34_add_cache_schema fails with
+    // "partitioned tables cannot be unlogged"); Aspire 13.6 defaults to 18.x. Pin 17 until Zitadel is upgraded.
+    .WithImageTag("17.12")
     .WithPgAdmin()
     .WithLifetime(ContainerLifetime.Persistent);
 
