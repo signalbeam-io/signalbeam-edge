@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Shared/SignalBeam.Shared.Infrastructure/SignalBeam.Shared.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/SignalBeam.ServiceDefaults/SignalBeam.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>

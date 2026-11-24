@@ -7,11 +7,19 @@ using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using SignalBeam.ServiceDefaults.Observability;
 
 namespace SignalBeam.ServiceDefaults;
 
 public static class Extensions
 {
+    /// <summary>
+    /// ActivitySource built into Npgsql. Covers every Postgres command, whether issued by
+    /// EF Core or by Dapper on the EF connection. Spans use the stable OTel database conventions
+    /// (db.system.name, db.namespace, db.query.text); query text keeps placeholders, never values.
+    /// </summary>
+    public const string NpgsqlActivitySourceName = "Npgsql";
+
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
     {
         builder.ConfigureOpenTelemetry();
@@ -50,7 +58,11 @@ public static class Extensions
             .WithTracing(tracing =>
             {
                 tracing.AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    .AddSource(NpgsqlActivitySourceName)
+                    // Registered here, before the OTLP exporter (added in AddOpenTelemetryExporters),
+                    // so the enriched names and tags are what gets exported.
+                    .AddProcessor(new DatabaseSpanProcessor());
             });
 
         builder.AddOpenTelemetryExporters();
