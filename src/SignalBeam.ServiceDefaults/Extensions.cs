@@ -15,8 +15,9 @@ public static class Extensions
 {
     /// <summary>
     /// ActivitySource built into Npgsql. Covers every Postgres command, whether issued by
-    /// EF Core or by Dapper on the EF connection. Spans use the stable OTel database conventions
-    /// (db.system.name, db.namespace, db.query.text); query text keeps placeholders, never values.
+    /// EF Core or as raw ADO.NET commands on the EF connection. Spans use the stable OTel database
+    /// conventions (db.system.name, db.namespace, db.query.text). Parameters appear as placeholders;
+    /// only constants written in code (e.g. EF-inlined literals) appear inline.
     /// </summary>
     public const string NpgsqlActivitySourceName = "Npgsql";
 

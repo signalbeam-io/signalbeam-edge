@@ -117,10 +117,11 @@ services ──OTLP──► otel-collector ──► Aspire dashboard        (t
   ```
 
 - **What's traced:** inbound HTTP (`http.route`), outgoing `HttpClient` calls, and every Postgres
-  command via Npgsql's built-in `Npgsql` ActivitySource (EF Core and Dapper alike). Database spans
+  command via Npgsql's built-in `Npgsql` ActivitySource (EF Core and raw ADO.NET commands alike). Database spans
   are named after their summary, e.g. `SELECT device_manager.devices`, and carry `db.system.name`,
   `db.namespace`, `db.operation.name`, `db.collection.name`, `db.query.summary` and `db.query.text`
-  (with parameter placeholders, never values). The summary comes from
+  (parameters appear as placeholders; only constants written in code, such as EF-inlined
+  literals, appear inline). The summary comes from
   `ServiceDefaults/Observability/DatabaseSpanProcessor`, because Npgsql names every plain-SQL span
   `postgresql`. Spans from background workers (e.g. TelemetryProcessor's monitors) have no parent request.
 - To add another destination (e.g. Jaeger or Tempo), add an exporter to the collector config.
