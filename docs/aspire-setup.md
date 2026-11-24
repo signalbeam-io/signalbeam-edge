@@ -124,6 +124,15 @@ services ──OTLP──► otel-collector ──► Aspire dashboard        (t
   literals, appear inline). The summary comes from
   `ServiceDefaults/Observability/DatabaseSpanProcessor`, because Npgsql names every plain-SQL span
   `postgresql`. Spans from background workers (e.g. TelemetryProcessor's monitors) have no parent request.
+- **NATS** (Core and JetStream) is traced via NATS.Net's built-in `NATS.Net` ActivitySource. Publishing
+  injects `traceparent` into the message headers and receiving continues it, so a consumer's work
+  joins the trace of whoever published. TelemetryProcessor wraps each JetStream message in a
+  `process <filter subject>` span (e.g. `process signalbeam.devices.heartbeat.>`), so the handler's
+  database writes and follow-up publishes nest under it. JetStream protocol traffic (`$JS.API.*`
+  fetch/API calls, `_INBOX.*` replies) is filtered out in `Shared.Infrastructure/Messaging/NatsTracing`.
+  To see a cross-service NATS trace locally, publish with a trace header, e.g.
+  `nats pub signalbeam.devices.heartbeat.<deviceId> '<json>' -H "traceparent:00-<32 hex>-<16 hex>-01"`.
+  The simulator itself uses HTTP.
 - To add another destination (e.g. Jaeger or Tempo), add an exporter to the collector config.
   No service changes are needed.
 
