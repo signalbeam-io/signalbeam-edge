@@ -417,6 +417,9 @@ infra/terraform/modules/**/.terraform*
 infra/terragrunt/**/env.hcl
 .zitadel/
 
+# Local trace export from the Aspire OTel Collector (#476); baselines under .tracebeam/ stay tracked
+.tracebeam/otlp/
+
 # Workflow engine state
 .claude/.workflow-state.json
 .claude/worktrees/

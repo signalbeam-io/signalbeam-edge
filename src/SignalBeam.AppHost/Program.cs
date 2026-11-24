@@ -5,6 +5,9 @@ var postgresPassword = builder.AddParameter("postgres-password", secret: true);
 
 // Infrastructure
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
+    // Zitadel v2.66.3 cannot initialise on Postgres 18 (migration 34_add_cache_schema fails with
+    // "partitioned tables cannot be unlogged"); Aspire 13.6 defaults to 18.x. Pin 17 until Zitadel is upgraded.
+    .WithImageTag("17.12")
     .WithPgAdmin()
     .WithLifetime(ContainerLifetime.Persistent);
 
@@ -34,6 +37,34 @@ while (repoRoot is not null && !Directory.Exists(Path.Combine(repoRoot, ".git"))
 }
 
 repoRoot ??= appHostDir;
+
+// OpenTelemetry Collector between the services and the dashboard. Besides forwarding
+// everything to the dashboard it writes traces as JSON Lines to .tracebeam/otlp/, the
+// machine-readable record of system behaviour used by tracebeam and coding agents (#472).
+var traceExportDir = Path.Combine(repoRoot, ".tracebeam", "otlp");
+Directory.CreateDirectory(traceExportDir);
+if (!OperatingSystem.IsWindows())
+{
+    // The collector image runs as a non-root user (UID 10001). On Linux hosts the bind-mounted
+    // directory keeps host ownership, so make this git-ignored, local-only folder writable for it.
+    File.SetUnixFileMode(traceExportDir,
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+        UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+        UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+}
+
+builder.AddOpenTelemetryCollector("otel-collector", settings =>
+    {
+        // Pinned Docker Hub image instead of the integration's default ghcr.io ":latest"
+        // (reproducible, and avoids pull failures from stale ghcr.io credentials).
+        settings.Registry = "docker.io";
+        settings.Image = "otel/opentelemetry-collector-contrib";
+        settings.CollectorTag = "0.164.0";
+    })
+    .WithConfig(Path.Combine(builder.AppHostDirectory, "otel-collector.yaml"))
+    .WithBindMount(traceExportDir, "/tracebeam/otlp")
+    .WithAppForwarding();
+
 var zitadelPatDir = Path.Combine(repoRoot, ".zitadel");
 Directory.CreateDirectory(zitadelPatDir);
 var zitadelPatPath = Path.Combine(zitadelPatDir, "token");

@@ -86,6 +86,39 @@ The Aspire Dashboard provides:
 
 Access at: `http://localhost:15888`
 
+## Telemetry Pipeline (OTel Collector)
+
+Services don't send telemetry to the dashboard directly. An OpenTelemetry Collector
+(`otel-collector` resource, `otel/opentelemetry-collector-contrib`) sits in between:
+
+```
+services ──OTLP──► otel-collector ──► Aspire dashboard        (traces, metrics, logs)
+                                  └─► .tracebeam/otlp/traces.jsonl   (traces)
+```
+
+- Config: `src/SignalBeam.AppHost/otel-collector.yaml`. Routing is done by
+  `CommunityToolkit.Aspire.Hosting.OpenTelemetryCollector` (`WithAppForwarding()`), so every
+  project's `OTEL_EXPORTER_OTLP_ENDPOINT` points at the collector automatically.
+- `.tracebeam/otlp/traces.jsonl` holds every span as OTLP/JSON, one export batch per line
+  (rotated at 50 MB, 10 backups, git-ignored). It is the machine-readable record of how the
+  system behaves, for tools like [tracebeam](https://github.com/makigjuro/tracebeam) and coding
+  agents (see #472). The file is created when the first spans arrive. With rotation it uses at
+  most about 550 MB.
+- **Treat the file as sensitive.** Spans can contain URLs with query strings, SQL text, tenant and
+  device IDs, and exception messages. Don't attach it to issues or share it outside your machine.
+- Quick look without extra tools:
+
+  ```bash
+  # spans per service and route
+  jq -r '.resourceSpans[] | (.resource.attributes[] | select(.key=="service.name").value.stringValue) as $s
+         | .scopeSpans[].spans[] | select(.kind==2)
+         | "\($s) \(.attributes[] | select(.key=="http.route").value.stringValue)"' \
+     .tracebeam/otlp/traces.jsonl | sort | uniq -c
+  ```
+
+- To add another destination (e.g. Jaeger or Tempo), add an exporter to the collector config.
+  No service changes are needed.
+
 ## Service Endpoints
 
 When running with Aspire, **all API requests** should go through the API Gateway:
@@ -227,6 +260,18 @@ If port 8080 is already in use:
 1. Check Aspire Dashboard logs for errors
 2. Verify dependencies are running (PostgreSQL, etc.)
 3. Check for missing environment variables
+
+### Zitadel exits with "partitioned tables cannot be unlogged"
+
+Zitadel v2.66.3 can't initialise on Postgres 18, and Aspire 13.6 defaults to 18.x. The AppHost
+pins Postgres to 17 (`WithImageTag("17.12")`). If an old Postgres 18 container is still around,
+remove it (`docker rm -f postgres-<suffix> zitadel-<suffix>`) so both are recreated. The local
+Postgres has no data volume, so this **wipes your local SignalBeam and Zitadel data**.
+
+### Services stay "Waiting" / no traces in the dashboard
+
+All projects wait for `otel-collector` to become healthy. If it never starts, check that its
+image can be pulled: `docker pull otel/opentelemetry-collector-contrib:0.164.0`.
 
 ## Next Steps
 
