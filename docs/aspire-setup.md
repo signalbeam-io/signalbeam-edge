@@ -137,6 +137,7 @@ When running with Aspire, **all API requests** should go through the API Gateway
 | DeviceManager | Service Discovery Only | Not directly accessible |
 | BundleOrchestrator | Service Discovery Only | Not directly accessible |
 | TelemetryProcessor | Service Discovery Only | Not directly accessible |
+| IdentityManager | Service Discovery Only | Not directly accessible (`/api/auth`, `/api/subscriptions`, `/api/teams`) |
 | PostgreSQL | Dynamic port | Check Aspire Dashboard for connection |
 | Valkey | Dynamic port | Check Aspire Dashboard for connection |
 | NATS | Dynamic port | Check Aspire Dashboard for connection |
