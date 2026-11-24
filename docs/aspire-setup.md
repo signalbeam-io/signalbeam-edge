@@ -116,6 +116,14 @@ services ──OTLP──► otel-collector ──► Aspire dashboard        (t
      .tracebeam/otlp/traces.jsonl | sort | uniq -c
   ```
 
+- **What's traced:** inbound HTTP (`http.route`), outgoing `HttpClient` calls, and every Postgres
+  command via Npgsql's built-in `Npgsql` ActivitySource (EF Core and raw ADO.NET commands alike). Database spans
+  are named after their summary, e.g. `SELECT device_manager.devices`, and carry `db.system.name`,
+  `db.namespace`, `db.operation.name`, `db.collection.name`, `db.query.summary` and `db.query.text`
+  (parameters appear as placeholders; only constants written in code, such as EF-inlined
+  literals, appear inline). The summary comes from
+  `ServiceDefaults/Observability/DatabaseSpanProcessor`, because Npgsql names every plain-SQL span
+  `postgresql`. Spans from background workers (e.g. TelemetryProcessor's monitors) have no parent request.
 - To add another destination (e.g. Jaeger or Tempo), add an exporter to the collector config.
   No service changes are needed.
 
@@ -130,6 +138,7 @@ When running with Aspire, **all API requests** should go through the API Gateway
 | DeviceManager | Service Discovery Only | Not directly accessible |
 | BundleOrchestrator | Service Discovery Only | Not directly accessible |
 | TelemetryProcessor | Service Discovery Only | Not directly accessible |
+| IdentityManager | Service Discovery Only | Not directly accessible (`/api/auth`, `/api/subscriptions`, `/api/teams`) |
 | PostgreSQL | Dynamic port | Check Aspire Dashboard for connection |
 | Valkey | Dynamic port | Check Aspire Dashboard for connection |
 | NATS | Dynamic port | Check Aspire Dashboard for connection |
@@ -264,9 +273,14 @@ If port 8080 is already in use:
 ### Zitadel exits with "partitioned tables cannot be unlogged"
 
 Zitadel v2.66.3 can't initialise on Postgres 18, and Aspire 13.6 defaults to 18.x. The AppHost
-pins Postgres to 17 (`WithImageTag("17.12")`). If an old Postgres 18 container is still around,
+runs `timescale/timescaledb:2.32.1-pg17-oss` (Postgres 17 + TimescaleDB, which TelemetryProcessor's
+migrations need) until Zitadel is upgraded (#483). If an old Postgres 18 container is still around,
 remove it (`docker rm -f postgres-<suffix> zitadel-<suffix>`) so both are recreated. The local
 Postgres has no data volume, so this **wipes your local SignalBeam and Zitadel data**.
+
+Whenever the Postgres container is recreated (e.g. after an image change), also remove the
+`zitadel-<suffix>` container. Otherwise Zitadel keeps running against an empty database and
+`zitadel-setup` fails.
 
 ### Services stay "Waiting" / no traces in the dashboard
 
