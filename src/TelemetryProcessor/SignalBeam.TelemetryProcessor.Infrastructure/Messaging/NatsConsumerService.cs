@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -205,6 +206,18 @@ public class NatsConsumerService : BackgroundService
                         serializer: default,
                         cancellationToken))
                     {
+                        // Child of the message's receive span, which NATS.Net parents to the publisher's
+                        // trace via the traceparent header. Everything the handler does (DB writes,
+                        // follow-up publishes) joins the trace of the request that produced the message.
+                        // Named after the filter subject pattern, not the concrete subject, which
+                        // contains the device id (high cardinality).
+                        using var activity = msg.StartActivity(
+                            $"process {filterSubject}",
+                            [
+                                new KeyValuePair<string, object?>("messaging.operation.type", "process"),
+                                new KeyValuePair<string, object?>("messaging.consumer.group.name", consumerName),
+                            ]);
+
                         try
                         {
                             var message = JsonSerializer.Deserialize<TMessage>(msg.Data);
@@ -226,11 +239,15 @@ public class NatsConsumerService : BackgroundService
                         }
                         catch (JsonException ex)
                         {
+                            activity?.SetStatus(ActivityStatusCode.Error, "deserialization failed");
+                            activity?.AddException(ex);
                             _logger.LogError(ex, "Failed to deserialize {Description} message", description);
                             await msg.AckAsync(cancellationToken: cancellationToken); // Ack to skip bad message
                         }
                         catch (Exception ex)
                         {
+                            activity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
+                            activity?.AddException(ex);
                             _logger.LogError(ex, "Error processing {Description} message", description);
                             await msg.NakAsync(delay: TimeSpan.FromSeconds(5), cancellationToken: cancellationToken);
                         }

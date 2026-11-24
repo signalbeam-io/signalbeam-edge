@@ -21,6 +21,14 @@ public static class Extensions
     /// </summary>
     public const string NpgsqlActivitySourceName = "Npgsql";
 
+    /// <summary>
+    /// ActivitySource built into NATS.Net (Core and JetStream). Publish spans inject the W3C trace
+    /// context into message headers and receive spans continue it, so asynchronous work joins the
+    /// trace of the request that caused it. Spans use the OTel messaging conventions
+    /// (messaging.system=nats, messaging.destination.name).
+    /// </summary>
+    public const string NatsActivitySourceName = "NATS.Net";
+
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
     {
         builder.ConfigureOpenTelemetry();
@@ -61,6 +69,7 @@ public static class Extensions
                 tracing.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource(NpgsqlActivitySourceName)
+                    .AddSource(NatsActivitySourceName)
                     // Registered here, before the OTLP exporter (added in AddOpenTelemetryExporters),
                     // so the enriched names and tags are what gets exported.
                     .AddProcessor(new DatabaseSpanProcessor());
