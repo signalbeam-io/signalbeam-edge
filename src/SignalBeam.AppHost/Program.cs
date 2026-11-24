@@ -43,6 +43,15 @@ repoRoot ??= appHostDir;
 // machine-readable record of system behaviour used by tracebeam and coding agents (#472).
 var traceExportDir = Path.Combine(repoRoot, ".tracebeam", "otlp");
 Directory.CreateDirectory(traceExportDir);
+if (!OperatingSystem.IsWindows())
+{
+    // The collector image runs as a non-root user (UID 10001). On Linux hosts the bind-mounted
+    // directory keeps host ownership, so make this git-ignored, local-only folder writable for it.
+    File.SetUnixFileMode(traceExportDir,
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+        UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+        UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+}
 
 builder.AddOpenTelemetryCollector("otel-collector", settings =>
     {

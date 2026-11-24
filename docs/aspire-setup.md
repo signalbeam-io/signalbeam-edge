@@ -102,7 +102,10 @@ services ──OTLP──► otel-collector ──► Aspire dashboard        (t
 - `.tracebeam/otlp/traces.jsonl` holds every span as OTLP/JSON, one export batch per line
   (rotated at 50 MB, 10 backups, git-ignored). It is the machine-readable record of how the
   system behaves, for tools like [tracebeam](https://github.com/makigjuro/tracebeam) and coding
-  agents (see #472). The file is created when the first spans arrive.
+  agents (see #472). The file is created when the first spans arrive. With rotation it uses at
+  most about 550 MB.
+- **Treat the file as sensitive.** Spans can contain URLs with query strings, SQL text, tenant and
+  device IDs, and exception messages. Don't attach it to issues or share it outside your machine.
 - Quick look without extra tools:
 
   ```bash
@@ -262,7 +265,8 @@ If port 8080 is already in use:
 
 Zitadel v2.66.3 can't initialise on Postgres 18, and Aspire 13.6 defaults to 18.x. The AppHost
 pins Postgres to 17 (`WithImageTag("17.12")`). If an old Postgres 18 container is still around,
-remove it (`docker rm -f postgres-<suffix> zitadel-<suffix>`) so both are recreated.
+remove it (`docker rm -f postgres-<suffix> zitadel-<suffix>`) so both are recreated. The local
+Postgres has no data volume, so this **wipes your local SignalBeam and Zitadel data**.
 
 ### Services stay "Waiting" / no traces in the dashboard
 

@@ -3,10 +3,10 @@
 # Services → collector (via WithAppForwarding) → Aspire dashboard (all signals)
 #                                              → .tracebeam/otlp/traces.jsonl (traces)
 #
-# The JSON Lines file is the machine-readable copy of "production" behaviour that
+# The JSON Lines file is the machine-readable record of local runtime behaviour that
 # tracebeam and coding agents read (see issue #472). ASPIRE_ENDPOINT and ASPIRE_API_KEY
 # are injected by CommunityToolkit.Aspire.Hosting.OpenTelemetryCollector, which also adds
-# the receiver TLS cert/key in the https profile.
+# the receiver TLS cert/key in the https profile (the endpoints below are set here).
 
 receivers:
   otlp:
@@ -27,7 +27,8 @@ exporters:
     headers:
       x-otlp-api-key: ${env:ASPIRE_API_KEY}
     tls:
-      # The dashboard uses the ASP.NET Core dev certificate in the https profile.
+      # LOCAL DEV ONLY: the dashboard uses the ASP.NET Core dev certificate, reached via
+      # host.docker.internal. Never copy this setting into a deployed collector config.
       insecure_skip_verify: true
 
   file/traces:
