@@ -5,9 +5,12 @@ var postgresPassword = builder.AddParameter("postgres-password", secret: true);
 
 // Infrastructure
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
-    // Zitadel v2.66.3 cannot initialise on Postgres 18 (migration 34_add_cache_schema fails with
-    // "partitioned tables cannot be unlogged"); Aspire 13.6 defaults to 18.x. Pin 17 until Zitadel is upgraded.
-    .WithImageTag("17.12")
+    // TimescaleDB (Apache-only "-oss" build, matching Azure's TimescaleDB) on Postgres 17:
+    // - TelemetryProcessor's migrations need the timescaledb extension; the plain postgres image lacks it.
+    // - Zitadel v2.66.3 cannot initialise on Postgres 18+ (migration 34_add_cache_schema fails with
+    //   "partitioned tables cannot be unlogged"). Stay on 17 until Zitadel is upgraded to v4 (#483).
+    .WithImage("timescale/timescaledb", "2.32.1-pg17-oss")
+    .WithImageRegistry("docker.io")
     .WithPgAdmin()
     .WithLifetime(ContainerLifetime.Persistent);
 
