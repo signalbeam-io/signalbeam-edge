@@ -26,6 +26,16 @@ internal sealed record ReportDeviceStateRequest(
     BundleDeploymentStatus? BundleDeploymentStatus,
     DateTimeOffset Timestamp);
 
+// Same shape the real agent posts (ReconciliationStatus in SignalBeam.EdgeAgent.Application).
+internal sealed record ReconciliationStatusRequest(
+    Guid DeviceId,
+    string Status,
+    string? BundleId,
+    string? BundleVersion,
+    DateTime Timestamp,
+    IReadOnlyList<object> Actions,
+    IReadOnlyList<string> Errors);
+
 internal sealed record DeviceDesiredStateResponse(DeviceDesiredStateDto? DesiredState);
 
 internal sealed record DeviceDesiredStateDto(
