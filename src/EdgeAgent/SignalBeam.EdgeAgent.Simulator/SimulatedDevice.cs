@@ -28,6 +28,7 @@ internal sealed class SimulatedDevice
     private readonly int _seed;
     private readonly KeyValuePair<string, object?>[] _tags;
     private string? _lastBundleKey;
+    private string? _lastReportedBundleKey;
 
     public SimulatedDevice(
         Guid deviceId,
@@ -208,19 +209,26 @@ internal sealed class SimulatedDevice
         }
 
         // A real agent reports once it has rolled out a new bundle; fleets do the same to stay
-        // under DeviceManager's per-tenant rate limit. Single-device mode keeps reporting every poll.
-        if (_options.ReportState && (changed || !_options.ReportStateOnlyOnChange))
+        // under DeviceManager's per-tenant rate limit, retrying on the next poll until the report
+        // succeeds. Single-device mode keeps reporting every poll.
+        var unreported = !string.Equals(bundleKey, _lastReportedBundleKey, StringComparison.Ordinal);
+        if (_options.ReportState && (unreported || !_options.ReportStateOnlyOnChange))
         {
-            await PostAsync(
+            var reported = await PostAsync(
                 _deviceClient,
                 $"/api/devices/{_deviceId}/state",
                 new ReportDeviceStateRequest(_deviceId, BundleDeploymentStatus.Completed, DateTimeOffset.UtcNow),
                 "state",
                 cancellationToken);
+
+            if (reported)
+            {
+                _lastReportedBundleKey = bundleKey;
+            }
         }
     }
 
-    private async Task PostAsync<T>(
+    private async Task<bool> PostAsync<T>(
         HttpClient client,
         string path,
         T body,
@@ -235,11 +243,12 @@ internal sealed class SimulatedDevice
                 Console.WriteLine($"[{_deviceName}] sent {label} at {DateTimeOffset.UtcNow:O}.");
             }
 
-            return;
+            return true;
         }
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
         Activity.Current?.SetStatus(ActivityStatusCode.Error, response.StatusCode.ToString());
         Console.WriteLine($"[{_deviceName}] {label} request failed: {response.StatusCode} {content}");
+        return false;
     }
 }
