@@ -172,6 +172,8 @@ builder.Services.AddScoped<RegisterDeviceHandler>();
 builder.Services.AddScoped<UpdateDeviceHandler>();
 builder.Services.AddScoped<AddDeviceTagHandler>();
 builder.Services.AddScoped<RecordHeartbeatHandler>();
+builder.Services.AddScoped<MarkDeviceOfflineHandler>();
+builder.Services.AddScoped<SignalBeam.DeviceManager.Application.EventHandlers.DeviceOfflineEventHandler>();
 builder.Services.AddScoped<AssignDeviceToGroupHandler>();
 builder.Services.AddScoped<ReportDeviceStateHandler>();
 builder.Services.AddScoped<UpdateDeviceMetricsHandler>();

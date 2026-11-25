@@ -192,6 +192,19 @@ public static class DependencyInjection
             services.AddHostedService<PendingDevicePruneService>();
         }
 
+        // Mark devices offline from TelemetryProcessor's stale-device events
+        services.Configure<StaleDeviceSubscriberOptions>(
+            configuration.GetSection(StaleDeviceSubscriberOptions.SectionName));
+
+        var staleDeviceOptions = configuration
+            .GetSection(StaleDeviceSubscriberOptions.SectionName)
+            .Get<StaleDeviceSubscriberOptions>() ?? new StaleDeviceSubscriberOptions();
+
+        if (staleDeviceOptions.Enabled)
+        {
+            services.AddHostedService<StaleDeviceSubscriber>();
+        }
+
         return services;
     }
 }
