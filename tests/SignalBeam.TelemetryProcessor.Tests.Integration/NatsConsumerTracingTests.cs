@@ -16,15 +16,8 @@ using SignalBeam.TelemetryProcessor.Infrastructure.Messaging.Options;
 
 namespace SignalBeam.TelemetryProcessor.Tests.Integration;
 
-/// <summary>
-/// Verifies #475: a JetStream message's <c>process</c> span continues the publisher's trace
-/// (W3C traceparent injected by NATS.Net) and records processing failures.
-/// </summary>
-/// <remarks>
-/// The consumer runs with an empty service provider, so resolving the message handler fails.
-/// That exercises the error path without needing the database, and the trace assertions don't
-/// depend on the handler succeeding.
-/// </remarks>
+// #475. The empty service provider makes handler resolution fail, which drives the error path
+// without a database.
 [Trait("Category", "Integration")]
 public sealed class NatsConsumerTracingTests : IAsyncLifetime, IDisposable
 {
