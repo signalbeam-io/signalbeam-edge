@@ -100,7 +100,6 @@ public static class DependencyInjection
             };
 
             logger.LogInformation("Connecting to NATS at {NatsUrl}", natsUrl);
-            NatsTracing.Configure();
             return new NatsConnection(opts);
         });
 

@@ -57,6 +57,9 @@ public static class Extensions
             logging.IncludeScopes = true;
         });
 
+        // Process-wide NATS.Net instrumentation options: set before any NatsConnection is created.
+        NatsTracing.Configure();
+
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics =>
             {

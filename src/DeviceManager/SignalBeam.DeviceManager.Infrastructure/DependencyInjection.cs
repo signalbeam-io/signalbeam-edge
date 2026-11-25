@@ -112,7 +112,6 @@ public static class DependencyInjection
         services.AddSingleton<INatsConnection>(sp =>
         {
             var opts = NatsOpts.Default with { Url = natsUrl };
-            NatsTracing.Configure();
             return new NatsConnection(opts);
         });
         services.AddSingleton<IMessagePublisher, NatsMessagePublisher>();

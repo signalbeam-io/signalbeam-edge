@@ -129,7 +129,7 @@ services ──OTLP──► otel-collector ──► Aspire dashboard        (t
   joins the trace of whoever published. TelemetryProcessor wraps each JetStream message in a
   `process <filter subject>` span (e.g. `process signalbeam.devices.heartbeat.>`), so the handler's
   database writes and follow-up publishes nest under it. JetStream protocol traffic (`$JS.API.*`
-  fetch/API calls, `_INBOX.*` replies) is filtered out in `Shared.Infrastructure/Messaging/NatsTracing`.
+  fetch/API calls, `_INBOX.*` replies) is filtered out by `ServiceDefaults/Observability/NatsTracing`, applied in `ConfigureOpenTelemetry`.
   To see a cross-service NATS trace locally, publish with a trace header, e.g.
   `nats pub signalbeam.devices.heartbeat.<deviceId> '<json>' -H "traceparent:00-<32 hex>-<16 hex>-01"`.
   The simulator itself uses HTTP.

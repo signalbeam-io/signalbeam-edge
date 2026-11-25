@@ -1,6 +1,6 @@
 using NATS.Client.Core;
 
-namespace SignalBeam.Shared.Infrastructure.Messaging;
+namespace SignalBeam.ServiceDefaults.Observability;
 
 /// <summary>
 /// Configures NATS.Net's built-in tracing (ActivitySource "NATS.Net", registered in ServiceDefaults).
@@ -12,6 +12,11 @@ namespace SignalBeam.Shared.Infrastructure.Messaging;
 /// are dropped. Application subjects, and JetStream acks (which sit inside a message's processing
 /// trace), are kept. Delivered JetStream messages keep their original subject, so trace-context
 /// propagation is unaffected.
+/// <para>
+/// Applied once by <see cref="Extensions.ConfigureOpenTelemetry"/>, next to the registration of the
+/// <c>NATS.Net</c> source, so every service that traces NATS also gets the filter. Only the default
+/// <c>_INBOX.</c> prefix is matched; a custom <c>NatsOpts.InboxPrefix</c> must be added here.
+/// </para>
 /// </remarks>
 public static class NatsTracing
 {

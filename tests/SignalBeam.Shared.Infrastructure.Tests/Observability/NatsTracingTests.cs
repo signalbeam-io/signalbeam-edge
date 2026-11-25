@@ -1,7 +1,10 @@
 using FluentAssertions;
-using SignalBeam.Shared.Infrastructure.Messaging;
+using Microsoft.Extensions.Hosting;
+using NATS.Client.Core;
+using SignalBeam.ServiceDefaults;
+using SignalBeam.ServiceDefaults.Observability;
 
-namespace SignalBeam.Shared.Infrastructure.Tests.Messaging;
+namespace SignalBeam.Shared.Infrastructure.Tests.Observability;
 
 public class NatsTracingTests
 {
@@ -44,5 +47,20 @@ public class NatsTracingTests
 
         // Assert
         result.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ConfigureOpenTelemetry_InstallsControlPlaneFilter()
+    {
+        // Arrange: process-wide options; the filter is idempotent, so this is safe alongside other tests.
+        var builder = Host.CreateApplicationBuilder();
+
+        // Act
+        builder.ConfigureOpenTelemetry();
+
+        // Assert
+        var filter = NatsInstrumentationOptions.Default.Filter;
+        filter.Should().NotBeNull();
+        filter!.Method.Name.Should().Be(nameof(NatsTracing.ShouldTrace));
     }
 }

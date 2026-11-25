@@ -26,8 +26,6 @@ public static class NatsConfiguration
                 Name = "SignalBeam"
             };
 
-            NatsTracing.Configure();
-
             return new NatsConnection(options);
         });
 
@@ -47,7 +45,6 @@ public static class NatsConfiguration
         {
             var options = new NatsOpts();
             configureOptions(options);
-            NatsTracing.Configure();
             return new NatsConnection(options);
         });
 
