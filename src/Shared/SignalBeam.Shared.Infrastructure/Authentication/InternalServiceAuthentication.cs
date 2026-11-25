@@ -8,8 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace SignalBeam.Shared.Infrastructure.Authentication;
 
 // Service-to-service calls (e.g. TelemetryProcessor asking DeviceManager for a device's tenant)
-// carry a shared key. Internal endpoints live under /api/internal, which the gateway does not
-// route, and refuse every call when no key is configured (fail closed).
+// carry a shared key. Internal endpoints live under /api/internal, which neither the gateway nor any
+// public ingress routes (InternalEndpointExposureTests), and refuse every call when no key is
+// configured (fail closed). Proxy headers can't be used to spot outside callers: Container Apps'
+// internal ingress adds X-Forwarded-For to service-to-service calls too.
 public static class InternalServiceAuthentication
 {
     public const string HeaderName = "X-Internal-Service-Key";
