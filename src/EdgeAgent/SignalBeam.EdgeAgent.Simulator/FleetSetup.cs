@@ -47,7 +47,8 @@ internal static class FleetSetup
             + string.Join(", ", devices.GroupBy(d => d.Environment).OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key}")) + ".");
     }
 
-    public static async Task RegisterAsync(
+    // Returns false when the device was already registered.
+    public static async Task<bool> RegisterAsync(
         HttpClient client,
         Guid tenantId,
         Guid deviceId,
@@ -65,13 +66,13 @@ internal static class FleetSetup
 
         if (response.IsSuccessStatusCode)
         {
-            return;
+            return true;
         }
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
         if (content.Contains("DEVICE_ALREADY_EXISTS", StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            return false;
         }
 
         throw new InvalidOperationException($"Device registration failed for {deviceName}: {response.StatusCode} {content}");
@@ -82,8 +83,13 @@ internal static class FleetSetup
         Guid tenantId,
         CancellationToken cancellationToken)
     {
-        var existing = await client.GetFromJsonAsync<GetDeviceGroupsResponse>(
-            $"/api/groups?tenantId={tenantId}", SimulatorJson.Options, cancellationToken);
+        using var listResponse = await SendWithRateLimitRetryAsync(
+            () => client.GetAsync($"/api/groups?tenantId={tenantId}", cancellationToken),
+            "list groups",
+            cancellationToken);
+        listResponse.EnsureSuccessStatusCode();
+        var existing = await listResponse.Content.ReadFromJsonAsync<GetDeviceGroupsResponse>(
+            SimulatorJson.Options, cancellationToken);
 
         var groupIds = (existing?.Groups ?? [])
             .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
@@ -129,43 +135,60 @@ internal static class FleetSetup
     // DeviceManager limits registrations per client IP (10/min by default) and all calls per tenant.
     // Setup must finish, so it waits out 429s instead of failing; that is also what a real
     // fleet coming online would do.
-    private static async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(
+    internal const int MaxAttempts = 30;
+    internal static readonly TimeSpan DefaultRetryDelay = TimeSpan.FromSeconds(10);
+    internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(60);
+
+    internal static async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(
         Func<Task<HttpResponseMessage>> send,
         string label,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<TimeSpan, CancellationToken, Task>? delay = null)
     {
-        const int maxAttempts = 30;
+        delay ??= Task.Delay;
 
         for (var attempt = 1; ; attempt++)
         {
             var response = await send();
-            if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt == maxAttempts)
+            if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt == MaxAttempts)
             {
                 return response;
             }
 
-            var delay = await GetRetryAfterAsync(response, cancellationToken);
-            response.Dispose();
-            Console.WriteLine($"Fleet setup: {label} rate limited; retrying in {delay.TotalSeconds:F0}s.");
-            await Task.Delay(delay, cancellationToken);
+            TimeSpan wait;
+            try
+            {
+                wait = await GetRetryAfterAsync(response, cancellationToken);
+            }
+            finally
+            {
+                response.Dispose();
+            }
+
+            Console.WriteLine($"Fleet setup: {label} rate limited; retrying in {wait.TotalSeconds:F0}s.");
+            await delay(wait, cancellationToken);
         }
     }
 
-    private static async Task<TimeSpan> GetRetryAfterAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    internal static async Task<TimeSpan> GetRetryAfterAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        // DeviceManager puts the delay in the body ({"retryAfter": seconds}); honour the header too.
+        // DeviceManager puts the delay in the body ({"retryAfter": seconds or null}); honour the header too.
+        TimeSpan? wait = null;
         try
         {
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-            if (body.RootElement.TryGetProperty("retryAfter", out var value) && value.TryGetDouble(out var seconds))
+            if (body.RootElement.ValueKind == JsonValueKind.Object
+                && body.RootElement.TryGetProperty("retryAfter", out var value)
+                && value.ValueKind == JsonValueKind.Number)
             {
-                return TimeSpan.FromSeconds(Math.Max(1, Math.Ceiling(seconds)));
+                wait = TimeSpan.FromSeconds(Math.Ceiling(value.GetDouble()));
             }
         }
         catch (JsonException)
         {
         }
 
-        return response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(10);
+        wait ??= response.Headers.RetryAfter?.Delta ?? DefaultRetryDelay;
+        return TimeSpan.FromTicks(Math.Clamp(wait.Value.Ticks, TimeSpan.TicksPerSecond, MaxRetryDelay.Ticks));
     }
 }
