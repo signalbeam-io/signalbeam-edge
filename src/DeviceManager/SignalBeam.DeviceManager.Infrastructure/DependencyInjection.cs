@@ -108,7 +108,8 @@ public static class DependencyInjection
             builder => QuotaCheckResilience.Configure(builder, quotaResilience));
 
         // NATS message publisher
-        var natsUrl = configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222";
+        var natsUrl = SignalBeam.Shared.Infrastructure.Messaging.NatsConfiguration.NormalizeUrl(
+            configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222");
         services.AddSingleton<INatsConnection>(sp =>
         {
             var opts = NatsOpts.Default with { Url = natsUrl };
