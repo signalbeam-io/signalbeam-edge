@@ -66,6 +66,25 @@ public class SimulatorOptionsTests
         error.Should().Contain("intervals");
     }
 
+    [Theory]
+    [InlineData("--metadata", "x")]
+    [InlineData("--use-mtls", "true")]
+    [InlineData("--device-name", "my-device")]
+    public async Task Main_FleetWithSingleDeviceOption_ExitsWithError(string option, string value)
+    {
+        // Act: validation runs before anything touches the network.
+        var exitCode = await Program.Main(
+        [
+            "--fleet-size", "5",
+            option, value,
+            "--device-manager-url", "http://localhost:1",
+            "--tenant-id", "00000000-0000-0000-0000-000000000001",
+        ]);
+
+        // Assert
+        exitCode.Should().Be(1);
+    }
+
     [Fact]
     public void Jitter_StaysWithinBoundsAndIsReproducible()
     {
