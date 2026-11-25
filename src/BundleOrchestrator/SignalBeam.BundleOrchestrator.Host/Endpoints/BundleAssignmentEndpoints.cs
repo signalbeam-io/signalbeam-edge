@@ -1,3 +1,4 @@
+using FluentValidation;
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
 using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
@@ -30,6 +31,13 @@ public static class BundleAssignmentEndpoints
             .WithName("GetDeviceDesiredState")
             .WithSummary("Get device desired state")
             .WithDescription("Retrieves the desired bundle state for a specific device.");
+
+        // Device action: the agent reports the outcome of reconciling its desired state, which
+        // updates the device's rollout status. Same device auth path as desired-state.
+        deviceGroup.MapPost("/{deviceId:guid}/reconciliation-status", ReportReconciliationStatus)
+            .WithName("ReportReconciliationStatus")
+            .WithSummary("Report reconciliation status")
+            .WithDescription("Records whether the device succeeded or failed to reconcile its assigned bundle version.");
 
         // Operator action: assigning a bundle to a whole group.
         var groupGroup = app.MapGroup("/api/device-groups")
@@ -75,6 +83,37 @@ public static class BundleAssignmentEndpoints
         return result.IsSuccess
             ? Results.Ok(result.Value)
             : Results.NotFound(new
+            {
+                error = result.Error!.Code,
+                message = result.Error.Message,
+                type = result.Error.Type.ToString()
+            });
+    }
+
+    private static async Task<IResult> ReportReconciliationStatus(
+        Guid deviceId,
+        ReportReconciliationStatusCommand command,
+        ReportReconciliationStatusHandler handler,
+        IValidator<ReportReconciliationStatusCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var updatedCommand = command with { DeviceId = deviceId };
+        var validation = await validator.ValidateAsync(updatedCommand, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return Results.BadRequest(new
+            {
+                error = "VALIDATION_FAILED",
+                message = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)),
+                type = "Validation"
+            });
+        }
+
+        var result = await handler.Handle(updatedCommand, cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(new
             {
                 error = result.Error!.Code,
                 message = result.Error.Message,
