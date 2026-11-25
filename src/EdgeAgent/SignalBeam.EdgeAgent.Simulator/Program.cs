@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Trace;
 
 namespace SignalBeam.EdgeAgent.Simulator;
 
@@ -121,7 +122,7 @@ public class Program
 
         var seedOption = new Option<int?>("--seed")
         {
-            Description = "Seed for device IDs, names, groups, tags, timing jitter and metric values. Random if omitted (printed at start)."
+            Description = "Seed for device IDs, names, groups, tags, timing jitter (+/-10%) and metric values. Random if omitted in fleet mode (printed at start)."
         };
 
         rootCommand.Options.Add(deviceManagerUrlOption);
@@ -168,16 +169,25 @@ public class Program
             var deviceId = parseResult.GetValue(deviceIdOption);
             var deviceName = parseResult.GetValue(deviceNameOption);
 
-            if (fleetSize < 1)
+            var singleDeviceOptions = new[]
             {
-                throw new ArgumentException("--fleet-size must be at least 1.");
+                parseResult.GetResult(useDeviceAuthOption),
+                parseResult.GetResult(useMtlsOption),
+                parseResult.GetResult(credentialsPathOption),
+                parseResult.GetResult(waitForApprovalOption),
+                parseResult.GetResult(deviceIdOption),
+                parseResult.GetResult(deviceNameOption),
+                parseResult.GetResult(metadataOption),
             }
+            .Where(r => r is { Implicit: false })
+            .Select(r => r!.Option.Name)
+            .ToList();
 
-            if (fleetSize > 1 && (useDeviceAuth || deviceId.HasValue || !string.IsNullOrWhiteSpace(deviceName)))
+            var error = ValidateOptions(fleetSize, singleDeviceOptions, settings.Loop);
+            if (error is not null)
             {
-                throw new ArgumentException(
-                    "--fleet-size > 1 uses the shared API key and generated devices; "
-                    + "--use-device-auth, --device-id and --device-name only apply to a single device.");
+                Console.Error.WriteLine(error);
+                return 1;
             }
 
             using var host = SimulatorTelemetry.BuildHost();
@@ -205,14 +215,46 @@ public class Program
                     await RunFleetAsync(settings, fleetSize, stopping);
                 }
             }
+            catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+            {
+                Console.WriteLine("Simulator stopped.");
+            }
             finally
             {
-                // Flushes pending spans to the exporter.
+                // Export spans still buffered in the batch processor before the process exits.
+                host.Services.GetService<TracerProvider>()?.ForceFlush(5000);
                 await host.StopAsync(CancellationToken.None);
             }
+
+            return 0;
         });
 
-        return await rootCommand.Parse(args).InvokeAsync();
+        // The host's console lifetime owns Ctrl+C/SIGTERM so shutdown can finish and flush spans;
+        // System.CommandLine's own handler would end the process after 2s.
+        return await rootCommand.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null });
+    }
+
+    internal static string? ValidateOptions(int fleetSize, IReadOnlyCollection<string> singleDeviceOptions, DeviceLoopOptions loop)
+    {
+        if (fleetSize < 1)
+        {
+            return "--fleet-size must be at least 1.";
+        }
+
+        if (fleetSize > 1 && singleDeviceOptions.Count > 0)
+        {
+            return "--fleet-size > 1 uses the shared API key and generated devices; "
+                + $"{string.Join(", ", singleDeviceOptions)} only apply to a single device.";
+        }
+
+        if (loop.HeartbeatInterval < TimeSpan.FromSeconds(1)
+            || loop.MetricsInterval < TimeSpan.FromSeconds(1)
+            || loop.DesiredStateInterval < TimeSpan.FromSeconds(1))
+        {
+            return "Heartbeat, metrics and desired-state intervals must be at least 1 second.";
+        }
+
+        return null;
     }
 
     private sealed record SimulatorSettings(
@@ -235,12 +277,13 @@ public class Program
         int approvalCheckInterval,
         CancellationToken cancellationToken)
     {
-        // With a seed, the single device gets the same identity as device 1 of a fleet with that seed.
+        // With a seed, the single device gets the ID and name of device 1 of a fleet with that seed
+        // (but no group or tags; those come from fleet setup).
         var spec = settings.Seed is { } seed ? FleetPlan.Create(1, seed)[0] : null;
         var effectiveDeviceId = deviceId ?? spec?.DeviceId ?? Guid.NewGuid();
-        var effectiveDeviceName = string.IsNullOrWhiteSpace(deviceName)
-            ? $"sim-{effectiveDeviceId.ToString()[..8]}"
-            : deviceName;
+        var effectiveDeviceName = !string.IsNullOrWhiteSpace(deviceName)
+            ? deviceName
+            : deviceId is null && spec is not null ? spec.Name : $"sim-{effectiveDeviceId.ToString()[..8]}";
 
         HttpClient deviceClient;
         HttpClient? bundleClient;
@@ -283,9 +326,9 @@ public class Program
         Console.WriteLine($"DeviceManager: {settings.DeviceManagerUrl}");
         Console.WriteLine(bundleClient is null ? "BundleOrchestrator: (disabled)" : $"BundleOrchestrator: {bundleUrl}");
 
-        await FleetSetup.RegisterAsync(
+        var registered = await FleetSetup.RegisterAsync(
             deviceClient, settings.TenantId, effectiveDeviceId, effectiveDeviceName, metadata, cancellationToken);
-        Console.WriteLine("Device registration succeeded.");
+        Console.WriteLine(registered ? "Device registration succeeded." : "Device already registered; continuing.");
 
         var loop = spec is null ? settings.Loop : settings.Loop with { Jitter = FleetJitter };
         var device = new SimulatedDevice(
@@ -314,7 +357,7 @@ public class Program
 
         await FleetSetup.ProvisionAsync(deviceClient, settings.TenantId, plan, cancellationToken);
 
-        var loop = settings.Loop with { Jitter = FleetJitter, LogSuccess = false };
+        var loop = settings.Loop with { Jitter = FleetJitter, LogSuccess = false, ReportStateOnlyOnChange = true };
         var devices = plan.Select(spec => new SimulatedDevice(
             spec.DeviceId,
             spec.Name,
