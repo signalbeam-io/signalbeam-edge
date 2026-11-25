@@ -21,6 +21,9 @@ public static class Extensions
     /// </summary>
     public const string NpgsqlActivitySourceName = "Npgsql";
 
+    // Built into NATS.Net; propagates traceparent through message headers.
+    public const string NatsActivitySourceName = "NATS.Net";
+
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
     {
         builder.ConfigureOpenTelemetry();
@@ -49,6 +52,9 @@ public static class Extensions
             logging.IncludeScopes = true;
         });
 
+        // Process-wide NATS.Net instrumentation options: set before any NatsConnection is created.
+        NatsTracing.Configure();
+
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics =>
             {
@@ -61,6 +67,7 @@ public static class Extensions
                 tracing.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource(NpgsqlActivitySourceName)
+                    .AddSource(NatsActivitySourceName)
                     // Registered here, before the OTLP exporter (added in AddOpenTelemetryExporters),
                     // so the enriched names and tags are what gets exported.
                     .AddProcessor(new DatabaseSpanProcessor());
