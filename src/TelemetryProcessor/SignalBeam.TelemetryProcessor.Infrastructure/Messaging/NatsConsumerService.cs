@@ -244,6 +244,12 @@ public class NatsConsumerService : BackgroundService
                             _logger.LogError(ex, "Failed to deserialize {Description} message", description);
                             await msg.AckAsync(cancellationToken: cancellationToken); // Ack to skip bad message
                         }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            // Shutdown, not a processing failure: leave the message un-acked for redelivery
+                            // and don't record an error span.
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             activity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
