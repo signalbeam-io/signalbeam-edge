@@ -192,6 +192,7 @@ builder.Services.AddScoped<RevokeDeviceApiKeyHandler>();
 
 builder.Services.AddScoped<GetDevicesHandler>();
 builder.Services.AddScoped<GetDeviceByIdHandler>();
+builder.Services.AddScoped<GetDeviceTenantHandler>();
 builder.Services.AddScoped<GetDeviceHealthHandler>();
 builder.Services.AddScoped<GetDevicesByGroupHandler>();
 builder.Services.AddScoped<GetDeviceActivityLogHandler>();
@@ -334,6 +335,7 @@ app.MapDeviceEndpoints();
 app.MapGroupEndpoints();
 app.MapTagEndpoints();
 app.MapCertificateEndpoints();
+app.MapInternalEndpoints();
 
 app.Run();
 
