@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace SignalBeam.EdgeAgent.Simulator;
 
@@ -11,7 +12,8 @@ internal sealed record DeviceLoopOptions(
     int Iterations,
     bool ReportState,
     double Jitter,
-    bool LogSuccess);
+    bool LogSuccess,
+    bool ReportStateOnlyOnChange = false);
 
 // One simulated edge device: heartbeat, metrics and desired-state loops.
 // Each loop has its own Random seeded from the device seed, so values and jitter are reproducible.
@@ -87,40 +89,66 @@ internal sealed class SimulatedDevice
         Func<Random, CancellationToken, Task> tick,
         CancellationToken cancellationToken)
     {
+        // Fixed schedule like PeriodicTimer: request latency doesn't push later ticks back,
+        // and ticks missed while a request was slow are skipped rather than fired in a burst.
+        var nextDue = DateTimeOffset.UtcNow;
+
         for (var count = 1; !cancellationToken.IsCancellationRequested; count++)
         {
-            // Each tick is its own root trace, so every device action shows up as a separate flow.
-            using (var activity = SimulatorTelemetry.Source.StartActivity(
-                $"simulate {action}", ActivityKind.Internal, parentContext: default, tags: _tags))
-            {
-                try
-                {
-                    await tick(rng, cancellationToken);
-                }
-                catch (HttpRequestException ex)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
-                    Console.WriteLine($"[{_deviceName}] {action} failed: {ex.Message}");
-                }
-            }
+            await TickAsync(action, rng, tick, cancellationToken);
 
             if (_options.Iterations > 0 && count >= _options.Iterations)
             {
                 return;
             }
 
-            await Task.Delay(Jittered(interval, rng), cancellationToken);
+            nextDue += Jittered(interval, rng);
+            var now = DateTimeOffset.UtcNow;
+            if (nextDue <= now)
+            {
+                nextDue = now;
+                continue;
+            }
+
+            await Task.Delay(nextDue - now, cancellationToken);
         }
     }
 
-    private TimeSpan Jittered(TimeSpan interval, Random rng)
+    private async Task TickAsync(
+        string action,
+        Random rng,
+        Func<Random, CancellationToken, Task> tick,
+        CancellationToken cancellationToken)
     {
-        if (_options.Jitter <= 0)
+        // Each tick is its own root trace, so every device action shows up as a separate flow.
+        Activity.Current = null;
+        using var activity = SimulatorTelemetry.Source.StartActivity(
+            $"simulate {action}", ActivityKind.Internal, parentContext: default, tags: _tags);
+
+        try
+        {
+            await tick(rng, cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException
+            || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            // A failed tick (unreachable gateway, HttpClient timeout, bad payload) must not stop the loop.
+            activity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
+            activity?.AddException(ex);
+            Console.WriteLine($"[{_deviceName}] {action} failed: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    private TimeSpan Jittered(TimeSpan interval, Random rng) => Jitter(interval, rng, _options.Jitter);
+
+    internal static TimeSpan Jitter(TimeSpan interval, Random rng, double jitter)
+    {
+        if (jitter <= 0)
         {
             return interval;
         }
 
-        var factor = 1 + ((rng.NextDouble() * 2) - 1) * _options.Jitter;
+        var factor = 1 + ((rng.NextDouble() * 2) - 1) * jitter;
         return interval * factor;
     }
 
@@ -172,13 +200,16 @@ internal sealed class SimulatedDevice
         }
 
         var bundleKey = $"{desired.BundleId}:{desired.BundleVersion}";
-        if (!string.Equals(bundleKey, _lastBundleKey, StringComparison.Ordinal))
+        var changed = !string.Equals(bundleKey, _lastBundleKey, StringComparison.Ordinal);
+        if (changed)
         {
             Console.WriteLine($"[{_deviceName}] desired state updated to bundle {desired.BundleId} v{desired.BundleVersion}.");
             _lastBundleKey = bundleKey;
         }
 
-        if (_options.ReportState)
+        // A real agent reports once it has rolled out a new bundle; fleets do the same to stay
+        // under DeviceManager's per-tenant rate limit. Single-device mode keeps reporting every poll.
+        if (_options.ReportState && (changed || !_options.ReportStateOnlyOnChange))
         {
             await PostAsync(
                 _deviceClient,
