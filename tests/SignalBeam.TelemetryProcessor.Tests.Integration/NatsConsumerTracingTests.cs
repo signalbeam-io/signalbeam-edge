@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using SignalBeam.ServiceDefaults.Observability;
 using SignalBeam.TelemetryProcessor.Application.MessageHandlers;
 using SignalBeam.TelemetryProcessor.Infrastructure.Messaging;
 using SignalBeam.TelemetryProcessor.Infrastructure.Messaging.Options;
@@ -47,6 +48,9 @@ public sealed class NatsConsumerTracingTests : IAsyncLifetime, IDisposable
 
     public NatsConsumerTracingTests()
     {
+        // Same filter as production, so the test also proves pulled JetStream messages survive it.
+        NatsTracing.Configure();
+
         _listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name is NatsSourceName or PublisherSourceName,
