@@ -64,8 +64,29 @@ This will:
 1. Start all infrastructure containers (PostgreSQL, Valkey, NATS, Azurite)
 2. Start all microservices (DeviceManager, BundleOrchestrator, TelemetryProcessor)
 3. Start the API Gateway on port 8080
-4. Start the Edge Agent Simulator
+4. Start the Edge Agent Simulator as a fleet of 20 devices (see below)
 5. Open the Aspire Dashboard at `http://localhost:15888`
+
+### Simulated fleet
+
+The simulator runs 20 devices with seed 42. The seed fixes the device IDs, names, groups, tags,
+start offsets, timing jitter and metric values, so every run produces the same fleet and the same
+traffic shape. Devices are split across the `lab` and `prod-eu` groups and tagged
+`environment=<group>` and `hardware=rpi|x86`, so tag queries such as `hardware=rpi` have data.
+Change the size or seed with `dotnet run -- --Simulator:FleetSize=5 --Simulator:Seed=7`.
+
+Fleet setup registers devices at DeviceManager's registration limit (10 per minute per IP), so
+20 devices take about two minutes to come up; setup waits out 429s. At steady state each device
+sends a heartbeat and a metrics report every 30s, ~80 DeviceManager calls a minute for the default
+fleet, against a per-tenant limit of 100 that the UI and other callers in the dev tenant share.
+Fleet devices report bundle state only when their desired bundle changes, so a rollout adds a
+short burst rather than a steady load. Fleets much larger than 20 will see 429s at steady state;
+raise the intervals (`--heartbeat-interval-seconds`, `--metrics-interval-seconds`) to compensate.
+
+Outside Aspire: `dotnet run --project src/EdgeAgent/SignalBeam.EdgeAgent.Simulator -- --fleet-size 20 --seed 42`
+(plus `--device-manager-url`, `--api-key`, `--tenant-id` or the `SIM_*` variables).
+`--fleet-size 1` (the default) is the original single-device mode, including `--use-device-auth`
+and `--use-mtls`. With `--seed` it also gets fleet device 1's ID and name and the +/-10% jitter.
 
 ### Option 2: Run from Visual Studio / Rider
 
@@ -132,7 +153,9 @@ services ──OTLP──► otel-collector ──► Aspire dashboard        (t
   fetch/API calls, `_INBOX.*` replies) is filtered out by `ServiceDefaults/Observability/NatsTracing`, applied in `ConfigureOpenTelemetry`.
   To see a cross-service NATS trace locally, publish with a trace header, e.g.
   `nats pub signalbeam.devices.heartbeat.<deviceId> '<json>' -H "traceparent:00-<32 hex>-<16 hex>-01"`.
-  The simulator itself uses HTTP.
+  The simulator itself uses HTTP. Each simulated heartbeat, metrics report and desired-state poll
+  is its own trace, with a `simulate <action>` root span (source `SignalBeam.Simulator`) tagged
+  with the device id, name and environment.
 - To add another destination (e.g. Jaeger or Tempo), add an exporter to the collector config.
   No service changes are needed.
 

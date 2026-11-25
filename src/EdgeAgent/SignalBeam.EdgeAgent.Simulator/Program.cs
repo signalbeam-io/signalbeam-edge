@@ -2,15 +2,16 @@ using System.CommandLine;
 using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Trace;
 
 namespace SignalBeam.EdgeAgent.Simulator;
 
 public class Program
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    // Fleet mode spreads each loop's interval by +/-10% so devices don't fire in lockstep.
+    private const double FleetJitter = 0.1;
 
     private static DeviceCredentials? _deviceCredentials;
     private static readonly SemaphoreSlim _credentialsLock = new(1, 1);
@@ -113,6 +114,17 @@ public class Program
             Description = "Report bundle deployment status when desired state is present."
         };
 
+        var fleetSizeOption = new Option<int>("--fleet-size")
+        {
+            DefaultValueFactory = _ => 1,
+            Description = "Number of simulated devices (1 = single device, the original behaviour)."
+        };
+
+        var seedOption = new Option<int?>("--seed")
+        {
+            Description = "Seed for device IDs, names, groups, tags, timing jitter (+/-10%) and metric values. Random if omitted in fleet mode (printed at start)."
+        };
+
         rootCommand.Options.Add(deviceManagerUrlOption);
         rootCommand.Options.Add(bundleOrchestratorUrlOption);
         rootCommand.Options.Add(apiKeyOption);
@@ -130,132 +142,244 @@ public class Program
         rootCommand.Options.Add(desiredStateIntervalOption);
         rootCommand.Options.Add(iterationsOption);
         rootCommand.Options.Add(reportStateOption);
+        rootCommand.Options.Add(fleetSizeOption);
+        rootCommand.Options.Add(seedOption);
 
         rootCommand.SetAction(async (parseResult, _) =>
         {
-            var deviceManagerUrl = parseResult.GetValue(deviceManagerUrlOption);
-            var bundleOrchestratorUrl = parseResult.GetValue(bundleOrchestratorUrlOption);
-            var apiKey = parseResult.GetValue(apiKeyOption);
+            var settings = new SimulatorSettings(
+                DeviceManagerUrl: ResolveRequiredOption(
+                    parseResult.GetValue(deviceManagerUrlOption), "SIM_DEVICE_MANAGER_URL", "--device-manager-url"),
+                BundleOrchestratorUrl: ResolveOptionalOption(
+                    parseResult.GetValue(bundleOrchestratorUrlOption), "SIM_BUNDLE_ORCHESTRATOR_URL"),
+                ApiKey: parseResult.GetValue(apiKeyOption),
+                TenantId: ResolveTenantId(parseResult.GetValue(tenantIdOption), "SIM_TENANT_ID", "--tenant-id"),
+                Seed: parseResult.GetValue(seedOption),
+                Loop: new DeviceLoopOptions(
+                    HeartbeatInterval: TimeSpan.FromSeconds(parseResult.GetValue(heartbeatIntervalOption)),
+                    MetricsInterval: TimeSpan.FromSeconds(parseResult.GetValue(metricsIntervalOption)),
+                    DesiredStateInterval: TimeSpan.FromSeconds(parseResult.GetValue(desiredStateIntervalOption)),
+                    Iterations: parseResult.GetValue(iterationsOption),
+                    ReportState: parseResult.GetValue(reportStateOption),
+                    Jitter: 0,
+                    LogSuccess: true));
+
+            var fleetSize = parseResult.GetValue(fleetSizeOption);
             var useDeviceAuth = parseResult.GetValue(useDeviceAuthOption);
-            var useMtls = parseResult.GetValue(useMtlsOption);
-            var credentialsPath = parseResult.GetValue(credentialsPathOption);
-            var waitForApproval = parseResult.GetValue(waitForApprovalOption);
-            var approvalCheckInterval = parseResult.GetValue(approvalCheckIntervalOption);
-            var tenantId = parseResult.GetValue(tenantIdOption);
             var deviceId = parseResult.GetValue(deviceIdOption);
             var deviceName = parseResult.GetValue(deviceNameOption);
-            var metadata = parseResult.GetValue(metadataOption);
-            var heartbeatIntervalSeconds = parseResult.GetValue(heartbeatIntervalOption);
-            var metricsIntervalSeconds = parseResult.GetValue(metricsIntervalOption);
-            var desiredStateIntervalSeconds = parseResult.GetValue(desiredStateIntervalOption);
-            var iterations = parseResult.GetValue(iterationsOption);
-            var reportState = parseResult.GetValue(reportStateOption);
 
-            var resolvedDeviceManagerUrl = ResolveRequiredOption(
-                deviceManagerUrl,
-                "SIM_DEVICE_MANAGER_URL",
-                "--device-manager-url");
-
-            var resolvedTenantId = ResolveTenantId(tenantId, "SIM_TENANT_ID", "--tenant-id");
-            var effectiveDeviceId = deviceId ?? Guid.NewGuid();
-            var effectiveDeviceName = string.IsNullOrWhiteSpace(deviceName)
-                ? $"sim-{effectiveDeviceId.ToString()[..8]}"
-                : deviceName;
-
-            // Determine authentication mode
-            HttpClient deviceClient;
-            HttpClient? bundleClient;
-
-            var resolvedBundleUrl = ResolveOptionalOption(
-                bundleOrchestratorUrl,
-                "SIM_BUNDLE_ORCHESTRATOR_URL");
-
-            if (useDeviceAuth)
+            var singleDeviceOptions = new[]
             {
-                Console.WriteLine("Using device-specific authentication mode.");
-                var effectiveCredentialsPath = credentialsPath ?? $"./sim-credentials-{effectiveDeviceId}.json";
+                parseResult.GetResult(useDeviceAuthOption),
+                parseResult.GetResult(useMtlsOption),
+                parseResult.GetResult(credentialsPathOption),
+                parseResult.GetResult(waitForApprovalOption),
+                parseResult.GetResult(deviceIdOption),
+                parseResult.GetResult(deviceNameOption),
+                parseResult.GetResult(metadataOption),
+            }
+            .Where(r => r is { Implicit: false })
+            .Select(r => r!.Option.Name)
+            .ToList();
 
-                await InitializeDeviceCredentialsAsync(
-                    resolvedDeviceManagerUrl,
-                    resolvedTenantId,
-                    effectiveDeviceId,
-                    effectiveDeviceName,
-                    metadata,
-                    effectiveCredentialsPath,
-                    waitForApproval,
-                    approvalCheckInterval);
+            var error = ValidateOptions(fleetSize, singleDeviceOptions, settings.Loop);
+            if (error is not null)
+            {
+                Console.Error.WriteLine(error);
+                return 1;
+            }
 
-                if (useMtls)
+            using var host = SimulatorTelemetry.BuildHost();
+            await host.StartAsync();
+            var stopping = host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
+
+            try
+            {
+                if (fleetSize == 1)
                 {
-                    await RequestCertificateAsync(
-                        resolvedDeviceManagerUrl,
-                        effectiveDeviceId,
-                        effectiveCredentialsPath);
-
-                    deviceClient = CreateClientWithMtls(resolvedDeviceManagerUrl);
-                    bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
-                        ? null
-                        : CreateClientWithMtls(resolvedBundleUrl);
+                    await RunSingleDeviceAsync(
+                        settings,
+                        deviceId,
+                        deviceName,
+                        parseResult.GetValue(metadataOption),
+                        useDeviceAuth,
+                        parseResult.GetValue(useMtlsOption),
+                        parseResult.GetValue(credentialsPathOption),
+                        parseResult.GetValue(waitForApprovalOption),
+                        parseResult.GetValue(approvalCheckIntervalOption),
+                        stopping);
                 }
                 else
                 {
-                    deviceClient = CreateClientWithDeviceAuth(resolvedDeviceManagerUrl);
-                    bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
-                        ? null
-                        : CreateClientWithDeviceAuth(resolvedBundleUrl);
+                    await RunFleetAsync(settings, fleetSize, stopping);
                 }
+            }
+            catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+            {
+                Console.WriteLine("Simulator stopped.");
+            }
+            finally
+            {
+                // Export spans still buffered in the batch processor before the process exits.
+                host.Services.GetService<TracerProvider>()?.ForceFlush(5000);
+                await host.StopAsync(CancellationToken.None);
+            }
+
+            return 0;
+        });
+
+        // The host's console lifetime owns Ctrl+C/SIGTERM so shutdown can finish and flush spans;
+        // System.CommandLine's own handler would end the process after 2s.
+        return await rootCommand.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null });
+    }
+
+    internal static string? ValidateOptions(int fleetSize, IReadOnlyCollection<string> singleDeviceOptions, DeviceLoopOptions loop)
+    {
+        if (fleetSize < 1)
+        {
+            return "--fleet-size must be at least 1.";
+        }
+
+        if (fleetSize > 1 && singleDeviceOptions.Count > 0)
+        {
+            return "--fleet-size > 1 uses the shared API key and generated devices; "
+                + $"{string.Join(", ", singleDeviceOptions)} only apply to a single device.";
+        }
+
+        if (loop.HeartbeatInterval < TimeSpan.FromSeconds(1)
+            || loop.MetricsInterval < TimeSpan.FromSeconds(1)
+            || loop.DesiredStateInterval < TimeSpan.FromSeconds(1))
+        {
+            return "Heartbeat, metrics and desired-state intervals must be at least 1 second.";
+        }
+
+        return null;
+    }
+
+    private sealed record SimulatorSettings(
+        string DeviceManagerUrl,
+        string? BundleOrchestratorUrl,
+        string? ApiKey,
+        Guid TenantId,
+        int? Seed,
+        DeviceLoopOptions Loop);
+
+    private static async Task RunSingleDeviceAsync(
+        SimulatorSettings settings,
+        Guid? deviceId,
+        string? deviceName,
+        string? metadata,
+        bool useDeviceAuth,
+        bool useMtls,
+        string? credentialsPath,
+        bool waitForApproval,
+        int approvalCheckInterval,
+        CancellationToken cancellationToken)
+    {
+        // With a seed, the single device gets the ID and name of device 1 of a fleet with that seed
+        // (but no group or tags; those come from fleet setup).
+        var spec = settings.Seed is { } seed ? FleetPlan.Create(1, seed)[0] : null;
+        var effectiveDeviceId = deviceId ?? spec?.DeviceId ?? Guid.NewGuid();
+        var effectiveDeviceName = !string.IsNullOrWhiteSpace(deviceName)
+            ? deviceName
+            : deviceId is null && spec is not null ? spec.Name : $"sim-{effectiveDeviceId.ToString()[..8]}";
+
+        HttpClient deviceClient;
+        HttpClient? bundleClient;
+        var bundleUrl = settings.BundleOrchestratorUrl;
+
+        if (useDeviceAuth)
+        {
+            Console.WriteLine("Using device-specific authentication mode.");
+            var effectiveCredentialsPath = credentialsPath ?? $"./sim-credentials-{effectiveDeviceId}.json";
+
+            await InitializeDeviceCredentialsAsync(
+                settings.DeviceManagerUrl,
+                settings.TenantId,
+                effectiveDeviceId,
+                effectiveDeviceName,
+                metadata,
+                effectiveCredentialsPath,
+                waitForApproval,
+                approvalCheckInterval);
+
+            if (useMtls)
+            {
+                await RequestCertificateAsync(settings.DeviceManagerUrl, effectiveDeviceId, effectiveCredentialsPath);
+                deviceClient = CreateClientWithMtls(settings.DeviceManagerUrl);
+                bundleClient = string.IsNullOrWhiteSpace(bundleUrl) ? null : CreateClientWithMtls(bundleUrl);
             }
             else
             {
-                Console.WriteLine("Using legacy shared API key mode.");
-                var resolvedApiKey = ResolveRequiredOption(
-                    apiKey,
-                    "SIM_API_KEY",
-                    "--api-key");
-                deviceClient = CreateClient(resolvedDeviceManagerUrl, resolvedApiKey);
-                bundleClient = string.IsNullOrWhiteSpace(resolvedBundleUrl)
-                    ? null
-                    : CreateClient(resolvedBundleUrl, resolvedApiKey);
+                deviceClient = CreateClientWithDeviceAuth(settings.DeviceManagerUrl);
+                bundleClient = string.IsNullOrWhiteSpace(bundleUrl) ? null : CreateClientWithDeviceAuth(bundleUrl);
             }
+        }
+        else
+        {
+            Console.WriteLine("Using legacy shared API key mode.");
+            (deviceClient, bundleClient) = CreateSharedKeyClients(settings);
+        }
 
-            Console.WriteLine($"Simulator starting for device {effectiveDeviceId} ({effectiveDeviceName}).");
-            Console.WriteLine($"DeviceManager: {resolvedDeviceManagerUrl}");
-            Console.WriteLine(bundleClient is null
-                ? "BundleOrchestrator: (disabled)"
-                : $"BundleOrchestrator: {resolvedBundleUrl}");
+        Console.WriteLine($"Simulator starting for device {effectiveDeviceId} ({effectiveDeviceName}).");
+        Console.WriteLine($"DeviceManager: {settings.DeviceManagerUrl}");
+        Console.WriteLine(bundleClient is null ? "BundleOrchestrator: (disabled)" : $"BundleOrchestrator: {bundleUrl}");
 
-            await RegisterDeviceAsync(deviceClient, resolvedTenantId, effectiveDeviceId, effectiveDeviceName, metadata);
+        var registered = await FleetSetup.RegisterAsync(
+            deviceClient, settings.TenantId, effectiveDeviceId, effectiveDeviceName, metadata, cancellationToken);
+        Console.WriteLine(registered ? "Device registration succeeded." : "Device already registered; continuing.");
 
-            using var cts = new CancellationTokenSource();
-            Console.CancelKeyPress += (_, eventArgs) =>
-            {
-                eventArgs.Cancel = true;
-                cts.Cancel();
-            };
+        var loop = spec is null ? settings.Loop : settings.Loop with { Jitter = FleetJitter };
+        var device = new SimulatedDevice(
+            effectiveDeviceId,
+            effectiveDeviceName,
+            deviceClient,
+            bundleClient,
+            loop,
+            TimeSpan.Zero,
+            spec?.Seed ?? Random.Shared.Next());
 
-            var startedAt = DateTimeOffset.UtcNow;
-            var tasks = new List<Task>
-            {
-                RunHeartbeatLoop(deviceClient, effectiveDeviceId, heartbeatIntervalSeconds, iterations, cts.Token),
-                RunMetricsLoop(deviceClient, effectiveDeviceId, startedAt, metricsIntervalSeconds, iterations, cts.Token)
-            };
+        await device.RunAsync(cancellationToken);
+    }
 
-            if (bundleClient is not null)
-            {
-                tasks.Add(RunDesiredStateLoop(
-                    bundleClient,
-                    deviceClient,
-                    effectiveDeviceId,
-                    desiredStateIntervalSeconds,
-                    iterations,
-                    reportState,
-                    cts.Token));
-            }
+    private static async Task RunFleetAsync(SimulatorSettings settings, int fleetSize, CancellationToken cancellationToken)
+    {
+        var seed = settings.Seed ?? Random.Shared.Next();
+        var plan = FleetPlan.Create(fleetSize, seed);
+        var (deviceClient, bundleClient) = CreateSharedKeyClients(settings);
 
-            await Task.WhenAll(tasks);
-        });
+        Console.WriteLine($"Simulating a fleet of {fleetSize} devices (seed {seed}; rerun with --seed {seed} to reproduce).");
+        Console.WriteLine($"DeviceManager: {settings.DeviceManagerUrl}");
+        Console.WriteLine(bundleClient is null
+            ? "BundleOrchestrator: (disabled)"
+            : $"BundleOrchestrator: {settings.BundleOrchestratorUrl}");
 
-        return await rootCommand.Parse(args).InvokeAsync();
+        await FleetSetup.ProvisionAsync(deviceClient, settings.TenantId, plan, cancellationToken);
+
+        var loop = settings.Loop with { Jitter = FleetJitter, LogSuccess = false, ReportStateOnlyOnChange = true };
+        var devices = plan.Select(spec => new SimulatedDevice(
+            spec.DeviceId,
+            spec.Name,
+            deviceClient,
+            bundleClient,
+            loop,
+            // Spread device start times over one heartbeat interval.
+            settings.Loop.HeartbeatInterval * spec.StartOffsetFraction,
+            spec.Seed,
+            spec.Environment));
+
+        await Task.WhenAll(devices.Select(d => d.RunAsync(cancellationToken)));
+    }
+
+    private static (HttpClient DeviceClient, HttpClient? BundleClient) CreateSharedKeyClients(SimulatorSettings settings)
+    {
+        var apiKey = ResolveRequiredOption(settings.ApiKey, "SIM_API_KEY", "--api-key");
+        var deviceClient = CreateClient(settings.DeviceManagerUrl, apiKey);
+        var bundleClient = string.IsNullOrWhiteSpace(settings.BundleOrchestratorUrl)
+            ? null
+            : CreateClient(settings.BundleOrchestratorUrl, apiKey);
+        return (deviceClient, bundleClient);
     }
 
     private static HttpClient CreateClient(string baseUrl, string apiKey)
@@ -267,229 +391,6 @@ public class Program
 
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
         return client;
-    }
-
-    private static async Task RegisterDeviceAsync(
-        HttpClient client,
-        Guid tenantId,
-        Guid deviceId,
-        string deviceName,
-        string? metadata)
-    {
-        var request = new RegisterDeviceRequest(tenantId, deviceId, deviceName, metadata);
-        var response = await client.PostAsJsonAsync("/api/devices", request);
-
-        if (response.IsSuccessStatusCode)
-        {
-            Console.WriteLine("Device registration succeeded.");
-            return;
-        }
-
-        var content = await response.Content.ReadAsStringAsync();
-        if (content.Contains("DEVICE_ALREADY_EXISTS", StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine("Device already registered; continuing.");
-            return;
-        }
-
-        throw new InvalidOperationException($"Device registration failed: {response.StatusCode} {content}");
-    }
-
-    private static async Task RunHeartbeatLoop(
-        HttpClient client,
-        Guid deviceId,
-        int intervalSeconds,
-        int iterations,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
-            var count = 0;
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var request = new RecordHeartbeatRequest(deviceId, DateTimeOffset.UtcNow);
-                await SendRequestAsync(client, $"/api/devices/{deviceId}/heartbeat", request, "heartbeat");
-
-                count++;
-                if (iterations > 0 && count >= iterations)
-                {
-                    return;
-                }
-
-                await timer.WaitForNextTickAsync(cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private static async Task RunMetricsLoop(
-        HttpClient client,
-        Guid deviceId,
-        DateTimeOffset startedAt,
-        int intervalSeconds,
-        int iterations,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
-            var count = 0;
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var uptimeSeconds = (long)(DateTimeOffset.UtcNow - startedAt).TotalSeconds;
-                var request = new UpdateDeviceMetricsRequest(
-                    deviceId,
-                    DateTimeOffset.UtcNow,
-                    CpuUsage: 10 + Random.Shared.NextDouble() * 70,
-                    MemoryUsage: 20 + Random.Shared.NextDouble() * 60,
-                    DiskUsage: 5 + Random.Shared.NextDouble() * 40,
-                    UptimeSeconds: uptimeSeconds,
-                    RunningContainers: Random.Shared.Next(1, 5),
-                    AdditionalMetrics: null);
-
-                await SendRequestAsync(client, $"/api/devices/{deviceId}/metrics", request, "metrics");
-
-                count++;
-                if (iterations > 0 && count >= iterations)
-                {
-                    return;
-                }
-
-                await timer.WaitForNextTickAsync(cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private static async Task RunDesiredStateLoop(
-        HttpClient bundleClient,
-        HttpClient deviceClient,
-        Guid deviceId,
-        int intervalSeconds,
-        int iterations,
-        bool reportState,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
-            var count = 0;
-            string? lastBundleKey = null;
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var response = await bundleClient.GetAsync($"/api/devices/{deviceId}/desired-state", cancellationToken);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var desiredState = await response.Content.ReadFromJsonAsync<DeviceDesiredStateResponse>(JsonOptions, cancellationToken);
-                    var desired = desiredState?.DesiredState;
-
-                    if (desired is not null)
-                    {
-                        var bundleKey = $"{desired.BundleId}:{desired.BundleVersion}";
-                        if (!string.Equals(bundleKey, lastBundleKey, StringComparison.Ordinal))
-                        {
-                            Console.WriteLine($"Desired state updated to bundle {desired.BundleId} v{desired.BundleVersion}.");
-                            lastBundleKey = bundleKey;
-                        }
-
-                        if (reportState)
-                        {
-                            var reportRequest = new ReportDeviceStateRequest(
-                                deviceId,
-                                BundleDeploymentStatus.Completed,
-                                DateTimeOffset.UtcNow);
-
-                            await SendRequestAsync(deviceClient, $"/api/devices/{deviceId}/state", reportRequest, "state");
-                        }
-                    }
-                }
-                else if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    Console.WriteLine($"Desired state fetch failed: {response.StatusCode} {content}");
-                }
-
-                count++;
-                if (iterations > 0 && count >= iterations)
-                {
-                    return;
-                }
-
-                await timer.WaitForNextTickAsync(cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private static async Task SendRequestAsync<T>(
-        HttpClient client,
-        string path,
-        T body,
-        string label)
-    {
-        var response = await client.PostAsJsonAsync(path, body);
-        if (response.IsSuccessStatusCode)
-        {
-            Console.WriteLine($"Sent {label} at {DateTimeOffset.UtcNow:O}.");
-            return;
-        }
-
-        var content = await response.Content.ReadAsStringAsync();
-        Console.WriteLine($"{label} request failed: {response.StatusCode} {content}");
-    }
-
-    private record RegisterDeviceRequest(
-        Guid TenantId,
-        Guid DeviceId,
-        string Name,
-        string? Metadata);
-
-    private record RecordHeartbeatRequest(
-        Guid DeviceId,
-        DateTimeOffset Timestamp);
-
-    private record UpdateDeviceMetricsRequest(
-        Guid DeviceId,
-        DateTimeOffset Timestamp,
-        double CpuUsage,
-        double MemoryUsage,
-        double DiskUsage,
-        long UptimeSeconds,
-        int RunningContainers,
-        string? AdditionalMetrics);
-
-    private record ReportDeviceStateRequest(
-        Guid DeviceId,
-        BundleDeploymentStatus? BundleDeploymentStatus,
-        DateTimeOffset Timestamp);
-
-    private record DeviceDesiredStateResponse(DeviceDesiredStateDto? DesiredState);
-
-    private record DeviceDesiredStateDto(
-        Guid DeviceId,
-        Guid BundleId,
-        string BundleVersion,
-        DateTimeOffset AssignedAt,
-        string? AssignedBy);
-
-    private enum BundleDeploymentStatus
-    {
-        Pending = 0,
-        InProgress = 1,
-        Completed = 2,
-        Failed = 3,
-        RolledBack = 4
     }
 
     private static string ResolveRequiredOption(string? optionValue, string envName, string optionName)
@@ -551,7 +452,7 @@ public class Program
             if (File.Exists(credentialsPath))
             {
                 var json = await File.ReadAllTextAsync(credentialsPath);
-                _deviceCredentials = JsonSerializer.Deserialize<DeviceCredentials>(json, JsonOptions);
+                _deviceCredentials = JsonSerializer.Deserialize<DeviceCredentials>(json, SimulatorJson.Options);
 
                 if (_deviceCredentials?.DeviceId == deviceId)
                 {
@@ -602,7 +503,7 @@ public class Program
                 throw new InvalidOperationException($"Failed to get registration status: {statusResponse.StatusCode}");
             }
 
-            var statusData = await statusResponse.Content.ReadFromJsonAsync<GetRegistrationStatusResponse>(JsonOptions);
+            var statusData = await statusResponse.Content.ReadFromJsonAsync<GetRegistrationStatusResponse>(SimulatorJson.Options);
 
             _deviceCredentials = new DeviceCredentials
             {
@@ -667,7 +568,7 @@ public class Program
             return;
         }
 
-        var statusData = await response.Content.ReadFromJsonAsync<GetRegistrationStatusResponse>(JsonOptions);
+        var statusData = await response.Content.ReadFromJsonAsync<GetRegistrationStatusResponse>(SimulatorJson.Options);
         if (statusData == null)
         {
             return;
@@ -772,7 +673,7 @@ public class Program
             throw new InvalidOperationException($"Certificate issuance failed: {response.StatusCode} {content}");
         }
 
-        var certResponse = await response.Content.ReadFromJsonAsync<IssueCertificateSimResponse>(JsonOptions);
+        var certResponse = await response.Content.ReadFromJsonAsync<IssueCertificateSimResponse>(SimulatorJson.Options);
         if (certResponse == null)
         {
             throw new InvalidOperationException("Certificate issuance returned empty response.");

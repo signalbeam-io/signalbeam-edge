@@ -12,4 +12,13 @@
     <PackageReference Include="System.CommandLine" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SignalBeam.EdgeAgent.Tests.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- OpenTelemetry pipeline (HttpClient tracing, OTLP export) shared with the services. -->
+    <ProjectReference Include="..\..\SignalBeam.ServiceDefaults\SignalBeam.ServiceDefaults.csproj" />
+  </ItemGroup>
+
 </Project>

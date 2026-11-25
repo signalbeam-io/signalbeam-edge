@@ -178,8 +178,14 @@ var frontend = builder.AddNpmApp("frontend", "../../web", "dev")
     .WithEnvironment("BROWSER", "none")
     .WithExternalHttpEndpoints();
 
-// Edge Agent Simulator - use hardcoded gateway URL for simplicity
+// Edge Agent Simulator - use hardcoded gateway URL for simplicity.
+// Runs a fleet with a fixed seed so every run produces the same devices and traffic shape.
+// Override with e.g. `dotnet run -- --Simulator:FleetSize=5 --Simulator:Seed=7`.
+var simulatorFleetSize = builder.Configuration["Simulator:FleetSize"] ?? "20";
+var simulatorSeed = builder.Configuration["Simulator:Seed"] ?? "42";
+
 var edgeAgentSimulator = builder.AddProject<Projects.SignalBeam_EdgeAgent_Simulator>("edge-agent-simulator")
+    .WithArgs("--fleet-size", simulatorFleetSize, "--seed", simulatorSeed)
     .WithEnvironment("SIM_DEVICE_MANAGER_URL", "http://localhost:8080")
     .WithEnvironment("SIM_BUNDLE_ORCHESTRATOR_URL", "http://localhost:8080")
     .WithEnvironment("SIM_API_KEY", "dev-api-key-1")
