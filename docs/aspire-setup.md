@@ -76,13 +76,17 @@ traffic shape. Devices are split across the `lab` and `prod-eu` groups and tagge
 Change the size or seed with `dotnet run -- --Simulator:FleetSize=5 --Simulator:Seed=7`.
 
 Fleet setup registers devices at DeviceManager's registration limit (10 per minute per IP), so
-20 devices take about two minutes to come up. At steady state the default fleet makes ~80
-DeviceManager calls a minute, under the per-tenant limit of 100. Larger fleets will see 429s.
+20 devices take about two minutes to come up; setup waits out 429s. At steady state each device
+sends a heartbeat and a metrics report every 30s, ~80 DeviceManager calls a minute for the default
+fleet, against a per-tenant limit of 100 that the UI and other callers in the dev tenant share.
+Fleet devices report bundle state only when their desired bundle changes, so a rollout adds a
+short burst rather than a steady load. Fleets much larger than 20 will see 429s at steady state;
+raise the intervals (`--heartbeat-interval-seconds`, `--metrics-interval-seconds`) to compensate.
 
 Outside Aspire: `dotnet run --project src/EdgeAgent/SignalBeam.EdgeAgent.Simulator -- --fleet-size 20 --seed 42`
 (plus `--device-manager-url`, `--api-key`, `--tenant-id` or the `SIM_*` variables).
 `--fleet-size 1` (the default) is the original single-device mode, including `--use-device-auth`
-and `--use-mtls`.
+and `--use-mtls`. With `--seed` it also gets fleet device 1's ID and name and the +/-10% jitter.
 
 ### Option 2: Run from Visual Studio / Rider
 
