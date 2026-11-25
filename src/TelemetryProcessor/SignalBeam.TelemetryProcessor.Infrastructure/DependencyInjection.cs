@@ -131,6 +131,8 @@ public static class DependencyInjection
             SignalBeam.TelemetryProcessor.Application.Services.AlertRules.DeviceUnhealthyRule>();
         services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.IAlertRule,
             SignalBeam.TelemetryProcessor.Application.Services.AlertRules.HighErrorRateRule>();
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.IAlertRule,
+            SignalBeam.TelemetryProcessor.Application.Services.AlertRules.HighResourceUtilizationRule>();
 
         // Configure notification options
         services.Configure<SignalBeam.TelemetryProcessor.Application.Services.Notifications.NotificationOptions>(
@@ -164,6 +166,21 @@ public static class DependencyInjection
         {
             client.BaseAddress = new Uri(deviceManagerUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        // Device -> tenant lookups for alerts, via DeviceManager's internal endpoint
+        var internalServiceKey = configuration[SignalBeam.Shared.Infrastructure.Authentication.InternalServiceAuthentication.ConfigurationKey];
+        services.AddMemoryCache();
+        services.AddHttpClient<SignalBeam.TelemetryProcessor.Application.Services.IDeviceTenantResolver,
+            SignalBeam.TelemetryProcessor.Infrastructure.Services.DeviceTenantResolver>(client =>
+        {
+            client.BaseAddress = new Uri(deviceManagerUrl);
+            client.Timeout = TimeSpan.FromSeconds(10);
+            if (!string.IsNullOrEmpty(internalServiceKey))
+            {
+                client.DefaultRequestHeaders.Add(
+                    SignalBeam.Shared.Infrastructure.Authentication.InternalServiceAuthentication.HeaderName, internalServiceKey);
+            }
         });
 
         // Register data retention service

@@ -18,6 +18,7 @@ public class DeviceUnhealthyRule : IAlertRule
     private readonly IAlertRepository _alertRepository;
     private readonly ILogger<DeviceUnhealthyRule> _logger;
     private readonly AlertingOptions _options;
+    private readonly IDeviceTenantResolver _tenantResolver;
 
     public string RuleId => "device_unhealthy";
     public AlertType AlertType => AlertType.DeviceUnhealthy;
@@ -27,12 +28,14 @@ public class DeviceUnhealthyRule : IAlertRule
         IDeviceHealthScoreRepository healthScoreRepository,
         IAlertRepository alertRepository,
         ILogger<DeviceUnhealthyRule> logger,
-        IOptions<AlertingOptions> options)
+        IOptions<AlertingOptions> options,
+        IDeviceTenantResolver tenantResolver)
     {
         _healthScoreRepository = healthScoreRepository;
         _alertRepository = alertRepository;
         _logger = logger;
         _options = options.Value;
+        _tenantResolver = tenantResolver;
     }
 
     public async Task<IReadOnlyList<Alert>> EvaluateAsync(CancellationToken cancellationToken = default)
@@ -98,8 +101,15 @@ public class DeviceUnhealthyRule : IAlertRule
                                   $"Calculated at {latestHealthScore.Timestamp:yyyy-MM-dd HH:mm:ss} UTC.";
 
                 // Create alert
+                var tenantId = await _tenantResolver.ResolveAsync(deviceId, cancellationToken);
+                if (tenantId is null)
+                {
+                    _logger.LogWarning("Skipping {RuleId} alert for device {DeviceId}: tenant unknown", RuleId, deviceId);
+                    continue;
+                }
+
                 var alert = Alert.Create(
-                    new TenantId(Guid.Empty), // TODO: Get tenant ID from device lookup
+                    tenantId.Value,
                     AlertSeverity.Critical,
                     AlertType.DeviceUnhealthy,
                     $"Device {deviceId.Value} is unhealthy",

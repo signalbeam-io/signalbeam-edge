@@ -18,6 +18,7 @@ public class DeviceOfflineRule : IAlertRule
     private readonly IAlertRepository _alertRepository;
     private readonly ILogger<DeviceOfflineRule> _logger;
     private readonly AlertingOptions _options;
+    private readonly IDeviceTenantResolver _tenantResolver;
 
     public string RuleId => "device_offline";
     public AlertType AlertType => AlertType.DeviceOffline;
@@ -27,12 +28,14 @@ public class DeviceOfflineRule : IAlertRule
         IDeviceHeartbeatRepository heartbeatRepository,
         IAlertRepository alertRepository,
         ILogger<DeviceOfflineRule> logger,
-        IOptions<AlertingOptions> options)
+        IOptions<AlertingOptions> options,
+        IDeviceTenantResolver tenantResolver)
     {
         _heartbeatRepository = heartbeatRepository;
         _alertRepository = alertRepository;
         _logger = logger;
         _options = options.Value;
+        _tenantResolver = tenantResolver;
     }
 
     public async Task<IReadOnlyList<Alert>> EvaluateAsync(CancellationToken cancellationToken = default)
@@ -92,8 +95,15 @@ public class DeviceOfflineRule : IAlertRule
                 var severity = DetermineSeverity(duration);
 
                 // Create alert
+                var tenantId = await _tenantResolver.ResolveAsync(deviceId, cancellationToken);
+                if (tenantId is null)
+                {
+                    _logger.LogWarning("Skipping {RuleId} alert for device {DeviceId}: tenant unknown", RuleId, deviceId);
+                    continue;
+                }
+
                 var alert = Alert.Create(
-                    new TenantId(Guid.Empty), // TODO: Get tenant ID from heartbeat or device lookup
+                    tenantId.Value,
                     severity,
                     AlertType.DeviceOffline,
                     $"Device {deviceId.Value} is offline",
