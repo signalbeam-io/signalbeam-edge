@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using SignalBeam.BundleOrchestrator.Application.Commands;
+using SignalBeam.BundleOrchestrator.Application.Models;
 using SignalBeam.DeviceManager.Application.Commands;
 
 namespace SignalBeam.TrafficGenerator;
@@ -16,7 +17,8 @@ internal sealed class OperatorSession
     public const string OperatorTag = "operator=checked";
     private const string BundlePrefix = "op-app-";
 
-    private static readonly string[] Images = ["nginx:1.27", "redis:7.4", "grafana/agent:v0.43", "eclipse-mosquitto:2.0"];
+    private static readonly (string Image, string Tag)[] Images =
+        [("nginx", "1.27"), ("redis", "7.4"), ("grafana/agent", "v0.43"), ("eclipse-mosquitto", "2.0")];
     private static readonly string[] DeviceStatuses = ["Online", "Offline", "Registered", "Error"];
     private static readonly string[] AlertStatuses = ["Active", "Acknowledged", "Resolved"];
 
@@ -185,10 +187,16 @@ internal sealed class OperatorSession
     private async Task<HttpStatusCode?> CreateBundleAsync(CancellationToken ct)
     {
         var name = $"{BundlePrefix}{Random.Next(1000, 9999)}";
-        var command = new CreateBundleCommand(
-            _settings.TenantId, name, "Created by the operator traffic generator", "1.0.0",
-            [new ContainerSpecDto("app", Pick(Images))]);
-        var (status, body) = await SendJsonAsync(HttpMethod.Post, "/api/bundles", command, ct);
+        var (image, tag) = Pick(Images);
+        // Same body as the web UI's create-bundle form (the endpoint's CreateBundleRequest).
+        var request = new
+        {
+            name,
+            description = "Created by the operator traffic generator",
+            version = "1.0.0",
+            containers = new[] { new { name = "app", image, tag } }
+        };
+        var (status, body) = await SendJsonAsync(HttpMethod.Post, $"/api/bundles?{Tenant}", request, ct);
         if (body is { } json && json.TryGetProperty("bundleId", out var id))
         {
             _state.Bundles[id.GetGuid()] = new BundleInfo(name, ["1.0.0"]);
@@ -203,9 +211,15 @@ internal sealed class OperatorSession
         {
             var bundle = _state.Bundles[id];
             var next = OperatorState.NextVersion(bundle.Versions);
-            var command = new CreateBundleVersionCommand(id.ToString(), next, [new ContainerSpecDto("app", Pick(Images))],
-                $"Operator release {next}");
-            var status = await SendAsync(HttpMethod.Post, $"/api/bundles/{id}/versions", command, ct);
+            var (image, tag) = Pick(Images);
+            var definition = new BundleDefinition
+            {
+                BundleId = id.ToString(),
+                Version = next,
+                Description = $"Operator release {next}",
+                Containers = [new ContainerDefinition { Name = "app", Image = $"{image}:{tag}" }]
+            };
+            var status = await SendAsync(HttpMethod.Post, $"/api/bundles/{id}/versions?{Tenant}", definition, ct);
             if (status is HttpStatusCode.OK or HttpStatusCode.Created)
             {
                 bundle.Versions.Add(next);
@@ -313,7 +327,7 @@ internal sealed class OperatorSession
     private Task<HttpStatusCode?> InvalidRequestAsync(CancellationToken ct) => Random.Next(5) switch
     {
         0 => GetAsync($"/api/devices/{Guid.NewGuid()}", ct),
-        1 => SendAsync(HttpMethod.Post, "/api/bundles", new CreateBundleCommand(_settings.TenantId, ""), ct),
+        1 => SendAsync(HttpMethod.Post, $"/api/bundles?{Tenant}", new { name = "", containers = Array.Empty<object>() }, ct),
         2 => SendAsync(HttpMethod.Post, $"/api/alerts/{Guid.NewGuid()}/acknowledge?{Tenant}", new { acknowledgedBy = "operator" }, ct),
         3 => SendAsync(HttpMethod.Post, $"/api/phased-rollouts/{Guid.NewGuid()}/start?{Tenant}", null, ct),
         _ => GetAsync($"/api/bundles/{Guid.NewGuid()}", ct)
