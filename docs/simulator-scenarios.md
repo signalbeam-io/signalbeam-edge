@@ -93,9 +93,16 @@ curl -s -H "$KEY" -H 'Content-Type: application/json' $API/api/devices/<deviceId
 ## Alert tenants
 
 Alerts belong to the device's tenant. TelemetryProcessor only knows device IDs, so it looks the
-tenant up in DeviceManager (`GET /api/internal/devices/{id}/tenant`, cached). That endpoint is for
-service-to-service calls only: the gateway doesn't route `/api/internal`, only the gateway and
-Zitadel have public Container Apps ingress (both checked by `InternalEndpointExposureTests`), and
-callers must send the shared
-`X-Internal-Service-Key`, configured as `InternalServices:ApiKey` in both services. The AppHost
-generates one per run. Without a matching key, lookups fail and rules skip alerts with a warning.
+tenant up in DeviceManager (`GET /api/internal/devices/{id}/tenant`, cached). BundleOrchestrator
+does the same lookup for reconciliation reports and rejects a report (404) when the device isn't
+in the caller's tenant.
+
+That endpoint is for service-to-service calls only: the gateway doesn't route `/api/internal`, only
+the gateway and Zitadel have public Container Apps ingress (both checked by
+`InternalEndpointExposureTests`), and callers must send the shared `X-Internal-Service-Key`,
+configured as `InternalServices:ApiKey` in all three services. The AppHost generates one per run;
+in Azure it is the `internal-service-key` Key Vault secret. Without a matching key, lookups fail:
+rules skip alerts with a warning and reconciliation reports get a 503.
+
+Alerts don't resolve themselves. While a device has an active alert of a type, no new one of that
+type is created for it, so resolve old alerts (or reset the database) before rerunning a scenario.
