@@ -283,7 +283,10 @@ After the retention period, alerts are automatically purged to manage storage.
 
 ## API Access
 
-Programmatic access to alerts via REST API:
+Programmatic access to alerts via REST API, through the API gateway. The alert API is an
+operator API: it needs a Zitadel JWT, or outside Production the tenant API key (`X-API-Key`), and
+only returns the caller's tenant's alerts. Another tenant's alert is a 404. A JWT without a tenant
+claim must pass `tenantId`.
 
 ### Endpoints
 
