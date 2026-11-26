@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Messaging;
 using SignalBeam.TelemetryProcessor.Application.MessageHandlers;
 using SignalBeam.TelemetryProcessor.Application.Repositories;
@@ -169,19 +170,9 @@ public static class DependencyInjection
         });
 
         // Device -> tenant lookups for alerts, via DeviceManager's internal endpoint
-        var internalServiceKey = configuration[SignalBeam.Shared.Infrastructure.Authentication.InternalServiceAuthentication.ConfigurationKey];
-        services.AddMemoryCache();
-        services.AddHttpClient<SignalBeam.TelemetryProcessor.Application.Services.IDeviceTenantResolver,
-            SignalBeam.TelemetryProcessor.Infrastructure.Services.DeviceTenantResolver>(client =>
-        {
-            client.BaseAddress = new Uri(deviceManagerUrl);
-            client.Timeout = TimeSpan.FromSeconds(10);
-            if (!string.IsNullOrEmpty(internalServiceKey))
-            {
-                client.DefaultRequestHeaders.Add(
-                    SignalBeam.Shared.Infrastructure.Authentication.InternalServiceAuthentication.HeaderName, internalServiceKey);
-            }
-        });
+        services.AddDeviceTenantClient(configuration);
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.IDeviceTenantResolver,
+            SignalBeam.TelemetryProcessor.Infrastructure.Services.DeviceTenantResolver>();
 
         // Register data retention service
         services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.IDataRetentionService,
