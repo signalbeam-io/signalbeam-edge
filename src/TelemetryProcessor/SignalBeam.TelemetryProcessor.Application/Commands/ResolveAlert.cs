@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SignalBeam.Domain.ValueObjects;
 using SignalBeam.TelemetryProcessor.Application.Repositories;
 
 namespace SignalBeam.TelemetryProcessor.Application.Commands;
@@ -10,6 +11,9 @@ namespace SignalBeam.TelemetryProcessor.Application.Commands;
 public record ResolveAlertCommand
 {
     public Guid AlertId { get; init; }
+
+    // When set, alerts of other tenants are treated as not found.
+    public TenantId? TenantId { get; init; }
 }
 
 /// <summary>
@@ -57,7 +61,7 @@ public class ResolveAlertHandler
         {
             var alert = await _alertRepository.FindByIdAsync(command.AlertId, cancellationToken);
 
-            if (alert == null)
+            if (alert == null || (command.TenantId is not null && alert.TenantId != command.TenantId))
             {
                 _logger.LogWarning("Alert {AlertId} not found", command.AlertId);
                 return ResolveAlertResponse.Failed("Alert not found");

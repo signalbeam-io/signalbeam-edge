@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SignalBeam.Domain.ValueObjects;
 using SignalBeam.TelemetryProcessor.Application.Repositories;
 
 namespace SignalBeam.TelemetryProcessor.Application.Commands;
@@ -11,6 +12,9 @@ public record AcknowledgeAlertCommand
 {
     public Guid AlertId { get; init; }
     public string AcknowledgedBy { get; init; } = string.Empty;
+
+    // When set, alerts of other tenants are treated as not found.
+    public TenantId? TenantId { get; init; }
 }
 
 /// <summary>
@@ -63,7 +67,7 @@ public class AcknowledgeAlertHandler
         {
             var alert = await _alertRepository.FindByIdAsync(command.AlertId, cancellationToken);
 
-            if (alert == null)
+            if (alert == null || (command.TenantId is not null && alert.TenantId != command.TenantId))
             {
                 _logger.LogWarning("Alert {AlertId} not found", command.AlertId);
                 return AcknowledgeAlertResponse.Failed("Alert not found");

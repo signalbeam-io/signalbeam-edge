@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using SignalBeam.TelemetryProcessor.Application.Commands;
 using SignalBeam.TelemetryProcessor.Application.Queries;
 
@@ -17,8 +19,10 @@ public static class AlertEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapAlertEndpoints(this IEndpointRouteBuilder app)
     {
+        // Operator endpoints, scoped to the caller's tenant (#479). Routed by the gateway.
         var group = app.MapGroup("/api/alerts")
-            .WithTags("Alerts");
+            .WithTags("Alerts")
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
         group.MapGet("/", GetAlerts)
             .WithName("GetAlerts")
@@ -50,6 +54,7 @@ public static class AlertEndpoints
 
     private static async Task<IResult> GetAlerts(
         GetAlertsHandler handler,
+        HttpContext context,
         CancellationToken cancellationToken,
         [FromQuery] AlertStatus? status = null,
         [FromQuery] AlertSeverity? severity = null,
@@ -61,13 +66,18 @@ public static class AlertEndpoints
         [FromQuery] int limit = 100,
         [FromQuery] int offset = 0)
     {
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
+        {
+            return TenantRequired();
+        }
+
         var query = new GetAlertsQuery
         {
             Status = status,
             Severity = severity,
             Type = type,
             DeviceId = deviceId.HasValue ? new DeviceId(deviceId.Value) : null,
-            TenantId = tenantId.HasValue ? new TenantId(tenantId.Value) : null,
+            TenantId = resolvedTenantId,
             CreatedAfter = createdAfter,
             CreatedBefore = createdBefore,
             Limit = limit,
@@ -82,9 +92,16 @@ public static class AlertEndpoints
     private static async Task<IResult> GetAlertById(
         Guid alertId,
         GetAlertByIdHandler handler,
-        CancellationToken cancellationToken)
+        HttpContext context,
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? tenantId = null)
     {
-        var query = new GetAlertByIdQuery { AlertId = alertId };
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
+        {
+            return TenantRequired();
+        }
+
+        var query = new GetAlertByIdQuery { AlertId = alertId, TenantId = resolvedTenantId };
 
         var response = await handler.HandleAsync(query, cancellationToken);
 
@@ -99,13 +116,16 @@ public static class AlertEndpoints
 
     private static async Task<IResult> GetAlertStatistics(
         GetAlertStatisticsHandler handler,
+        HttpContext context,
         CancellationToken cancellationToken,
         [FromQuery] Guid? tenantId = null)
     {
-        var query = new GetAlertStatisticsQuery
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
         {
-            TenantId = tenantId.HasValue ? new TenantId(tenantId.Value) : null
-        };
+            return TenantRequired();
+        }
+
+        var query = new GetAlertStatisticsQuery { TenantId = resolvedTenantId };
 
         var response = await handler.HandleAsync(query, cancellationToken);
 
@@ -116,42 +136,80 @@ public static class AlertEndpoints
         Guid alertId,
         AcknowledgeAlertRequest request,
         AcknowledgeAlertHandler handler,
-        CancellationToken cancellationToken)
+        HttpContext context,
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? tenantId = null)
     {
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
+        {
+            return TenantRequired();
+        }
+
         var command = new AcknowledgeAlertCommand
         {
             AlertId = alertId,
-            AcknowledgedBy = request.AcknowledgedBy
+            AcknowledgedBy = request.AcknowledgedBy,
+            TenantId = resolvedTenantId
         };
 
         var response = await handler.HandleAsync(command, cancellationToken);
 
         return response.Success
             ? Results.Ok(response)
-            : Results.BadRequest(new
-            {
-                error = "ACKNOWLEDGE_FAILED",
-                message = response.ErrorMessage
-            });
+            : CommandFailed("ACKNOWLEDGE_FAILED", response.ErrorMessage);
     }
 
     private static async Task<IResult> ResolveAlert(
         Guid alertId,
         ResolveAlertHandler handler,
-        CancellationToken cancellationToken)
+        HttpContext context,
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? tenantId = null)
     {
-        var command = new ResolveAlertCommand { AlertId = alertId };
+        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
+        {
+            return TenantRequired();
+        }
+
+        var command = new ResolveAlertCommand { AlertId = alertId, TenantId = resolvedTenantId };
 
         var response = await handler.HandleAsync(command, cancellationToken);
 
         return response.Success
             ? Results.Ok(response)
-            : Results.BadRequest(new
-            {
-                error = "RESOLVE_FAILED",
-                message = response.ErrorMessage
-            });
+            : CommandFailed("RESOLVE_FAILED", response.ErrorMessage);
     }
+
+    // Same rule as DeviceManager: the credential's tenant claim wins; the tenantId parameter is
+    // only used when the credential carries none (an operator JWT without a tenant claim).
+    private static bool TryResolveTenantId(Guid? tenantId, HttpContext context, out TenantId resolvedTenantId)
+    {
+        var claim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
+        if (Guid.TryParse(claim, out var claimTenant) && claimTenant != Guid.Empty)
+        {
+            resolvedTenantId = new TenantId(claimTenant);
+            return true;
+        }
+
+        if (tenantId is { } explicitTenant && explicitTenant != Guid.Empty)
+        {
+            resolvedTenantId = new TenantId(explicitTenant);
+            return true;
+        }
+
+        resolvedTenantId = default;
+        return false;
+    }
+
+    private static IResult TenantRequired() => Results.Json(
+        new { error = "TENANT_REQUIRED", message = "A tenant is required.", type = "Forbidden" },
+        statusCode: StatusCodes.Status403Forbidden);
+
+    // Alerts of another tenant look like missing ones.
+    private static IResult CommandFailed(string code, string? message) =>
+        message == "Alert not found"
+            ? Results.NotFound(new { error = "ALERT_NOT_FOUND", message, type = "NotFound" })
+            : Results.BadRequest(new { error = code, message, type = "Validation" });
 
     /// <summary>
     /// Request body for acknowledging an alert.

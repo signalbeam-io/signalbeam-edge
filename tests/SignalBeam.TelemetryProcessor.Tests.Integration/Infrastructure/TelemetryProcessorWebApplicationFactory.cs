@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -23,6 +24,12 @@ public class TelemetryProcessorWebApplicationFactory : WebApplicationFactory<Pro
     public string ConnectionString => _postgresContainer.GetConnectionString();
     public string NatsUrl => _natsUrl;
 
+    // Tenant API keys for the alert API (tenantId:key:scopes).
+    public static readonly Guid TenantA = Guid.Parse("00000000-0000-0000-0000-00000000000a");
+    public static readonly Guid TenantB = Guid.Parse("00000000-0000-0000-0000-00000000000b");
+    public const string TenantAKey = "tenant-a-key";
+    public const string TenantBKey = "tenant-b-key";
+
     public TelemetryProcessorWebApplicationFactory()
     {
         _postgresContainer = new PostgreSqlBuilder("timescale/timescaledb:latest-pg16")
@@ -34,6 +41,12 @@ public class TelemetryProcessorWebApplicationFactory : WebApplicationFactory<Pro
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Authentication:ApiKeys:0"] = $"{TenantA}:{TenantAKey}:alerts:read,alerts:write",
+            ["Authentication:ApiKeys:1"] = $"{TenantB}:{TenantBKey}:alerts:read,alerts:write"
+        }));
+
         builder.ConfigureTestServices(services =>
         {
             // Remove the existing DbContext registration

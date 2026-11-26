@@ -1,6 +1,10 @@
+using System.Text.Json;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using SignalBeam.ServiceDefaults;
+using SignalBeam.Shared.Infrastructure.Authentication;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using SignalBeam.TelemetryProcessor.Application.BackgroundServices;
 using SignalBeam.TelemetryProcessor.Application.Commands;
 using SignalBeam.TelemetryProcessor.Application.Queries;
@@ -31,6 +35,31 @@ builder.Services.AddTelemetryProcessorInfrastructure(builder.Configuration);
 
 // Add TelemetryProcessor Health Checks (PostgreSQL, NATS)
 builder.Services.AddTelemetryProcessorHealthChecks(builder.Configuration);
+
+// The alert API is an operator API: Zitadel JWT, or outside Production the tenant API key (#431),
+// the same as BundleOrchestrator. Other endpoints keep their existing (unauthenticated) behaviour.
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    var jwtConfig = builder.Configuration.GetSection("Authentication:Jwt");
+    options.Authority = jwtConfig["Authority"];
+    options.Audience = GetAudienceFromZitadelConfig(builder.Configuration) ?? jwtConfig["Audience"];
+    options.RequireHttpsMetadata = jwtConfig.GetValue<bool>("RequireHttpsMetadata", true);
+    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ClockSkew = TimeSpan.FromMinutes(5)
+    };
+});
+builder.Services.AddSingleton<IApiKeyValidator, ApiKeyValidator>();
+builder.Services.AddOperatorAuthorization(!builder.Environment.IsProduction());
 
 // Configure DeviceStatusMonitor options
 builder.Services.Configure<DeviceStatusMonitorOptions>(
@@ -101,6 +130,14 @@ if (!app.Environment.IsEnvironment("Testing"))
 // Configure the HTTP request pipeline
 app.UseSerilogRequestLogging();
 
+// API key / JWT authentication for the alert API only; the metrics stream and health endpoints
+// are not covered (yet).
+app.UseWhen(
+    context => context.Request.Path.StartsWithSegments("/api/alerts"),
+    alerts => alerts.UseApiKeyAuthentication());
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Map Aspire default endpoints (/health, /health/live, /health/ready, /metrics)
 app.MapDefaultEndpoints();
 
@@ -119,6 +156,28 @@ app.MapGet("/", () => new
 });
 
 app.Run();
+
+static string? GetAudienceFromZitadelConfig(IConfiguration configuration)
+{
+    var configPath = configuration["ZITADEL_CONFIG_PATH"];
+    if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
+    {
+        return null;
+    }
+
+    try
+    {
+        var config = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(configPath));
+        return config.TryGetProperty("backend", out var backend) && backend.TryGetProperty("audience", out var audience)
+            ? audience.GetString()
+            : null;
+    }
+    catch (Exception ex) when (ex is IOException or JsonException)
+    {
+        Console.WriteLine($"Warning: Failed to read Zitadel config from {configPath}: {ex.Message}");
+        return null;
+    }
+}
 
 // Make Program accessible to WebApplicationFactory in tests
 public partial class Program { }
