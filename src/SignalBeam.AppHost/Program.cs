@@ -131,6 +131,9 @@ var internalServiceKey = Convert.ToHexString(System.Security.Cryptography.Random
 // Microservices - all wait for Zitadel setup and read dynamic config
 var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("device-manager")
     .WithEnvironment("InternalServices__ApiKey", internalServiceKey)
+    // The simulated fleet (~80 req/min) and the operator traffic share the dev tenant's limit
+    // (default 100/min), so raise it locally to keep 429s the exception rather than the norm.
+    .WithEnvironment("RateLimiting__PermitLimit", "300")
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"))
@@ -219,5 +222,21 @@ var edgeAgentSimulator = builder.AddProject<Projects.SignalBeam_EdgeAgent_Simula
     .WithEnvironment("SIM_BUNDLE_ORCHESTRATOR_URL", "http://localhost:8080")
     .WithEnvironment("SIM_API_KEY", "dev-api-key-1")
     .WithEnvironment("SIM_TENANT_ID", "00000000-0000-0000-0000-000000000001");
+
+// Operator traffic against the control-plane APIs through the gateway, like the web UI.
+// Override with e.g. `dotnet run -- --Operator:Rate=60 --Operator:Seed=7`; `--Operator:Enabled=false` turns it off.
+if (!string.Equals(builder.Configuration["Operator:Enabled"], "false", StringComparison.OrdinalIgnoreCase))
+{
+    builder.AddProject<Projects.SignalBeam_TrafficGenerator>("operator-traffic")
+        .WithArgs(
+            "--seed", builder.Configuration["Operator:Seed"] ?? simulatorSeed,
+            "--rate", builder.Configuration["Operator:Rate"] ?? "30",
+            "--start-delay", builder.Configuration["Operator:StartDelay"] ?? "60")
+        .WithEnvironment("TRAFFIC_GATEWAY_URL", "http://localhost:8080")
+        .WithEnvironment("TRAFFIC_API_KEY", "dev-api-key-1")
+        .WithEnvironment("TRAFFIC_TENANT_ID", "00000000-0000-0000-0000-000000000001")
+        .WaitFor(apiGateway)
+        .WaitFor(edgeAgentSimulator);
+}
 
 builder.Build().Run();
