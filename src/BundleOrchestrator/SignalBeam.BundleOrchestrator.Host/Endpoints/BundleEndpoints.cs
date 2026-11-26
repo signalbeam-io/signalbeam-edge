@@ -1,3 +1,4 @@
+using FluentValidation;
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Models;
 using SignalBeam.BundleOrchestrator.Application.Queries;
@@ -99,6 +100,7 @@ public static class BundleEndpoints
         Guid? tenantId,
         HttpContext context,
         CreateBundleHandler handler,
+        IValidator<CreateBundleCommand> validator,
         CancellationToken cancellationToken)
     {
         if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
@@ -131,6 +133,18 @@ public static class BundleEndpoints
             request.Description,
             request.Version,
             containers);
+
+        // Without this an empty name reached the domain and came back as a 500.
+        var validation = await validator.ValidateAsync(command, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return Results.BadRequest(new
+            {
+                error = "VALIDATION_FAILED",
+                message = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)),
+                type = "Validation"
+            });
+        }
 
         var result = await handler.Handle(command, cancellationToken);
 
