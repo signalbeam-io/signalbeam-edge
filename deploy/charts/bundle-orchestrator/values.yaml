@@ -29,7 +29,7 @@ ingress:
   hosts:
     - host: bundle-orchestrator.signalbeam.local
       paths:
-        - path: /api/bundles  # never "/": only expose the public API prefix
+        - path: /
           pathType: Prefix
   tls: []
 

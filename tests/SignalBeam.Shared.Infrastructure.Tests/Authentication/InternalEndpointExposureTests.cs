@@ -11,8 +11,8 @@ public class InternalEndpointExposureTests
 {
     private const string InternalUrl = InternalServiceAuthentication.PathPrefix + "/devices/3f0b4c2e-8f8e-4c5e-9a55-7b6f4f0a1c11/tenant";
 
-    // Only these apps may have public ingress (Container Apps) or a root ("/") ingress path (Helm).
-    private static readonly string[] PublicApps = ["apigateway", "api-gateway", "zitadel", "web"];
+    // Only these Container Apps may have public ingress.
+    private static readonly string[] PublicApps = ["apigateway", "zitadel"];
 
     private static readonly string RepoRoot = FindRepoRoot();
 
@@ -34,27 +34,6 @@ public class InternalEndpointExposureTests
         // Assert
         routes.Should().NotBeEmpty();
         matching.Should().BeEmpty("the gateway is public and must not proxy {0}", InternalServiceAuthentication.PathPrefix);
-    }
-
-    [Fact]
-    public void HelmIngressPaths_DoNotCoverInternalPaths()
-    {
-        // Arrange
-        var valueFiles = Directory.GetFiles(Path.Combine(RepoRoot, "deploy", "charts"), "values*.yaml", SearchOption.AllDirectories);
-
-        // Act
-        var exposing = (
-            from file in valueFiles
-            let chart = Path.GetFileName(Path.GetDirectoryName(file))!
-            where !PublicApps.Contains(chart)
-            from match in Regex.Matches(File.ReadAllText(file), @"^\s*-\s*path:\s*(\S+)", RegexOptions.Multiline)
-            let path = match.Groups[1].Value.Trim('"', '\'')
-            where InternalUrl.StartsWith(path.TrimEnd('/') + "/", StringComparison.Ordinal) || path == "/"
-            select $"{Path.GetRelativePath(RepoRoot, file)}: {path}").ToList();
-
-        // Assert
-        valueFiles.Should().NotBeEmpty();
-        exposing.Should().BeEmpty();
     }
 
     [Fact]

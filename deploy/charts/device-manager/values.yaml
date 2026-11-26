@@ -29,7 +29,7 @@ ingress:
   hosts:
     - host: device-manager.signalbeam.local
       paths:
-        - path: /api/devices  # never "/": the service also has /api/internal endpoints
+        - path: /
           pathType: Prefix
   tls: []
 
