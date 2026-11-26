@@ -36,6 +36,34 @@ public class InternalEndpointExposureTests
         matching.Should().BeEmpty("the gateway is public and must not proxy {0}", InternalServiceAuthentication.PathPrefix);
     }
 
+    // These live under /api/devices but are served by BundleOrchestrator; YARP picks the more
+    // specific route over DeviceManager's /api/devices/{**catch-all}.
+    [Theory]
+    [InlineData("/api/devices/3f0b4c2e-8f8e-4c5e-9a55-7b6f4f0a1c11/desired-state")]
+    [InlineData("/api/devices/3f0b4c2e-8f8e-4c5e-9a55-7b6f4f0a1c11/reconciliation-status")]
+    [InlineData("/api/devices/3f0b4c2e-8f8e-4c5e-9a55-7b6f4f0a1c11/bundle")]
+    [InlineData("/api/device-groups/3f0b4c2e-8f8e-4c5e-9a55-7b6f4f0a1c11/bundle")]
+    public void GatewayRoutes_SendBundleOrchestratorDevicePathsToBundleOrchestrator(string path)
+    {
+        foreach (var file in new[] { "src/SignalBeam.ApiGateway/appsettings.json", "src/SignalBeam.ApiGateway/appsettings.Development.json" })
+        {
+            // Arrange
+            using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, file)));
+            var routes = config.RootElement.GetProperty("ReverseProxy").GetProperty("Routes").EnumerateObject();
+
+            // Act: approximate YARP's precedence, where a route without a catch-all wins.
+            var winner = routes
+                .Select(r => (Path: r.Value.GetProperty("Match").GetProperty("Path").GetString()!, Cluster: r.Value.GetProperty("ClusterId").GetString()))
+                .Where(r => RouteMatches(r.Path, path))
+                .OrderBy(r => r.Path.Contains("{**", StringComparison.Ordinal) ? 1 : 0)
+                .ToList();
+
+            // Assert
+            winner.Should().NotBeEmpty(file);
+            winner[0].Cluster.Should().Be("bundle-orchestrator", file);
+        }
+    }
+
     [Fact]
     public void ContainerApps_OnlyGatewayAndZitadelHavePublicIngress()
     {
