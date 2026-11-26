@@ -56,6 +56,8 @@ dependency "secrets" {
     internal_service_key_secret_id = "https://mock-kv.vault.azure.net/secrets/internal-service-key"
   }
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+  # Fill outputs the applied state doesn't have yet (e.g. a newly added secret) from the mocks.
+  mock_outputs_merge_strategy_with_state = "shallow"
 }
 
 inputs = {

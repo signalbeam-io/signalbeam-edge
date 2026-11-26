@@ -10,7 +10,7 @@ a public HTTPS endpoint the EdgeAgent can reach via `--cloud-url`.
 | Unit | Resource | Ingress | Replicas | Notes |
 |------|----------|---------|----------|-------|
 | `environment` | Container Apps environment (Consumption) + Azure Files for NATS | — | — | VNet-injected via `snet-aca` (/27), public LB enabled |
-| `secrets` | Key Vault secrets (DB connection string, GHCR PAT placeholder) | — | — | Consumed as Key Vault references |
+| `secrets` | Key Vault secrets (DB connection string, GHCR PAT placeholder, tenant API key, internal service key) | — | — | Consumed as Key Vault references |
 | `nats` | NATS + JetStream | internal TCP :4222 | **1** (always-on) | JetStream persisted on Azure Files |
 | `apigateway` | YARP gateway | **external HTTPS** | 0→1 | The only public app; EdgeAgent talks here |
 | `devicemanager` | DeviceManager | internal HTTPS | 0→1 | scale-to-zero |
