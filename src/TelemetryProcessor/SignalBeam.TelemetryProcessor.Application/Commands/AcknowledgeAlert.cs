@@ -24,6 +24,7 @@ public record AcknowledgeAlertResponse
 {
     public bool Success { get; init; }
     public string? ErrorMessage { get; init; }
+    public bool NotFound { get; init; }
     public Guid? AlertId { get; init; }
 
     public static AcknowledgeAlertResponse Succeeded(Guid alertId) =>
@@ -31,6 +32,9 @@ public record AcknowledgeAlertResponse
 
     public static AcknowledgeAlertResponse Failed(string errorMessage) =>
         new() { Success = false, ErrorMessage = errorMessage };
+
+    public static AcknowledgeAlertResponse AlertNotFound() =>
+        new() { Success = false, NotFound = true, ErrorMessage = "Alert not found" };
 }
 
 /// <summary>
@@ -70,7 +74,7 @@ public class AcknowledgeAlertHandler
             if (alert == null || (command.TenantId is not null && alert.TenantId != command.TenantId))
             {
                 _logger.LogWarning("Alert {AlertId} not found", command.AlertId);
-                return AcknowledgeAlertResponse.Failed("Alert not found");
+                return AcknowledgeAlertResponse.AlertNotFound();
             }
 
             // Acknowledge the alert

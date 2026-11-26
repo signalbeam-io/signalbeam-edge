@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
@@ -51,6 +54,55 @@ public class AlertEndpointsTests : IClassFixture<TelemetryProcessorWebApplicatio
     }
 
     [Fact]
+    public async Task GetAlerts_ByAnotherTenantsDevice_ReturnsNothing()
+    {
+        // Arrange: the deviceId filter used to skip the tenant check.
+        var deviceId = Guid.NewGuid();
+        await AddAlertAsync(TelemetryProcessorWebApplicationFactory.TenantB, deviceId);
+
+        // Act
+        var response = await Client(TelemetryProcessorWebApplicationFactory.TenantAKey)
+            .GetAsync($"/api/alerts?deviceId={deviceId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("alerts").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetStatistics_CountsOnlyTheCallersTenant()
+    {
+        // Arrange
+        await AddAlertAsync(TelemetryProcessorWebApplicationFactory.TenantA);
+        await AddAlertAsync(TelemetryProcessorWebApplicationFactory.TenantB);
+
+        // Act
+        var response = await Client(TelemetryProcessorWebApplicationFactory.TenantAKey).GetAsync("/api/alerts/statistics");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        await using var db = _factory.GetDbContext();
+        var expected = await db.Alerts.CountAsync(a =>
+            a.TenantId == new TenantId(TelemetryProcessorWebApplicationFactory.TenantA) && a.Status == AlertStatus.Active);
+        (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("totalActive").GetInt32().Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task TenantApiKey_InProduction_IsForbidden()
+    {
+        // Arrange: in Production only an operator JWT authorizes the alert API (#431).
+        var client = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddOperatorAuthorization(allowTenantApiKeyFallback: false))).CreateClient();
+        client.DefaultRequestHeaders.Add("X-API-Key", TelemetryProcessorWebApplicationFactory.TenantAKey);
+
+        // Act
+        var response = await client.GetAsync("/api/alerts");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task AlertOfAnotherTenant_IsNotFound_AndCannotBeAcknowledgedOrResolved()
     {
         // Arrange
@@ -94,11 +146,11 @@ public class AlertEndpointsTests : IClassFixture<TelemetryProcessorWebApplicatio
         return client;
     }
 
-    private async Task<Guid> AddAlertAsync(Guid tenantId)
+    private async Task<Guid> AddAlertAsync(Guid tenantId, Guid? deviceId = null)
     {
         var alert = Alert.Create(
             new TenantId(tenantId), AlertSeverity.Warning, AlertType.DeviceOffline,
-            "Device is offline", "No heartbeat", new DeviceId(Guid.NewGuid()));
+            "Device is offline", "No heartbeat", new DeviceId(deviceId ?? Guid.NewGuid()));
 
         await using var db = _factory.GetDbContext();
         db.Alerts.Add(alert);

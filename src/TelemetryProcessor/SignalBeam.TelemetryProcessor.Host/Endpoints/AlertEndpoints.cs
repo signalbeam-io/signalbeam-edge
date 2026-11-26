@@ -156,7 +156,7 @@ public static class AlertEndpoints
 
         return response.Success
             ? Results.Ok(response)
-            : CommandFailed("ACKNOWLEDGE_FAILED", response.ErrorMessage);
+            : CommandFailed("ACKNOWLEDGE_FAILED", response.NotFound, response.ErrorMessage);
     }
 
     private static async Task<IResult> ResolveAlert(
@@ -177,7 +177,7 @@ public static class AlertEndpoints
 
         return response.Success
             ? Results.Ok(response)
-            : CommandFailed("RESOLVE_FAILED", response.ErrorMessage);
+            : CommandFailed("RESOLVE_FAILED", response.NotFound, response.ErrorMessage);
     }
 
     // Same rule as DeviceManager: the credential's tenant claim wins; the tenantId parameter is
@@ -206,8 +206,8 @@ public static class AlertEndpoints
         statusCode: StatusCodes.Status403Forbidden);
 
     // Alerts of another tenant look like missing ones.
-    private static IResult CommandFailed(string code, string? message) =>
-        message == "Alert not found"
+    private static IResult CommandFailed(string code, bool notFound, string? message) =>
+        notFound
             ? Results.NotFound(new { error = "ALERT_NOT_FOUND", message, type = "NotFound" })
             : Results.BadRequest(new { error = code, message, type = "Validation" });
 

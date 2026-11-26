@@ -23,6 +23,7 @@ public record ResolveAlertResponse
 {
     public bool Success { get; init; }
     public string? ErrorMessage { get; init; }
+    public bool NotFound { get; init; }
     public Guid? AlertId { get; init; }
 
     public static ResolveAlertResponse Succeeded(Guid alertId) =>
@@ -30,6 +31,9 @@ public record ResolveAlertResponse
 
     public static ResolveAlertResponse Failed(string errorMessage) =>
         new() { Success = false, ErrorMessage = errorMessage };
+
+    public static ResolveAlertResponse AlertNotFound() =>
+        new() { Success = false, NotFound = true, ErrorMessage = "Alert not found" };
 }
 
 /// <summary>
@@ -64,7 +68,7 @@ public class ResolveAlertHandler
             if (alert == null || (command.TenantId is not null && alert.TenantId != command.TenantId))
             {
                 _logger.LogWarning("Alert {AlertId} not found", command.AlertId);
-                return ResolveAlertResponse.Failed("Alert not found");
+                return ResolveAlertResponse.AlertNotFound();
             }
 
             // Resolve the alert

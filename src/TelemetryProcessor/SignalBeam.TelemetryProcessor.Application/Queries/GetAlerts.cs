@@ -192,6 +192,12 @@ public class GetAlertsHandler
         // Apply additional filters in memory (not ideal, but works for MVP)
         var filteredAlerts = alerts.AsEnumerable();
 
+        // Not every repository call above filters by tenant (the device one doesn't), so enforce it here.
+        if (query.TenantId is { } tenantId)
+        {
+            filteredAlerts = filteredAlerts.Where(a => a.TenantId == tenantId);
+        }
+
         if (query.Status.HasValue)
         {
             filteredAlerts = filteredAlerts.Where(a => a.Status == query.Status.Value);
