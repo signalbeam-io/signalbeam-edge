@@ -172,6 +172,8 @@ builder.Services.AddScoped<RegisterDeviceHandler>();
 builder.Services.AddScoped<UpdateDeviceHandler>();
 builder.Services.AddScoped<AddDeviceTagHandler>();
 builder.Services.AddScoped<RecordHeartbeatHandler>();
+builder.Services.AddScoped<MarkDeviceOfflineHandler>();
+builder.Services.AddScoped<SignalBeam.DeviceManager.Application.EventHandlers.DeviceOfflineEventHandler>();
 builder.Services.AddScoped<AssignDeviceToGroupHandler>();
 builder.Services.AddScoped<ReportDeviceStateHandler>();
 builder.Services.AddScoped<UpdateDeviceMetricsHandler>();
@@ -190,6 +192,7 @@ builder.Services.AddScoped<RevokeDeviceApiKeyHandler>();
 
 builder.Services.AddScoped<GetDevicesHandler>();
 builder.Services.AddScoped<GetDeviceByIdHandler>();
+builder.Services.AddScoped<GetDeviceTenantHandler>();
 builder.Services.AddScoped<GetDeviceHealthHandler>();
 builder.Services.AddScoped<GetDevicesByGroupHandler>();
 builder.Services.AddScoped<GetDeviceActivityLogHandler>();
@@ -332,6 +335,7 @@ app.MapDeviceEndpoints();
 app.MapGroupEndpoints();
 app.MapTagEndpoints();
 app.MapCertificateEndpoints();
+app.MapInternalEndpoints();
 
 app.Run();
 

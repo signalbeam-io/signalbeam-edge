@@ -15,6 +15,15 @@ internal sealed record DeviceLoopOptions(
     bool LogSuccess,
     bool ReportStateOnlyOnChange = false);
 
+// What a device shares with the rest of the fleet: the NATS publisher (null = HTTP only),
+// its injected fault (null = healthy) and the fleet clock that scenario timings are relative to.
+internal sealed record DeviceRuntime(NatsTelemetryPublisher? Nats, DeviceFault? Fault, DateTimeOffset ClockStart)
+{
+    public static readonly DeviceRuntime HttpOnly = new(null, null, DateTimeOffset.UtcNow);
+
+    public TimeSpan Elapsed => DateTimeOffset.UtcNow - ClockStart;
+}
+
 // One simulated edge device: heartbeat, metrics and desired-state loops.
 // Each loop has its own Random seeded from the device seed, so values and jitter are reproducible.
 internal sealed class SimulatedDevice
@@ -27,8 +36,10 @@ internal sealed class SimulatedDevice
     private readonly TimeSpan _startOffset;
     private readonly int _seed;
     private readonly KeyValuePair<string, object?>[] _tags;
+    private readonly DeviceRuntime _runtime;
     private string? _lastBundleKey;
-    private string? _lastReportedBundleKey;
+    private string? _lastReportedOutcome;
+    private volatile bool _reconciliationFailing;
 
     public SimulatedDevice(
         Guid deviceId,
@@ -38,8 +49,10 @@ internal sealed class SimulatedDevice
         DeviceLoopOptions options,
         TimeSpan startOffset,
         int seed,
-        string? environment = null)
+        string? environment = null,
+        DeviceRuntime? runtime = null)
     {
+        _runtime = runtime ?? DeviceRuntime.HttpOnly;
         _deviceId = deviceId;
         _deviceName = deviceName;
         _deviceClient = deviceClient;
@@ -121,10 +134,24 @@ internal sealed class SimulatedDevice
         Func<Random, CancellationToken, Task> tick,
         CancellationToken cancellationToken)
     {
+        // An offline device sends nothing at all, so there is no trace either.
+        var fault = _runtime.Fault;
+        var elapsed = _runtime.Elapsed;
+        if (fault?.IsOffline(elapsed) == true)
+        {
+            return;
+        }
+
         // Each tick is its own root trace, so every device action shows up as a separate flow.
         Activity.Current = null;
         using var activity = SimulatorTelemetry.Source.StartActivity(
             $"simulate {action}", ActivityKind.Internal, parentContext: default, tags: _tags);
+
+        if (fault?.IsActive(elapsed) == true)
+        {
+            // Lets trace analysis separate injected failures from organic ones.
+            activity?.SetTag("signalbeam.sim.scenario", fault.Scenario);
+        }
 
         try
         {
@@ -153,27 +180,46 @@ internal sealed class SimulatedDevice
         return interval * factor;
     }
 
-    private Task SendHeartbeatAsync(CancellationToken cancellationToken) =>
-        PostAsync(
+    private async Task SendHeartbeatAsync(CancellationToken cancellationToken)
+    {
+        await PostAsync(
             _deviceClient,
             $"/api/devices/{_deviceId}/heartbeat",
             new RecordHeartbeatRequest(_deviceId, DateTimeOffset.UtcNow),
             "heartbeat",
             cancellationToken);
 
-    private Task SendMetricsAsync(Random rng, DateTimeOffset startedAt, CancellationToken cancellationToken)
-    {
-        var request = new UpdateDeviceMetricsRequest(
-            _deviceId,
-            DateTimeOffset.UtcNow,
-            CpuUsage: 10 + rng.NextDouble() * 70,
-            MemoryUsage: 20 + rng.NextDouble() * 60,
-            DiskUsage: 5 + rng.NextDouble() * 40,
-            UptimeSeconds: (long)(DateTimeOffset.UtcNow - startedAt).TotalSeconds,
-            RunningContainers: rng.Next(1, 5),
-            AdditionalMetrics: null);
+        if (_runtime.Nats is { } nats)
+        {
+            // TelemetryProcessor's error-rate rule counts statuses containing "Failed".
+            await nats.PublishHeartbeatAsync(_deviceId, _reconciliationFailing ? "ReconciliationFailed" : "Online", cancellationToken);
+        }
+    }
 
-        return PostAsync(_deviceClient, $"/api/devices/{_deviceId}/metrics", request, "metrics", cancellationToken);
+    private async Task SendMetricsAsync(Random rng, DateTimeOffset startedAt, CancellationToken cancellationToken)
+    {
+        var normal = new MetricsSample(
+            Cpu: 10 + rng.NextDouble() * 70,
+            Memory: 20 + rng.NextDouble() * 60,
+            Disk: 5 + rng.NextDouble() * 40);
+        var sample = _runtime.Fault?.Apply(normal, _runtime.Elapsed, rng) ?? normal;
+        var now = DateTimeOffset.UtcNow;
+        var uptime = (long)(now - startedAt).TotalSeconds;
+        var containers = rng.Next(1, 5);
+
+        await PostAsync(
+            _deviceClient,
+            $"/api/devices/{_deviceId}/metrics",
+            new UpdateDeviceMetricsRequest(_deviceId, now, sample.Cpu, sample.Memory, sample.Disk, uptime, containers, null),
+            "metrics",
+            cancellationToken);
+
+        if (_runtime.Nats is { } nats)
+        {
+            await nats.PublishMetricsAsync(
+                new NatsMetricsMessage(_deviceId, now, sample.Cpu, sample.Memory, sample.Disk, uptime, containers),
+                cancellationToken);
+        }
     }
 
     private async Task PollDesiredStateAsync(CancellationToken cancellationToken)
@@ -197,6 +243,7 @@ internal sealed class SimulatedDevice
             SimulatorJson.Options, cancellationToken))?.DesiredState;
         if (desired is null)
         {
+            _reconciliationFailing = false;
             return;
         }
 
@@ -208,22 +255,44 @@ internal sealed class SimulatedDevice
             _lastBundleKey = bundleKey;
         }
 
-        // A real agent reports once it has rolled out a new bundle; fleets do the same to stay
-        // under DeviceManager's per-tenant rate limit, retrying on the next poll until the report
-        // succeeds. Single-device mode keeps reporting every poll.
-        var unreported = !string.Equals(bundleKey, _lastReportedBundleKey, StringComparison.Ordinal);
+        // deploy-failure: the device can't roll out its desired bundle, like an agent whose image pull fails.
+        var failed = _runtime.Fault?.FailsDeployments(_runtime.Elapsed) == true;
+        _reconciliationFailing = failed;
+        var outcome = $"{bundleKey}:{(failed ? "failed" : "succeeded")}";
+
+        // A real agent reports once per rollout outcome; fleets do the same to stay under DeviceManager's
+        // per-tenant rate limit, retrying on the next poll until both reports succeed.
+        // Single-device mode keeps reporting every poll.
+        var unreported = !string.Equals(outcome, _lastReportedOutcome, StringComparison.Ordinal);
         if (_options.ReportState && (unreported || !_options.ReportStateOnlyOnChange))
         {
-            var reported = await PostAsync(
+            var stateReported = await PostAsync(
                 _deviceClient,
                 $"/api/devices/{_deviceId}/state",
-                new ReportDeviceStateRequest(_deviceId, BundleDeploymentStatus.Completed, DateTimeOffset.UtcNow),
+                new ReportDeviceStateRequest(
+                    _deviceId,
+                    failed ? BundleDeploymentStatus.Failed : BundleDeploymentStatus.Completed,
+                    DateTimeOffset.UtcNow),
                 "state",
                 cancellationToken);
 
-            if (reported)
+            var reconciliationReported = await PostAsync(
+                _bundleClient,
+                $"/api/devices/{_deviceId}/reconciliation-status",
+                new ReconciliationStatusRequest(
+                    _deviceId,
+                    failed ? "failed" : "succeeded",
+                    desired.BundleId.ToString(),
+                    desired.BundleVersion,
+                    DateTime.UtcNow,
+                    [],
+                    failed ? [$"Failed to pull image for bundle {desired.BundleId} v{desired.BundleVersion}: manifest unknown (simulated)"] : []),
+                "reconciliation-status",
+                cancellationToken);
+
+            if (stateReported && reconciliationReported)
             {
-                _lastReportedBundleKey = bundleKey;
+                _lastReportedOutcome = outcome;
             }
         }
     }

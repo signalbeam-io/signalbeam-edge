@@ -348,6 +348,9 @@ public class DeviceRegisteredHandler
 - `signalbeam.devices.heartbeat` - Device heartbeat events
 - `signalbeam.devices.metrics` - Device metrics streams
 
+**Publishes**:
+- `signalbeam.devices.events.stale_detected` - Device stopped sending heartbeats (consumed by DeviceManager, which marks it Offline)
+
 **Database Tables**:
 - `DeviceMetrics` (TimescaleDB hypertable) - Time-series metrics
 - `DeviceReportedState` - Current state snapshot

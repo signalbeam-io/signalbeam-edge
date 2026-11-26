@@ -125,6 +125,7 @@ builder.Services.AddScoped<UploadBundleVersionHandler>();
 builder.Services.AddScoped<AssignBundleToDeviceHandler>();
 builder.Services.AddScoped<AssignBundleToGroupHandler>();
 builder.Services.AddScoped<UpdateRolloutStatusHandler>();
+builder.Services.AddScoped<ReportReconciliationStatusHandler>();
 
 builder.Services.AddScoped<GetBundlesHandler>();
 builder.Services.AddScoped<GetBundleByIdHandler>();

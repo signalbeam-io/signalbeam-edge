@@ -1,6 +1,9 @@
+using FluentValidation;
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
+using ErrorType = SignalBeam.Shared.Infrastructure.Results.ErrorType;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -30,6 +33,13 @@ public static class BundleAssignmentEndpoints
             .WithName("GetDeviceDesiredState")
             .WithSummary("Get device desired state")
             .WithDescription("Retrieves the desired bundle state for a specific device.");
+
+        // Device action: the agent reports the outcome of reconciling its desired state, which
+        // updates the device's rollout status. Same device auth path as desired-state.
+        deviceGroup.MapPost("/{deviceId:guid}/reconciliation-status", ReportReconciliationStatus)
+            .WithName("ReportReconciliationStatus")
+            .WithSummary("Report reconciliation status")
+            .WithDescription("Records whether the device succeeded or failed to reconcile its assigned bundle version.");
 
         // Operator action: assigning a bundle to a whole group.
         var groupGroup = app.MapGroup("/api/device-groups")
@@ -80,6 +90,50 @@ public static class BundleAssignmentEndpoints
                 message = result.Error.Message,
                 type = result.Error.Type.ToString()
             });
+    }
+
+    private static async Task<IResult> ReportReconciliationStatus(
+        Guid deviceId,
+        ReportReconciliationStatusCommand command,
+        ReportReconciliationStatusHandler handler,
+        IValidator<ReportReconciliationStatusCommand> validator,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var updatedCommand = command with { DeviceId = deviceId };
+        var validation = await validator.ValidateAsync(updatedCommand, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return Results.BadRequest(new
+            {
+                error = "VALIDATION_FAILED",
+                message = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)),
+                type = "Validation"
+            });
+        }
+
+        var callerTenantId = Guid.TryParse(
+            context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value, out var tenantId)
+            ? tenantId
+            : (Guid?)null;
+
+        var result = await handler.Handle(updatedCommand, callerTenantId, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Ok(result.Value);
+        }
+
+        var statusCode = result.Error!.Type switch
+        {
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
+            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorType.Failure => StatusCodes.Status503ServiceUnavailable,
+            _ => StatusCodes.Status400BadRequest
+        };
+
+        return Results.Json(
+            new { error = result.Error.Code, message = result.Error.Message, type = result.Error.Type.ToString() },
+            statusCode: statusCode);
     }
 
     private static async Task<IResult> AssignBundleToGroup(

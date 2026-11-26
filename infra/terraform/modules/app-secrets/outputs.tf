@@ -35,3 +35,8 @@ output "zitadel_admin_password_secret_id" {
   description = "Versionless Key Vault secret ID for the Zitadel first-instance admin password"
   value       = azurerm_key_vault_secret.zitadel_admin_password.versionless_id
 }
+
+output "internal_service_key_secret_id" {
+  description = "Versionless Key Vault secret ID for the internal service key; injected as InternalServices__ApiKey"
+  value       = azurerm_key_vault_secret.internal_service_key.versionless_id
+}

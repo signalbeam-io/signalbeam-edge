@@ -37,7 +37,8 @@ public class DeviceAuthenticationMiddleware
             context.Request.Path.StartsWithSegments("/metrics") ||
             context.Request.Path.StartsWithSegments("/scalar") ||
             context.Request.Path.StartsWithSegments("/openapi") ||
-            context.Request.Path.StartsWithSegments("/api/certificates/ca")) // CA cert is public
+            context.Request.Path.StartsWithSegments("/api/certificates/ca") || // CA cert is public
+            context.Request.Path.StartsWithSegments(InternalServiceAuthentication.PathPrefix)) // own service-key check
         {
             await _next(context);
             return;

@@ -25,7 +25,7 @@ This service acts as a **message consumer** rather than a traditional HTTP API. 
      - `signalbeam.telemetry.metrics.>` → Device metrics
 
 2. **Background Services** (Application Layer)
-   - **DeviceStatusMonitor**: Checks for stale devices and marks them as offline
+   - **DeviceStatusMonitor**: Checks for stale devices and publishes `signalbeam.devices.events.stale_detected`, which DeviceManager uses to mark them Offline
    - **MetricsAggregationService**: Placeholder for custom aggregation tasks (TimescaleDB handles most aggregation)
 
 3. **Message Handlers** (Application Layer)
@@ -173,6 +173,9 @@ The service is designed to run as a Deployment with multiple replicas for high a
 | `NATS__Url` | NATS server URL | `nats://localhost:4222` |
 | `DeviceStatusMonitor__CheckInterval` | How often to check for stale devices | `00:01:00` |
 | `DeviceStatusMonitor__HeartbeatThreshold` | Heartbeat timeout threshold | `00:02:00` |
+| `DeviceManager__BaseUrl` | DeviceManager URL, used to look up a device's tenant for alerts | - |
+| `InternalServices__ApiKey` | Shared key for DeviceManager's `/api/internal` endpoints (same value in both services); without it alerts are skipped | - |
+| `Alerting__Rules__<Rule>__*` | Alert rule thresholds (`DeviceOfflineWarning`, `DeviceOfflineCritical`, `DeviceUnhealthy`, `HighErrorRate`, `HighResourceUtilization`) | see `appsettings.json` |
 
 ## Monitoring
 

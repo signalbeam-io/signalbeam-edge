@@ -5,6 +5,8 @@ YARP-based reverse proxy that provides a single entry point for all SignalBeam m
 ## Purpose
 
 Routes requests from the frontend to the appropriate microservice:
+- `/api/devices/{deviceId}/desired-state`, `/bundle`, `/reconciliation-status` → BundleOrchestrator (port 5002); these routes are more specific than the DeviceManager catch-all below and take precedence
+- `/api/device-groups/*` → BundleOrchestrator (port 5002)
 - `/api/devices/*` → DeviceManager (port 5296)
 - `/api/groups/*` → DeviceManager (port 5296)
 - `/api/bundles/*` → BundleOrchestrator (port 5002)

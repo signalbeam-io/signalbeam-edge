@@ -10,12 +10,12 @@ The SignalBeam Edge Alert System provides comprehensive monitoring and notificat
 
 The system continuously monitors your devices and automatically generates alerts when issues are detected:
 
-- **Device Offline**: Triggered when a device stops sending heartbeats (default: 5 minutes)
-- **High CPU Usage**: CPU usage exceeds threshold (default: 80%)
-- **High Memory Usage**: Memory usage exceeds threshold (default: 85%)
-- **High Disk Usage**: Disk usage exceeds threshold (default: 90%)
-- **Low Battery**: Battery level below threshold (configurable)
-- **Rollout Failed**: Application bundle deployment fails
+- **Device Offline**: no heartbeat for 5 minutes (Warning), 30 minutes (Critical)
+- **Device Unhealthy**: health score below 50
+- **High Error Rate**: more than 5% failed heartbeats over 5 minutes (for example failed reconciliations)
+- **High Resource Utilization**: CPU, memory or disk at or above 90% for 3 minutes
+
+Alerts belong to the device's tenant, which TelemetryProcessor looks up in DeviceManager.
 
 ### Alert Severities
 
@@ -237,12 +237,14 @@ Configure when alerts are triggered:
 
 ```json
 {
-  "HealthMonitor": {
-    "OfflineThresholdMinutes": 5,
-    "HighCpuThreshold": 80.0,
-    "HighMemoryThreshold": 85.0,
-    "HighDiskThreshold": 90.0,
-    "LowBatteryThreshold": 20.0
+  "Alerting": {
+    "Rules": {
+      "DeviceOfflineWarning": { "Enabled": true, "ThresholdMinutes": 5, "Severity": "Warning" },
+      "DeviceOfflineCritical": { "Enabled": true, "ThresholdMinutes": 30, "Severity": "Critical" },
+      "DeviceUnhealthy": { "Enabled": true, "ThresholdScore": 50, "Severity": "Critical" },
+      "HighErrorRate": { "Enabled": true, "ThresholdPercent": 5.0, "WindowMinutes": 5, "Severity": "Warning" },
+      "HighResourceUtilization": { "Enabled": true, "ThresholdPercent": 90, "WindowMinutes": 3, "Severity": "Warning" }
+    }
   }
 }
 ```

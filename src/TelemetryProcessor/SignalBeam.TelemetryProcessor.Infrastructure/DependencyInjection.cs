@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Messaging;
 using SignalBeam.TelemetryProcessor.Application.MessageHandlers;
 using SignalBeam.TelemetryProcessor.Application.Repositories;
@@ -131,6 +132,8 @@ public static class DependencyInjection
             SignalBeam.TelemetryProcessor.Application.Services.AlertRules.DeviceUnhealthyRule>();
         services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.IAlertRule,
             SignalBeam.TelemetryProcessor.Application.Services.AlertRules.HighErrorRateRule>();
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.AlertRules.IAlertRule,
+            SignalBeam.TelemetryProcessor.Application.Services.AlertRules.HighResourceUtilizationRule>();
 
         // Configure notification options
         services.Configure<SignalBeam.TelemetryProcessor.Application.Services.Notifications.NotificationOptions>(
@@ -165,6 +168,11 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(deviceManagerUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+
+        // Device -> tenant lookups for alerts, via DeviceManager's internal endpoint
+        services.AddDeviceTenantClient(configuration);
+        services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.IDeviceTenantResolver,
+            SignalBeam.TelemetryProcessor.Infrastructure.Services.DeviceTenantResolver>();
 
         // Register data retention service
         services.AddScoped<SignalBeam.TelemetryProcessor.Application.Services.IDataRetentionService,

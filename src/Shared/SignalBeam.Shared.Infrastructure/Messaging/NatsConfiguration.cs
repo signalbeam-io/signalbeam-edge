@@ -9,6 +9,12 @@ namespace SignalBeam.Shared.Infrastructure.Messaging;
 /// </summary>
 public static class NatsConfiguration
 {
+    // Aspire hands out endpoints as tcp://host:port, which NATS.Net rejects ("unsupported scheme tcp").
+    public static string NormalizeUrl(string url) =>
+        url.StartsWith("tcp://", StringComparison.OrdinalIgnoreCase) ? "nats://" + url["tcp://".Length..]
+        : url.Contains("://", StringComparison.Ordinal) ? url
+        : "nats://" + url;
+
     /// <summary>
     /// Adds NATS client with default configuration.
     /// </summary>
@@ -16,7 +22,7 @@ public static class NatsConfiguration
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var natsUrl = configuration["NATS:Url"] ?? "nats://localhost:4222";
+        var natsUrl = NormalizeUrl(configuration["NATS:Url"] ?? "nats://localhost:4222");
 
         services.AddSingleton<INatsConnection>(_ =>
         {

@@ -58,6 +58,14 @@ public class AlertRulesOptions
         WindowMinutes = 5,
         Severity = "Warning"
     };
+
+    public AlertRuleConfig HighResourceUtilization { get; set; } = new()
+    {
+        Enabled = true,
+        ThresholdPercent = 90,
+        WindowMinutes = 3,
+        Severity = "Warning"
+    };
 }
 
 /// <summary>

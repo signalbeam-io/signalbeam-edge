@@ -123,8 +123,14 @@ var storage = builder.AddAzureStorage("storage")
 
 var blobs = storage.AddBlobs("blobs");
 
+// Shared key for service-to-service endpoints under /api/internal (TelemetryProcessor and
+// BundleOrchestrator looking up a device's tenant in DeviceManager). Generated per run: every service
+// restarts with the AppHost.
+var internalServiceKey = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+
 // Microservices - all wait for Zitadel setup and read dynamic config
 var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("device-manager")
+    .WithEnvironment("InternalServices__ApiKey", internalServiceKey)
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"))
@@ -134,6 +140,8 @@ var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("
     .WaitFor(zitadelSetup);
 
 var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrator_Host>("bundle-orchestrator")
+    .WithEnvironment("InternalServices__ApiKey", internalServiceKey)
+    .WithEnvironment("DeviceManager__BaseUrl", deviceManager.GetEndpoint("http"))
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithReference(blobs)
@@ -144,6 +152,8 @@ var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrat
     .WaitFor(zitadelSetup);
 
 var telemetryProcessor = builder.AddProject<Projects.SignalBeam_TelemetryProcessor_Host>("telemetry-processor")
+    .WithEnvironment("InternalServices__ApiKey", internalServiceKey)
+    .WithEnvironment("DeviceManager__BaseUrl", deviceManager.GetEndpoint("http"))
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithEnvironment("NATS__Url", nats.GetEndpoint("nats"))
@@ -184,8 +194,27 @@ var frontend = builder.AddNpmApp("frontend", "../../web", "dev")
 var simulatorFleetSize = builder.Configuration["Simulator:FleetSize"] ?? "20";
 var simulatorSeed = builder.Configuration["Simulator:Seed"] ?? "42";
 
+// Optional failure injection, e.g. `dotnet run -- --Simulator:Scenarios=offline,disk-fill --Simulator:ScenarioDevices=2`
+// or `--Simulator:ScenarioFile=/path/to/scenarios.json`. See docs/simulator-scenarios.md.
+var simulatorArgs = new List<string> { "--fleet-size", simulatorFleetSize, "--seed", simulatorSeed };
+if (builder.Configuration["Simulator:Scenarios"] is { Length: > 0 } scenarioNames)
+{
+    simulatorArgs.AddRange(["--scenario", scenarioNames]);
+    simulatorArgs.AddRange(["--scenario-devices", builder.Configuration["Simulator:ScenarioDevices"] ?? "1"]);
+    if (builder.Configuration["Simulator:ScenarioStart"] is { Length: > 0 } scenarioStart)
+    {
+        simulatorArgs.AddRange(["--scenario-start", scenarioStart]);
+    }
+}
+
+if (builder.Configuration["Simulator:ScenarioFile"] is { Length: > 0 } scenarioFile)
+{
+    simulatorArgs.AddRange(["--scenario-file", Path.GetFullPath(scenarioFile)]);
+}
+
 var edgeAgentSimulator = builder.AddProject<Projects.SignalBeam_EdgeAgent_Simulator>("edge-agent-simulator")
-    .WithArgs("--fleet-size", simulatorFleetSize, "--seed", simulatorSeed)
+    .WithArgs([.. simulatorArgs])
+    .WithEnvironment("SIM_NATS_URL", nats.GetEndpoint("nats"))
     .WithEnvironment("SIM_DEVICE_MANAGER_URL", "http://localhost:8080")
     .WithEnvironment("SIM_BUNDLE_ORCHESTRATOR_URL", "http://localhost:8080")
     .WithEnvironment("SIM_API_KEY", "dev-api-key-1")

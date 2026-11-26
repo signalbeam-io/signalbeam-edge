@@ -186,6 +186,7 @@ Monitors device heartbeats and marks stale devices as offline.
 2. Queries `IDeviceHeartbeatRepository.GetStaleDevicesAsync()`
 3. Marks stale devices as offline via `UpdateDeviceStatusCommand`
 4. Triggers `DeviceOfflineEvent` for each device
+5. Publishes `signalbeam.devices.events.stale_detected` (`deviceId`, `lastHeartbeatTime`, `detectedAt`); DeviceManager's `StaleDeviceSubscriber` marks the device Offline unless it has seen a newer HTTP heartbeat
 
 ### MetricsAggregationService
 Handles custom aggregation tasks (most aggregation is automatic via TimescaleDB).

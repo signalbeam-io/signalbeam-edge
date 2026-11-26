@@ -51,11 +51,14 @@ dependency "secrets" {
   config_path = "../secrets"
 
   mock_outputs = {
-    db_connection_secret_id  = "https://mock-kv.vault.azure.net/secrets/db-connection-signalbeam"
-    ghcr_pat_secret_id       = "https://mock-kv.vault.azure.net/secrets/ghcr-pat"
-    tenant_api_key_secret_id = "https://mock-kv.vault.azure.net/secrets/tenant-api-key"
+    db_connection_secret_id        = "https://mock-kv.vault.azure.net/secrets/db-connection-signalbeam"
+    ghcr_pat_secret_id             = "https://mock-kv.vault.azure.net/secrets/ghcr-pat"
+    internal_service_key_secret_id = "https://mock-kv.vault.azure.net/secrets/internal-service-key"
+    tenant_api_key_secret_id       = "https://mock-kv.vault.azure.net/secrets/tenant-api-key"
   }
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+  # Fill outputs the applied state doesn't have yet (e.g. a newly added secret) from the mocks.
+  mock_outputs_merge_strategy_with_state = "shallow"
 }
 
 inputs = {
@@ -77,11 +80,14 @@ inputs = {
   kv_secrets = [
     { name = "ghcr-pat", key_vault_secret_id = dependency.secrets.outputs.ghcr_pat_secret_id },
     { name = "db-conn", key_vault_secret_id = dependency.secrets.outputs.db_connection_secret_id },
+    { name = "internal-service-key", key_vault_secret_id = dependency.secrets.outputs.internal_service_key_secret_id },
     { name = "tenant-api-key", key_vault_secret_id = dependency.secrets.outputs.tenant_api_key_secret_id },
   ]
 
   secret_env_vars = {
     "ConnectionStrings__signalbeam" = "db-conn"
+    # Shared key for /api/internal service-to-service calls (device tenant lookups).
+    "InternalServices__ApiKey" = "internal-service-key"
     # Strong tenant API key from Key Vault — overrides the guessable dev-api-key-1
     # baked into appsettings.json (Authentication:ApiKeys:0) so it's invalid in the
     # cloud even on already-built images.

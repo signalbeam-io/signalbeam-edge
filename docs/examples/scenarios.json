@@ -1,0 +1,9 @@
+{
+  "scenarios": [
+    { "name": "offline", "devices": 1, "startSeconds": 60 },
+    { "name": "flapping", "devices": 1, "startSeconds": 60 },
+    { "name": "cpu-spike", "devices": 1, "startSeconds": 120, "durationSeconds": 600 },
+    { "name": "disk-fill", "devices": 1, "startSeconds": 60 },
+    { "name": "deploy-failure", "devices": 2, "startSeconds": 60 }
+  ]
+}

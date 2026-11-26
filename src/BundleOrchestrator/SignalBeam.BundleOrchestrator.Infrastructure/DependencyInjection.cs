@@ -52,6 +52,9 @@ public static class DependencyInjection
         // API Key Authentication
         services.AddSingleton<IApiKeyValidator, ApiKeyValidator>();
 
+        // Device -> tenant lookups (reconciliation reports), via DeviceManager's internal endpoint
+        SignalBeam.Shared.Infrastructure.InternalServices.DeviceTenantClientExtensions.AddDeviceTenantClient(services, configuration);
+
         return services;
     }
 
@@ -110,7 +113,8 @@ public static class DependencyInjection
         IServiceCollection services,
         IConfiguration configuration)
     {
-        var natsUrl = configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222";
+        var natsUrl = SignalBeam.Shared.Infrastructure.Messaging.NatsConfiguration.NormalizeUrl(
+            configuration.GetValue<string>("NATS:Url") ?? "nats://localhost:4222");
 
         services.AddSingleton<INatsConnection>(sp =>
         {

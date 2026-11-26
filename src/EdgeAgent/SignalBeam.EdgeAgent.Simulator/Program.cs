@@ -125,6 +125,39 @@ public class Program
             Description = "Seed for device IDs, names, groups, tags, timing jitter (+/-10%) and metric values. Random if omitted in fleet mode (printed at start)."
         };
 
+        var natsUrlOption = new Option<string?>("--nats-url")
+        {
+            Description = "NATS server for heartbeats and metrics, like the real agent (or SIM_NATS_URL). Without it the simulator is HTTP only."
+        };
+
+        var scenarioOption = new Option<string[]>("--scenario")
+        {
+            Description = $"Failure scenario to inject; repeat or comma-separate. One of: {string.Join(", ", ScenarioNames.All)}.",
+            AllowMultipleArgumentsPerToken = true
+        };
+
+        var scenarioDevicesOption = new Option<int>("--scenario-devices")
+        {
+            DefaultValueFactory = _ => 1,
+            Description = "Devices affected by each --scenario (picked from the fleet by the seed)."
+        };
+
+        var scenarioStartOption = new Option<int>("--scenario-start")
+        {
+            DefaultValueFactory = _ => 120,
+            Description = "Seconds after the fleet starts sending before --scenario failures begin."
+        };
+
+        var scenarioDurationOption = new Option<int?>("--scenario-duration")
+        {
+            Description = "Seconds each --scenario lasts (default: 10 min for spikes, until stopped otherwise)."
+        };
+
+        var scenarioFileOption = new Option<string?>("--scenario-file")
+        {
+            Description = "JSON file with scenarios: {\"scenarios\":[{\"name\":\"disk-fill\",\"devices\":2,\"startSeconds\":60}]}."
+        };
+
         rootCommand.Options.Add(deviceManagerUrlOption);
         rootCommand.Options.Add(bundleOrchestratorUrlOption);
         rootCommand.Options.Add(apiKeyOption);
@@ -144,6 +177,12 @@ public class Program
         rootCommand.Options.Add(reportStateOption);
         rootCommand.Options.Add(fleetSizeOption);
         rootCommand.Options.Add(seedOption);
+        rootCommand.Options.Add(natsUrlOption);
+        rootCommand.Options.Add(scenarioOption);
+        rootCommand.Options.Add(scenarioDevicesOption);
+        rootCommand.Options.Add(scenarioStartOption);
+        rootCommand.Options.Add(scenarioDurationOption);
+        rootCommand.Options.Add(scenarioFileOption);
 
         rootCommand.SetAction(async (parseResult, _) =>
         {
@@ -155,6 +194,7 @@ public class Program
                 ApiKey: parseResult.GetValue(apiKeyOption),
                 TenantId: ResolveTenantId(parseResult.GetValue(tenantIdOption), "SIM_TENANT_ID", "--tenant-id"),
                 Seed: parseResult.GetValue(seedOption),
+                NatsUrl: ResolveOptionalOption(parseResult.GetValue(natsUrlOption), "SIM_NATS_URL"),
                 Loop: new DeviceLoopOptions(
                     HeartbeatInterval: TimeSpan.FromSeconds(parseResult.GetValue(heartbeatIntervalOption)),
                     MetricsInterval: TimeSpan.FromSeconds(parseResult.GetValue(metricsIntervalOption)),
@@ -184,6 +224,18 @@ public class Program
             .ToList();
 
             var error = ValidateOptions(fleetSize, singleDeviceOptions, settings.Loop);
+            IReadOnlyList<ScenarioSpec> scenarios = [];
+            if (error is null)
+            {
+                (scenarios, error) = LoadScenarios(
+                    parseResult.GetValue(scenarioFileOption),
+                    parseResult.GetValue(scenarioOption) ?? [],
+                    parseResult.GetValue(scenarioDevicesOption),
+                    TimeSpan.FromSeconds(parseResult.GetValue(scenarioStartOption)),
+                    parseResult.GetValue(scenarioDurationOption) is { } seconds ? TimeSpan.FromSeconds(seconds) : null,
+                    fleetSize);
+            }
+
             if (error is not null)
             {
                 Console.Error.WriteLine(error);
@@ -212,7 +264,7 @@ public class Program
                 }
                 else
                 {
-                    await RunFleetAsync(settings, fleetSize, stopping);
+                    await RunFleetAsync(settings, fleetSize, scenarios, stopping);
                 }
             }
             catch (OperationCanceledException) when (stopping.IsCancellationRequested)
@@ -257,13 +309,50 @@ public class Program
         return null;
     }
 
+    internal static (IReadOnlyList<ScenarioSpec> Scenarios, string? Error) LoadScenarios(
+        string? file,
+        IReadOnlyList<string> names,
+        int devices,
+        TimeSpan start,
+        TimeSpan? duration,
+        int fleetSize)
+    {
+        var scenarios = new List<ScenarioSpec>();
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(file))
+            {
+                scenarios.AddRange(ScenarioPlan.FromJson(File.ReadAllText(file), start));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            return ([], $"Could not read scenario file {file}: {ex.Message}");
+        }
+
+        scenarios.AddRange(ScenarioPlan.FromFlags(names, devices, start, duration));
+        return (scenarios, ScenarioPlan.Validate(scenarios, fleetSize));
+    }
+
     private sealed record SimulatorSettings(
         string DeviceManagerUrl,
         string? BundleOrchestratorUrl,
         string? ApiKey,
         Guid TenantId,
         int? Seed,
+        string? NatsUrl,
         DeviceLoopOptions Loop);
+
+    private static NatsTelemetryPublisher? CreateNatsPublisher(SimulatorSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.NatsUrl))
+        {
+            return null;
+        }
+
+        Console.WriteLine($"NATS: {settings.NatsUrl}");
+        return new NatsTelemetryPublisher(settings.NatsUrl);
+    }
 
     private static async Task RunSingleDeviceAsync(
         SimulatorSettings settings,
@@ -330,6 +419,7 @@ public class Program
             deviceClient, settings.TenantId, effectiveDeviceId, effectiveDeviceName, metadata, cancellationToken);
         Console.WriteLine(registered ? "Device registration succeeded." : "Device already registered; continuing.");
 
+        await using var nats = CreateNatsPublisher(settings);
         var loop = spec is null ? settings.Loop : settings.Loop with { Jitter = FleetJitter };
         var device = new SimulatedDevice(
             effectiveDeviceId,
@@ -338,12 +428,17 @@ public class Program
             bundleClient,
             loop,
             TimeSpan.Zero,
-            spec?.Seed ?? Random.Shared.Next());
+            spec?.Seed ?? Random.Shared.Next(),
+            runtime: new DeviceRuntime(nats, null, DateTimeOffset.UtcNow));
 
         await device.RunAsync(cancellationToken);
     }
 
-    private static async Task RunFleetAsync(SimulatorSettings settings, int fleetSize, CancellationToken cancellationToken)
+    private static async Task RunFleetAsync(
+        SimulatorSettings settings,
+        int fleetSize,
+        IReadOnlyList<ScenarioSpec> scenarios,
+        CancellationToken cancellationToken)
     {
         var seed = settings.Seed ?? Random.Shared.Next();
         var plan = FleetPlan.Create(fleetSize, seed);
@@ -355,8 +450,19 @@ public class Program
             ? "BundleOrchestrator: (disabled)"
             : $"BundleOrchestrator: {settings.BundleOrchestratorUrl}");
 
+        await using var nats = CreateNatsPublisher(settings);
         await FleetSetup.ProvisionAsync(deviceClient, settings.TenantId, plan, cancellationToken);
 
+        var faults = ScenarioPlan.Assign(plan, scenarios, seed);
+        foreach (var spec in plan.Where(d => faults.ContainsKey(d.DeviceId)))
+        {
+            var fault = faults[spec.DeviceId];
+            Console.WriteLine($"Scenario {fault.Scenario}: {spec.Name} ({spec.DeviceId}) from +{fault.Start.TotalSeconds:F0}s"
+                + (fault.Duration is { } d ? $" for {d.TotalSeconds:F0}s." : " until stopped."));
+        }
+
+        // Scenario timings count from here, when the fleet starts sending.
+        var clockStart = DateTimeOffset.UtcNow;
         var loop = settings.Loop with { Jitter = FleetJitter, LogSuccess = false, ReportStateOnlyOnChange = true };
         var devices = plan.Select(spec => new SimulatedDevice(
             spec.DeviceId,
@@ -367,7 +473,8 @@ public class Program
             // Spread device start times over one heartbeat interval.
             settings.Loop.HeartbeatInterval * spec.StartOffsetFraction,
             spec.Seed,
-            spec.Environment));
+            spec.Environment,
+            new DeviceRuntime(nats, faults.GetValueOrDefault(spec.DeviceId), clockStart)));
 
         await Task.WhenAll(devices.Select(d => d.RunAsync(cancellationToken)));
     }
