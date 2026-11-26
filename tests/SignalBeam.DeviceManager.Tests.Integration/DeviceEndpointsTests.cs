@@ -272,4 +272,32 @@ public class DeviceEndpointsTests : IClassFixture<DeviceManagerWebApplicationFac
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task GetDevices_FilteredByTag_ReturnsTaggedDevicesOnly()
+    {
+        // Arrange
+        var tagged = Guid.NewGuid();
+        var untagged = Guid.NewGuid();
+        foreach (var id in new[] { tagged, untagged })
+        {
+            (await _client.PostAsJsonAsync("/api/devices",
+                new RegisterDeviceCommand(TenantId: _factory.DefaultTenantId, DeviceId: id, Name: $"tag-filter-{id:N}"[..24])))
+                .StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+
+        var tag = $"filter={Guid.NewGuid():N}";
+        (await _client.PostAsJsonAsync($"/api/devices/{tagged}/tags", new AddDeviceTagCommand(tagged, tag)))
+            .IsSuccessStatusCode.Should().BeTrue();
+
+        // Act
+        var response = await _client.GetAsync(
+            $"/api/devices?tenantId={_factory.DefaultTenantId}&tag={Uri.EscapeDataString(tag)}&pageSize=50");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("totalCount").GetInt32().Should().Be(1);
+        body.GetProperty("devices").EnumerateArray().Single().GetProperty("id").GetGuid().Should().Be(tagged);
+    }
 }

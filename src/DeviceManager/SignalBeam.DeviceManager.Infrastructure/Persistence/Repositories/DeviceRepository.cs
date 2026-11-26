@@ -58,20 +58,22 @@ public class DeviceRepository : IDeviceRepository, IDeviceQueryRepository
             query = query.Where(d => d.Status == status.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(tag))
-        {
-            // Note: This requires proper JSONB querying in PostgreSQL
-            // For simplicity, we're doing client-side filtering here
-            // In production, you'd use EF.Functions.JsonContains or raw SQL
-            var devicesWithTag = await query.ToListAsync(cancellationToken);
-            devicesWithTag = devicesWithTag.Where(d => d.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToList();
-            query = devicesWithTag.AsQueryable();
-        }
-
         if (deviceGroupId.HasValue)
         {
             var groupId = new DeviceGroupId(deviceGroupId.Value);
             query = query.Where(d => d.DeviceGroupId == groupId);
+        }
+
+        // Tags are a JSON column the query can't filter on, so filter, count and page in memory.
+        // (Counting the in-memory result with CountAsync used to throw: every tag filter was a 500.)
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            var tagged = (await query.ToListAsync(cancellationToken))
+                .Where(d => d.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+                .OrderByDescending(d => d.RegisteredAt)
+                .ToList();
+
+            return (tagged.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList(), tagged.Count);
         }
 
         // Get total count before pagination
