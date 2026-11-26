@@ -112,7 +112,7 @@ graph TB
 3. **Execute Rollout** (Device Agent ↔ API):
    - Agent polls `GET /api/devices/{id}/desired-state`
    - Agent reconciles container state
-   - Agent reports status via `PUT /api/rollouts/{id}/status`
+   - Agent reports the result via `POST /api/devices/{id}/reconciliation-status` (`succeeded` or `failed` with errors), which marks the device's rollout status Succeeded or Failed
    - Database records updated
 
 4. **Cancel Rollout** (User → UI → API → Devices):
@@ -604,10 +604,10 @@ sequenceDiagram
             Docker-->>Agent: Containers started
 
             alt Reconciliation succeeded
-                Agent->>API: PUT /api/rollouts/{id}/status<br/>status: "succeeded"
+                Agent->>API: POST /api/devices/{id}/reconciliation-status<br/>status: "succeeded"
                 API->>DB: Update RolloutStatus
             else Reconciliation failed
-                Agent->>API: PUT /api/rollouts/{id}/status<br/>status: "failed", error
+                Agent->>API: POST /api/devices/{id}/reconciliation-status<br/>status: "failed", errors
                 API->>DB: Update RolloutStatus with error
             end
         end

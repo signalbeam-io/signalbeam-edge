@@ -97,24 +97,25 @@ while (!stoppingToken.IsCancellationRequested)
 
 | Alert Type | Condition | Threshold |
 |------------|-----------|-----------|
-| DeviceOffline | No heartbeat received | 5 minutes (configurable) |
-| HighCpuUsage | CPU > threshold | 80% (configurable) |
-| HighMemoryUsage | Memory > threshold | 85% (configurable) |
-| HighDiskUsage | Disk > threshold | 90% (configurable) |
-| LowBattery | Battery < threshold | 20% (configurable) |
-| RolloutFailed | Rollout status = Failed | N/A |
+| DeviceOffline | No heartbeat received | 5 min Warning, 30 min Critical |
+| DeviceUnhealthy | Health score below threshold | 50 |
+| HighErrorRate | Share of failed heartbeats in the window | 5% over 5 min |
+| HighResourceUtilization | CPU, memory or disk at or above threshold for every sample in the window (at least 2) | 90% for 3 min |
+
+All thresholds are configurable under `Alerting:Rules`. Alerts get the device's tenant from
+DeviceManager (`GET /api/internal/devices/{id}/tenant`, service key `X-Internal-Service-Key`).
 
 **Configuration:**
 ```json
 {
-  "HealthMonitor": {
-    "Enabled": true,
-    "CheckIntervalMinutes": 2,
-    "OfflineThresholdMinutes": 5,
-    "HighCpuThreshold": 80.0,
-    "HighMemoryThreshold": 85.0,
-    "HighDiskThreshold": 90.0,
-    "LowBatteryThreshold": 20.0
+  "Alerting": {
+    "Rules": {
+      "DeviceOfflineWarning": { "Enabled": true, "ThresholdMinutes": 5, "Severity": "Warning" },
+      "DeviceOfflineCritical": { "Enabled": true, "ThresholdMinutes": 30, "Severity": "Critical" },
+      "DeviceUnhealthy": { "Enabled": true, "ThresholdScore": 50, "Severity": "Critical" },
+      "HighErrorRate": { "Enabled": true, "ThresholdPercent": 5.0, "WindowMinutes": 5, "Severity": "Warning" },
+      "HighResourceUtilization": { "Enabled": true, "ThresholdPercent": 90, "WindowMinutes": 3, "Severity": "Warning" }
+    }
   }
 }
 ```
@@ -235,12 +236,14 @@ public enum AlertStatus
 
 public enum AlertType
 {
-    DeviceOffline = 1,
-    LowBattery = 2,
-    HighCpuUsage = 3,
-    HighMemoryUsage = 4,
-    HighDiskUsage = 5,
-    RolloutFailed = 6
+    DeviceOffline = 0,
+    DeviceUnhealthy = 1,
+    HighErrorRate = 2,
+    DatabaseFailure = 3,
+    MessageBrokerFailure = 4,
+    RolloutFailure = 5,
+    ReconciliationFailure = 6,
+    HighResourceUtilization = 7
 }
 
 public enum NotificationChannel
