@@ -88,8 +88,8 @@ inputs = {
     "ConnectionStrings__signalbeam" = "db-conn"
     # Shared key for /api/internal service-to-service calls (device tenant lookups).
     "InternalServices__ApiKey" = "internal-service-key"
-    # The alert API (routed by the gateway) authenticates like BundleOrchestrator: strong tenant
-    # API key from Key Vault, or a Zitadel JWT.
+    # The alert API (routed by the gateway) authenticates like BundleOrchestrator. In Production
+    # only a Zitadel JWT authorizes it; the Key Vault key just replaces any baked-in default.
     "Authentication__ApiKeys__0" = "tenant-api-key"
   }
 
