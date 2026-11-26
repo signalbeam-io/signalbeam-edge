@@ -85,6 +85,10 @@ raise the intervals (`--heartbeat-interval-seconds`, `--metrics-interval-seconds
 
 Outside Aspire: `dotnet run --project src/EdgeAgent/SignalBeam.EdgeAgent.Simulator -- --fleet-size 20 --seed 42`
 (plus `--device-manager-url`, `--api-key`, `--tenant-id` or the `SIM_*` variables).
+To inject failures (devices going offline, resource spikes, failed deploys), see
+[simulator-scenarios.md](simulator-scenarios.md). The AppHost also gives the simulator the NATS URL,
+so heartbeats and metrics reach TelemetryProcessor the way a real agent's do.
+
 `--fleet-size 1` (the default) is the original single-device mode, including `--use-device-auth`
 and `--use-mtls`. With `--seed` it also gets fleet device 1's ID and name and the +/-10% jitter.
 
