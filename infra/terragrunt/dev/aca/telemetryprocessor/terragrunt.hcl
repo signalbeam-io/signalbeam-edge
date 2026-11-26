@@ -51,8 +51,9 @@ dependency "secrets" {
   config_path = "../secrets"
 
   mock_outputs = {
-    db_connection_secret_id = "https://mock-kv.vault.azure.net/secrets/db-connection-signalbeam"
-    ghcr_pat_secret_id      = "https://mock-kv.vault.azure.net/secrets/ghcr-pat"
+    db_connection_secret_id        = "https://mock-kv.vault.azure.net/secrets/db-connection-signalbeam"
+    ghcr_pat_secret_id             = "https://mock-kv.vault.azure.net/secrets/ghcr-pat"
+    internal_service_key_secret_id = "https://mock-kv.vault.azure.net/secrets/internal-service-key"
   }
   mock_outputs_allowed_terraform_commands = ["validate", "plan"]
 }
@@ -76,14 +77,19 @@ inputs = {
   kv_secrets = [
     { name = "ghcr-pat", key_vault_secret_id = dependency.secrets.outputs.ghcr_pat_secret_id },
     { name = "db-conn", key_vault_secret_id = dependency.secrets.outputs.db_connection_secret_id },
+    { name = "internal-service-key", key_vault_secret_id = dependency.secrets.outputs.internal_service_key_secret_id },
   ]
 
   secret_env_vars = {
     "ConnectionStrings__signalbeam" = "db-conn"
+    # Shared key for /api/internal service-to-service calls (device tenant lookups).
+    "InternalServices__ApiKey" = "internal-service-key"
   }
 
   env_vars = {
     "ASPNETCORE_HTTP_PORTS" = "8080"
-    "NATS__Url"             = "nats://${local.env.project}-ca-nats-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}:4222"
+    # Device tenant lookups via DeviceManager's internal endpoint (same internal FQDN the gateway uses).
+    "DeviceManager__BaseUrl" = "https://${local.env.project}-ca-devicemanager-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}"
+    "NATS__Url"              = "nats://${local.env.project}-ca-nats-${local.env.environment}.internal.${dependency.environment.outputs.default_domain}:4222"
   }
 }

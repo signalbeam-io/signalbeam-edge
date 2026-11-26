@@ -105,3 +105,18 @@ resource "azurerm_key_vault_secret" "zitadel_admin_password" {
     ignore_changes = [value]
   }
 }
+
+# Shared key for service-to-service endpoints under /api/internal (BundleOrchestrator and
+# TelemetryProcessor looking up a device's tenant in DeviceManager). Injected into all three as
+# InternalServices__ApiKey; DeviceManager refuses internal calls when it is missing.
+resource "random_password" "internal_service_key" {
+  length  = 48
+  special = false
+}
+
+resource "azurerm_key_vault_secret" "internal_service_key" {
+  name         = "internal-service-key"
+  value        = random_password.internal_service_key.result
+  key_vault_id = var.key_vault_id
+  tags         = var.tags
+}
