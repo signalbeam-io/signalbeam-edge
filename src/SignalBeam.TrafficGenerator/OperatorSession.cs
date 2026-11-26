@@ -8,7 +8,9 @@ using SignalBeam.DeviceManager.Application.Commands;
 
 namespace SignalBeam.TrafficGenerator;
 
-internal sealed record OperatorSettings(Guid TenantId, double InvalidRate);
+// RunId goes into created names: the action sequence repeats per seed, names must not collide
+// with an earlier run's bundles.
+internal sealed record OperatorSettings(Guid TenantId, double InvalidRate, string RunId);
 
 // One scripted operator. Each action is one span ("operator <action>") wrapping the HTTP calls
 // it makes through the gateway, with the same API key and routes as the web UI.
@@ -186,7 +188,7 @@ internal sealed class OperatorSession
 
     private async Task<HttpStatusCode?> CreateBundleAsync(CancellationToken ct)
     {
-        var name = $"{BundlePrefix}{Random.Next(1000, 9999)}";
+        var name = $"{BundlePrefix}{_settings.RunId}-{Random.Next(1000, 9999)}";
         var (image, tag) = Pick(Images);
         // Same body as the web UI's create-bundle form (the endpoint's CreateBundleRequest).
         var request = new
@@ -258,7 +260,7 @@ internal sealed class OperatorSession
                 bundleId.ToString(),
                 versions[^1],
                 versions.Count > 1 ? versions[^2] : null,
-                $"op-rollout-{Random.Next(1000, 9999)}",
+                $"op-rollout-{_settings.RunId}-{Random.Next(1000, 9999)}",
                 "Created by the operator traffic generator",
                 groupId,
                 [new PhaseConfigDto("canary", 10m, 1), new PhaseConfigDto("fleet", 100m)],

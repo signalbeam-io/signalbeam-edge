@@ -191,7 +191,7 @@ public class OperatorTrafficTests
         var gateway = new FakeGateway();
         var client = new HttpClient(gateway) { BaseAddress = new Uri("http://gateway") };
         client.DefaultRequestHeaders.Add("X-API-Key", "test-key");
-        return (new OperatorSession(client, new OperatorSettings(Tenant, 0), new ActionPicker(3, 0)), gateway);
+        return (new OperatorSession(client, new OperatorSettings(Tenant, 0, "run1"), new ActionPicker(3, 0)), gateway);
     }
 
     private sealed record Request(string Method, string Path, string Query, string? ApiKey);

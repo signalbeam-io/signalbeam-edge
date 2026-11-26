@@ -84,7 +84,7 @@ internal static class Program
             var seed = parseResult.GetValue(seedOption);
             var session = new OperatorSession(
                 http,
-                new OperatorSettings(parseResult.GetValue(tenantIdOption), invalidRate),
+                new OperatorSettings(parseResult.GetValue(tenantIdOption), invalidRate, DateTime.UtcNow.ToString("yyMMddHHmmss")),
                 new ActionPicker(seed, invalidRate));
 
             try
