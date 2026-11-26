@@ -6,8 +6,9 @@ using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.DeviceManager.Application.Commands;
 
-// From TelemetryProcessor's DeviceStatusMonitor (signalbeam.devices.events.stale_detected):
-// no heartbeat over NATS since LastHeartbeatTime.
+// From TelemetryProcessor's DeviceStatusMonitor (signalbeam.devices.events.stale_detected).
+// LastHeartbeatTime is the monitor's stale cutoff (now minus its threshold), not the device's
+// actual last heartbeat: no NATS heartbeat arrived after it.
 public record MarkDeviceOfflineCommand(
     Guid DeviceId,
     DateTimeOffset LastHeartbeatTime,

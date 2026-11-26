@@ -15,6 +15,9 @@ public sealed class StaleDeviceSubscriberOptions
     public bool Enabled { get; set; } = true;
 
     public string Subject { get; set; } = "signalbeam.devices.events.stale_detected";
+
+    // With several DeviceManager replicas, only one handles each event.
+    public string QueueGroup { get; set; } = "device-manager";
 }
 
 // Marks devices offline when TelemetryProcessor's DeviceStatusMonitor reports them stale.
@@ -29,6 +32,7 @@ public sealed class StaleDeviceSubscriber : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<StaleDeviceSubscriber> _logger;
     private readonly string _subject;
+    private readonly string _queueGroup;
 
     public StaleDeviceSubscriber(
         INatsConnection connection,
@@ -40,6 +44,7 @@ public sealed class StaleDeviceSubscriber : BackgroundService
         _scopeFactory = scopeFactory;
         _logger = logger;
         _subject = options.Value.Subject;
+        _queueGroup = options.Value.QueueGroup;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -50,7 +55,7 @@ public sealed class StaleDeviceSubscriber : BackgroundService
             try
             {
                 _logger.LogInformation("Subscribing to stale device events on {Subject}", _subject);
-                await foreach (var msg in _connection.SubscribeAsync<string>(_subject, cancellationToken: stoppingToken))
+                await foreach (var msg in _connection.SubscribeAsync<string>(_subject, _queueGroup, cancellationToken: stoppingToken))
                 {
                     delay = InitialRetryDelay;
                     await HandleAsync(msg, stoppingToken);
@@ -86,13 +91,20 @@ public sealed class StaleDeviceSubscriber : BackgroundService
             $"process {_subject}",
             [new KeyValuePair<string, object?>("messaging.operation.type", "process")]);
 
+        await ProcessAsync(msg.Data, cancellationToken);
+    }
+
+    // Returns true when the event reached MarkDeviceOfflineHandler.
+    public async Task<bool> ProcessAsync(string? data, CancellationToken cancellationToken)
+    {
+        var activity = Activity.Current;
         try
         {
-            var command = msg.Data is null ? null : JsonSerializer.Deserialize<MarkDeviceOfflineCommand>(msg.Data, JsonOptions);
+            var command = data is null ? null : JsonSerializer.Deserialize<MarkDeviceOfflineCommand>(data, JsonOptions);
             if (command is null || command.DeviceId == Guid.Empty)
             {
                 _logger.LogWarning("Ignoring stale device event without a device id");
-                return;
+                return false;
             }
 
             activity?.SetTag("signalbeam.device.id", command.DeviceId.ToString());
@@ -108,21 +120,25 @@ public sealed class StaleDeviceSubscriber : BackgroundService
             }
             else if (result.Value!.MarkedOffline)
             {
-                _logger.LogInformation("Marked device {DeviceId} offline (no heartbeat since {LastHeartbeat})",
+                _logger.LogInformation("Marked device {DeviceId} offline (stale since {StaleSince})",
                     command.DeviceId, command.LastHeartbeatTime);
             }
+
+            return true;
         }
         catch (JsonException ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error, "deserialization failed");
             activity?.AddException(ex);
             _logger.LogWarning(ex, "Failed to deserialize stale device event");
+            return false;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
             activity?.AddException(ex);
             _logger.LogError(ex, "Failed to process stale device event");
+            return false;
         }
     }
 }
