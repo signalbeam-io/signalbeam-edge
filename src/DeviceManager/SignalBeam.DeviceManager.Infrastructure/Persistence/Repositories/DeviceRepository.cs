@@ -66,6 +66,7 @@ public class DeviceRepository : IDeviceRepository, IDeviceQueryRepository
 
         // Tags are a JSON column the query can't filter on, so filter, count and page in memory.
         // (Counting the in-memory result with CountAsync used to throw: every tag filter was a 500.)
+        // TODO: filter in SQL with a JSONB containment query; this loads the tenant's whole fleet.
         if (!string.IsNullOrWhiteSpace(tag))
         {
             var tagged = (await query.ToListAsync(cancellationToken))

@@ -18,9 +18,14 @@ A weighted mix of actions, mostly reads:
 | Invalid requests (5% by default) | unknown device, bundle, alert or rollout (404), bundle without a name (400) |
 
 Each action is one span, `operator <action>` with `signalbeam.operator.action`, wrapping the HTTP
-calls it makes. Actions only target what the operator has already seen (devices from the list, its
-own bundles, rollouts in the right state), so state changes are valid and the 4xx come from the
-invalid-request share. It only creates new versions of, and assigns, bundles it created itself.
+calls it makes. Actions only target what the operator has already seen, in a state where the change
+is valid, so the 4xx come from the invalid-request share.
+
+What it changes:
+- Bundles and rollouts: only its own (`op-app-*`, `op-rollout-*`). It assigns its own bundles to
+  any fleet device.
+- Tags: adds and removes `operator=checked` on any device.
+- Alerts: acknowledges and resolves any of the tenant's alerts, as an operator would.
 
 The same `--seed` gives the same action sequence and inputs. Created names include a run ID
 (the start time), so a rerun doesn't collide with an earlier run's bundles.

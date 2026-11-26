@@ -181,7 +181,7 @@ public static class AlertEndpoints
     }
 
     // Same rule as DeviceManager: the credential's tenant claim wins; the tenantId parameter is
-    // only used when the credential carries none (an operator JWT without a tenant claim).
+    // only used when the credential carries none (an operator JWT without a tenant claim; #492).
     private static bool TryResolveTenantId(Guid? tenantId, HttpContext context, out TenantId resolvedTenantId)
     {
         var claim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
