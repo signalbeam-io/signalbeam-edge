@@ -14,6 +14,10 @@ public static class InternalEndpoints
             .WithTags("Internal")
             .AllowAnonymous() // Authenticated by RequireInternalServiceKey, not user/device auth.
             .RequireInternalServiceKey()
+            // Callers carry no tenant claim, so the global limiter would put them in the shared
+            // "anonymous" bucket with public registration traffic and starve alert tenant lookups.
+            // These endpoints are only reachable inside the environment and reject bad keys cheaply.
+            .DisableRateLimiting()
             .ExcludeFromDescription();
 
         group.MapGet("/devices/{deviceId:guid}/tenant", GetDeviceTenant)
