@@ -44,6 +44,7 @@ public class HighResourceUtilizationRuleTests
         alert.DeviceId.Should().Be(_deviceId);
         alert.TenantId.Should().Be(_tenantId);
         alert.Title.Should().Contain("disk").And.NotContain("CPU");
+        alert.Description.Should().StartWith("Disk at or above 90%");
     }
 
     [Fact]

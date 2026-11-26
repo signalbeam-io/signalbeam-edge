@@ -91,7 +91,7 @@ public class HighResourceUtilizationRule : IAlertRule
                     severity,
                     AlertType.HighResourceUtilization,
                     $"Device {deviceId.Value} is running out of {string.Join(" and ", saturated)}",
-                    $"{string.Join(", ", saturated)} at or above {config.ThresholdPercent}% for {config.WindowMinutes} minutes "
+                    $"{Capitalize(string.Join(", ", saturated))} at or above {config.ThresholdPercent}% for {config.WindowMinutes} minutes "
                         + $"({metrics.Count} samples). Latest: CPU {latest.CpuUsage:F0}%, memory {latest.MemoryUsage:F0}%, "
                         + $"disk {latest.DiskUsage:F0}%.",
                     deviceId));
@@ -133,4 +133,6 @@ public class HighResourceUtilizationRule : IAlertRule
 
         return saturated;
     }
+
+    private static string Capitalize(string text) => char.ToUpperInvariant(text[0]) + text[1..];
 }
