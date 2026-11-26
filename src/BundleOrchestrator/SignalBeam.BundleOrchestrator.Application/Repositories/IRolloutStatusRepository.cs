@@ -14,7 +14,7 @@ public interface IRolloutStatusRepository
     Task<RolloutStatus?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets rollout status for a specific device and bundle.
+    /// Gets the rollout status for a device and bundle version: the open one if any, else the newest.
     /// </summary>
     Task<RolloutStatus?> GetByDeviceAndBundleAsync(
         DeviceId deviceId,

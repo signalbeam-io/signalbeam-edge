@@ -1,7 +1,9 @@
 using FluentValidation;
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
+using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
+using ErrorType = SignalBeam.Shared.Infrastructure.Results.ErrorType;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -95,6 +97,7 @@ public static class BundleAssignmentEndpoints
         ReportReconciliationStatusCommand command,
         ReportReconciliationStatusHandler handler,
         IValidator<ReportReconciliationStatusCommand> validator,
+        HttpContext context,
         CancellationToken cancellationToken)
     {
         var updatedCommand = command with { DeviceId = deviceId };
@@ -109,16 +112,28 @@ public static class BundleAssignmentEndpoints
             });
         }
 
-        var result = await handler.Handle(updatedCommand, cancellationToken);
+        var callerTenantId = Guid.TryParse(
+            context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value, out var tenantId)
+            ? tenantId
+            : (Guid?)null;
 
-        return result.IsSuccess
-            ? Results.Ok(result.Value)
-            : Results.BadRequest(new
-            {
-                error = result.Error!.Code,
-                message = result.Error.Message,
-                type = result.Error.Type.ToString()
-            });
+        var result = await handler.Handle(updatedCommand, callerTenantId, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Ok(result.Value);
+        }
+
+        var statusCode = result.Error!.Type switch
+        {
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
+            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorType.Failure => StatusCodes.Status503ServiceUnavailable,
+            _ => StatusCodes.Status400BadRequest
+        };
+
+        return Results.Json(
+            new { error = result.Error.Code, message = result.Error.Message, type = result.Error.Type.ToString() },
+            statusCode: statusCode);
     }
 
     private static async Task<IResult> AssignBundleToGroup(

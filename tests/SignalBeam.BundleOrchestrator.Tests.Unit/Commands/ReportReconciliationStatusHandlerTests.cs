@@ -3,19 +3,23 @@ using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.BundleOrchestrator.Application.Validators;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 
 namespace SignalBeam.BundleOrchestrator.Tests.Unit.Commands;
 
 public class ReportReconciliationStatusHandlerTests
 {
     private readonly IRolloutStatusRepository _repository = Substitute.For<IRolloutStatusRepository>();
+    private readonly IDeviceTenantClient _tenantClient = Substitute.For<IDeviceTenantClient>();
+    private readonly Guid _tenantId = Guid.NewGuid();
     private readonly ReportReconciliationStatusHandler _handler;
     private readonly Guid _deviceId = Guid.NewGuid();
     private readonly BundleId _bundleId = new(Guid.NewGuid());
 
     public ReportReconciliationStatusHandlerTests()
     {
-        _handler = new ReportReconciliationStatusHandler(_repository);
+        _handler = new ReportReconciliationStatusHandler(_repository, _tenantClient);
+        _tenantClient.LookupAsync(_deviceId, Arg.Any<CancellationToken>()).Returns(DeviceTenantLookup.Found(_tenantId));
     }
 
     [Fact]
@@ -27,7 +31,7 @@ public class ReportReconciliationStatusHandlerTests
             _deviceId, "failed", _bundleId.ToString(), "1.2.0", ["image pull failed: nginx:9.9", "container exited"]);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, _tenantId, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -48,7 +52,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
-            CancellationToken.None);
+            _tenantId, CancellationToken.None);
 
         // Assert
         rolloutStatus.ErrorMessage.Should().Be("Reconciliation failed on device.");
@@ -63,7 +67,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "Succeeded", _bundleId.ToString(), "1.2.0"),
-            CancellationToken.None);
+            _tenantId, CancellationToken.None);
 
         // Assert
         result.Value!.RolloutStatus.Should().Be("Succeeded");
@@ -80,7 +84,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", bundleId, version),
-            CancellationToken.None);
+            _tenantId, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -99,7 +103,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
-            CancellationToken.None);
+            _tenantId, CancellationToken.None);
 
         // Assert
         result.Value!.Tracked.Should().BeFalse();
@@ -112,11 +116,78 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "exploded", _bundleId.ToString(), "1.2.0"),
-            CancellationToken.None);
+            _tenantId, CancellationToken.None);
 
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error!.Code.Should().Be("INVALID_RECONCILIATION_STATUS");
+    }
+
+    [Fact]
+    public async Task Handle_CancelledRollout_IsLeftCancelled()
+    {
+        // Arrange
+        var rolloutStatus = TrackedRolloutStatus();
+        rolloutStatus.MarkCancelled(DateTimeOffset.UtcNow);
+
+        // Act
+        var result = await _handler.Handle(
+            new ReportReconciliationStatusCommand(_deviceId, "succeeded", _bundleId.ToString(), "1.2.0"),
+            _tenantId, CancellationToken.None);
+
+        // Assert
+        result.Value!.Tracked.Should().BeFalse();
+        result.Value.RolloutStatus.Should().Be("Cancelled");
+        rolloutStatus.Status.Should().Be(RolloutState.Cancelled);
+        await _repository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task Handle_DeviceOfAnotherTenant_ReturnsNotFoundWithoutTouchingRollout()
+    {
+        // Arrange
+        var rolloutStatus = TrackedRolloutStatus();
+
+        // Act
+        var result = await _handler.Handle(
+            new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
+            Guid.NewGuid(), CancellationToken.None);
+
+        // Assert
+        result.Error!.Code.Should().Be("DEVICE_NOT_FOUND");
+        rolloutStatus.Status.Should().Be(RolloutState.Pending);
+        await _repository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Theory]
+    [InlineData(DeviceTenantLookupStatus.NotFound, "DEVICE_NOT_FOUND")]
+    [InlineData(DeviceTenantLookupStatus.Unavailable, "DEVICE_LOOKUP_UNAVAILABLE")]
+    public async Task Handle_DeviceNotVerified_ReturnsError(DeviceTenantLookupStatus status, string expectedCode)
+    {
+        // Arrange
+        _tenantClient.LookupAsync(_deviceId, Arg.Any<CancellationToken>())
+            .Returns(new DeviceTenantLookup(status, Guid.Empty));
+
+        // Act
+        var result = await _handler.Handle(
+            new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
+            _tenantId, CancellationToken.None);
+
+        // Assert
+        result.Error!.Code.Should().Be(expectedCode);
+    }
+
+    [Fact]
+    public async Task Handle_CallerWithoutTenant_ReturnsForbidden()
+    {
+        // Act
+        var result = await _handler.Handle(
+            new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
+            null, CancellationToken.None);
+
+        // Assert
+        result.Error!.Code.Should().Be("TENANT_REQUIRED");
+        await _tenantClient.DidNotReceiveWithAnyArgs().LookupAsync(default, default);
     }
 
     [Theory]

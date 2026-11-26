@@ -123,8 +123,9 @@ var storage = builder.AddAzureStorage("storage")
 
 var blobs = storage.AddBlobs("blobs");
 
-// Shared key for service-to-service endpoints under /api/internal (e.g. TelemetryProcessor looking up a
-// device's tenant in DeviceManager). Generated per run: every service restarts with the AppHost.
+// Shared key for service-to-service endpoints under /api/internal (TelemetryProcessor and
+// BundleOrchestrator looking up a device's tenant in DeviceManager). Generated per run: every service
+// restarts with the AppHost.
 var internalServiceKey = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
 
 // Microservices - all wait for Zitadel setup and read dynamic config
@@ -139,6 +140,8 @@ var deviceManager = builder.AddProject<Projects.SignalBeam_DeviceManager_Host>("
     .WaitFor(zitadelSetup);
 
 var bundleOrchestrator = builder.AddProject<Projects.SignalBeam_BundleOrchestrator_Host>("bundle-orchestrator")
+    .WithEnvironment("InternalServices__ApiKey", internalServiceKey)
+    .WithEnvironment("DeviceManager__BaseUrl", deviceManager.GetEndpoint("http"))
     .WithReference(signalbeamDb)
     .WithReference(valkey)
     .WithReference(blobs)

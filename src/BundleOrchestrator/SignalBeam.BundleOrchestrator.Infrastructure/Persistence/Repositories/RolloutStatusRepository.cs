@@ -29,10 +29,13 @@ public class RolloutStatusRepository : IRolloutStatusRepository
         BundleVersion version,
         CancellationToken cancellationToken = default)
     {
+        // Each assignment creates a record, so a device can have several for one version
+        // (re-assignment, group then device). Prefer the open one, then the newest.
         return await _context.RolloutStatuses
-            .FirstOrDefaultAsync(
-                r => r.DeviceId == deviceId && r.BundleId == bundleId && r.BundleVersion == version,
-                cancellationToken);
+            .Where(r => r.DeviceId == deviceId && r.BundleId == bundleId && r.BundleVersion == version)
+            .OrderBy(r => r.Status == RolloutState.Pending || r.Status == RolloutState.InProgress ? 0 : 1)
+            .ThenByDescending(r => r.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<RolloutStatus>> GetByBundleAsync(
