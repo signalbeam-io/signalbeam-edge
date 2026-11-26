@@ -13,6 +13,7 @@ public class OperatorTrafficTests
     private static readonly Guid UserBundle = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private static readonly Guid PendingRollout = Guid.Parse("55555555-5555-5555-5555-555555555555");
     private static readonly Guid ActiveAlert = Guid.Parse("66666666-6666-6666-6666-666666666666");
+    private static readonly Guid PersonsRollout = Guid.Parse("77777777-7777-7777-7777-777777777777");
 
     [Fact]
     public void ActionPicker_SameSeed_GivesSameSequence()
@@ -81,6 +82,35 @@ public class OperatorTrafficTests
         status.Should().Be(HttpStatusCode.OK);
         gateway.Requests.Should().Contain(r => r.Method == "POST" && r.Path == $"/api/phased-rollouts/{PendingRollout}/start");
         session.State.Rollouts[PendingRollout].Should().Be("InProgress");
+    }
+
+    [Fact]
+    public async Task Rollouts_OnlyTheGeneratorsOwnAreTracked()
+    {
+        // Arrange
+        var (session, gateway) = Session();
+        await session.WarmUpAsync(CancellationToken.None);
+
+        // Act: the person's rollout is InProgress, but must never be paused.
+        await session.RunAsync(OperatorAction.PauseRollout, CancellationToken.None);
+
+        // Assert
+        session.State.Rollouts.Keys.Should().Equal(PendingRollout);
+        gateway.Requests.Should().NotContain(r => r.Path.Contains(PersonsRollout.ToString(), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task UnexpectedResponseShape_FailsOnlyThatAction()
+    {
+        // Arrange: a list response missing the id fields.
+        var gateway = new FakeGateway { DevicesJson = "{\"devices\":[{\"name\":\"no-id\"}]}" };
+        var session = Session(gateway);
+
+        // Act
+        var status = await session.RunAsync(OperatorAction.ListDevices, CancellationToken.None);
+
+        // Assert
+        status.Should().BeNull();
     }
 
     [Fact]
@@ -189,9 +219,14 @@ public class OperatorTrafficTests
     private static (OperatorSession, FakeGateway) Session()
     {
         var gateway = new FakeGateway();
+        return (Session(gateway), gateway);
+    }
+
+    private static OperatorSession Session(FakeGateway gateway)
+    {
         var client = new HttpClient(gateway) { BaseAddress = new Uri("http://gateway") };
         client.DefaultRequestHeaders.Add("X-API-Key", "test-key");
-        return (new OperatorSession(client, new OperatorSettings(Tenant, 0, "run1"), new ActionPicker(3, 0)), gateway);
+        return new OperatorSession(client, new OperatorSettings(Tenant, 0, "run1"), new ActionPicker(3, 0));
     }
 
     private sealed record Request(string Method, string Path, string Query, string? ApiKey);
@@ -200,6 +235,7 @@ public class OperatorTrafficTests
     private sealed class FakeGateway : HttpMessageHandler
     {
         public List<Request> Requests { get; } = [];
+        public string? DevicesJson { get; init; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -210,14 +246,18 @@ public class OperatorTrafficTests
 
             return (request.Method.Method, path) switch
             {
-                ("GET", "/api/devices") => Json($"{{\"devices\":[{{\"id\":\"{Device}\"}}]}}"),
+                ("GET", "/api/devices") => Json(DevicesJson ?? $"{{\"devices\":[{{\"id\":\"{Device}\"}}]}}"),
                 ("GET", "/api/groups") => Json($"{{\"groups\":[{{\"id\":\"{Group}\"}}]}}"),
                 ("GET", "/api/bundles") => Json($$"""
                     {"bundles":[
                       {"bundleId":"{{OwnBundle}}","name":"op-app-1234","versions":[{"version":"1.0.0"}]},
                       {"bundleId":"{{UserBundle}}","name":"customer-app","versions":[{"version":"2.0.0"}]}]}
                     """),
-                ("GET", "/api/phased-rollouts") => Json($"{{\"rollouts\":[{{\"rolloutId\":\"{PendingRollout}\",\"status\":\"Pending\"}}]}}"),
+                ("GET", "/api/phased-rollouts") => Json($$"""
+                    {"rollouts":[
+                      {"rolloutId":"{{PendingRollout}}","name":"op-rollout-run1-1","status":"Pending"},
+                      {"rolloutId":"{{PersonsRollout}}","name":"eu-canary","status":"InProgress"}]}
+                    """),
                 ("GET", "/api/alerts") => Json($"{{\"alerts\":[{{\"id\":\"{ActiveAlert}\",\"status\":0}}]}}"),
                 ("POST", "/api/bundles") when body.Contains("\"name\":\"\"", StringComparison.Ordinal) => Status(HttpStatusCode.BadRequest),
                 _ when path.Contains(Device.ToString(), StringComparison.Ordinal)

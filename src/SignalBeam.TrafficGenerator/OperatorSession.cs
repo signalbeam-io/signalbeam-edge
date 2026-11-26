@@ -18,6 +18,7 @@ internal sealed class OperatorSession
 {
     public const string OperatorTag = "operator=checked";
     private const string BundlePrefix = "op-app-";
+    private const string RolloutPrefix = "op-rollout-";
 
     private static readonly (string Image, string Tag)[] Images =
         [("nginx", "1.27"), ("redis", "7.4"), ("grafana/agent", "v0.43"), ("eclipse-mosquitto", "2.0")];
@@ -73,7 +74,9 @@ internal sealed class OperatorSession
 
             return status;
         }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException
+        // A failed or odd response fails this action only, never the whole generator.
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or KeyNotFoundException
+                                       or InvalidOperationException or FormatException
                                    || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
@@ -164,7 +167,11 @@ internal sealed class OperatorSession
         With(_state.TaggedDevices.OrderBy(d => d).ToList(), async id =>
         {
             var status = await SendAsync(HttpMethod.Delete, $"/api/tags/{id}/tags/{Uri.EscapeDataString(OperatorTag)}", null, ct);
-            _state.TaggedDevices.Remove(id);
+            if (status is HttpStatusCode.OK or HttpStatusCode.NoContent or HttpStatusCode.NotFound)
+            {
+                _state.TaggedDevices.Remove(id);
+            }
+
             return status;
         }, ct);
 
@@ -243,9 +250,10 @@ internal sealed class OperatorSession
         var (status, body) = await GetJsonAsync($"/api/phased-rollouts?{Tenant}&page=1&pageSize=50", ct);
         if (body is { } json && json.TryGetProperty("rollouts", out var rollouts))
         {
-            _state.Rollouts = rollouts.EnumerateArray().ToDictionary(
-                r => r.GetProperty("rolloutId").GetGuid(),
-                r => r.GetProperty("status").GetString()!);
+            // Only rollouts the generator created: it must not pause or roll back a person's rollout.
+            _state.Rollouts = rollouts.EnumerateArray()
+                .Where(r => r.GetProperty("name").GetString()?.StartsWith(RolloutPrefix, StringComparison.Ordinal) == true)
+                .ToDictionary(r => r.GetProperty("rolloutId").GetGuid(), r => r.GetProperty("status").GetString()!);
         }
 
         return status;
@@ -260,7 +268,7 @@ internal sealed class OperatorSession
                 bundleId.ToString(),
                 versions[^1],
                 versions.Count > 1 ? versions[^2] : null,
-                $"op-rollout-{_settings.RunId}-{Random.Next(1000, 9999)}",
+                $"{RolloutPrefix}{_settings.RunId}-{Random.Next(1000, 9999)}",
                 "Created by the operator traffic generator",
                 groupId,
                 [new PhaseConfigDto("canary", 10m, 1), new PhaseConfigDto("fleet", 100m)],
