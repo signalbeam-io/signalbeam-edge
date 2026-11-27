@@ -1,6 +1,8 @@
 using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.BundleOrchestrator.Application.Services;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Commands;
@@ -34,20 +36,20 @@ public class CreateRolloutHandler
 {
     private readonly IBundleRepository _bundleRepository;
     private readonly IBundleVersionRepository _bundleVersionRepository;
-    private readonly IDeviceGroupRepository _deviceGroupRepository;
+    private readonly IDeviceGroupClient _deviceGroupClient;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
     private readonly IRolloutStatusRepository _rolloutStatusRepository;
 
     public CreateRolloutHandler(
         IBundleRepository bundleRepository,
         IBundleVersionRepository bundleVersionRepository,
-        IDeviceGroupRepository deviceGroupRepository,
+        IDeviceGroupClient deviceGroupClient,
         IDeviceDesiredStateRepository desiredStateRepository,
         IRolloutStatusRepository rolloutStatusRepository)
     {
         _bundleRepository = bundleRepository;
         _bundleVersionRepository = bundleVersionRepository;
-        _deviceGroupRepository = deviceGroupRepository;
+        _deviceGroupClient = deviceGroupClient;
         _desiredStateRepository = desiredStateRepository;
         _rolloutStatusRepository = rolloutStatusRepository;
     }
@@ -101,16 +103,14 @@ public class CreateRolloutHandler
                         Error.Validation("INVALID_GROUP_ID", $"Invalid group ID: {targetId}"));
                 }
 
-                var group = await _deviceGroupRepository.GetByIdAsync(groupId, cancellationToken);
-                if (group is null)
+                // The group must belong to the bundle's tenant
+                var lookup = await _deviceGroupClient.GetAsync(bundle.TenantId.Value, groupId.Value, cancellationToken);
+                if (lookup.Group is null)
                 {
-                    return Result.Failure<CreateRolloutResponse>(
-                        Error.NotFound("GROUP_NOT_FOUND", $"Group {targetId} not found."));
+                    return Result.Failure<CreateRolloutResponse>(DeviceGroupErrors.From(lookup, groupId.Value));
                 }
 
-                var groupDeviceIds = await _deviceGroupRepository.GetDeviceIdsInGroupAsync(
-                    groupId, cancellationToken);
-                deviceIds.AddRange(groupDeviceIds);
+                deviceIds.AddRange(lookup.Group.DeviceIds.Select(id => new DeviceId(id)));
             }
         }
         else if (command.TargetType.Equals("device", StringComparison.OrdinalIgnoreCase))

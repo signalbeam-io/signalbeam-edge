@@ -40,8 +40,10 @@ public static class DependencyInjection
         services.AddScoped<IBundleVersionRepository, BundleVersionRepository>();
         services.AddScoped<IDeviceDesiredStateRepository, DeviceDesiredStateRepository>();
         services.AddScoped<IRolloutStatusRepository, RolloutStatusRepository>();
-        services.AddScoped<IDeviceGroupRepository, DeviceGroupRepository>();
         services.AddScoped<IRolloutRepository, RolloutRepository>();
+
+        // Device groups and their members live in DeviceManager; read them via its internal endpoint (#491)
+        SignalBeam.Shared.Infrastructure.InternalServices.DeviceGroupClientExtensions.AddDeviceGroupClient(services, configuration);
 
         // Azure Blob Storage for bundle artifacts
         ConfigureBlobStorage(services, configuration);

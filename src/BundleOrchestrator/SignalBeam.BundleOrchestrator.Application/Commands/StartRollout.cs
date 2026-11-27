@@ -2,6 +2,8 @@ using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.Enums;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.BundleOrchestrator.Application.Services;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Commands;
@@ -27,16 +29,16 @@ public record StartRolloutResponse(
 public class StartRolloutHandler
 {
     private readonly IRolloutRepository _rolloutRepository;
-    private readonly IDeviceGroupRepository _deviceGroupRepository;
+    private readonly IDeviceGroupClient _deviceGroupClient;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
 
     public StartRolloutHandler(
         IRolloutRepository rolloutRepository,
-        IDeviceGroupRepository deviceGroupRepository,
+        IDeviceGroupClient deviceGroupClient,
         IDeviceDesiredStateRepository desiredStateRepository)
     {
         _rolloutRepository = rolloutRepository;
-        _deviceGroupRepository = deviceGroupRepository;
+        _deviceGroupClient = deviceGroupClient;
         _desiredStateRepository = desiredStateRepository;
     }
 
@@ -65,8 +67,14 @@ public class StartRolloutHandler
             IReadOnlyList<DeviceId> targetDevices = new List<DeviceId>();
             if (rollout.TargetDeviceGroupId.HasValue)
             {
-                var groupId = new DeviceGroupId(rollout.TargetDeviceGroupId.Value);
-                targetDevices = await _deviceGroupRepository.GetDeviceIdsInGroupAsync(groupId, cancellationToken);
+                var lookup = await _deviceGroupClient.GetAsync(
+                    rollout.TenantId.Value, rollout.TargetDeviceGroupId.Value, cancellationToken);
+                if (lookup.Group is null)
+                {
+                    return Result.Failure<StartRolloutResponse>(DeviceGroupErrors.From(lookup, rollout.TargetDeviceGroupId.Value));
+                }
+
+                targetDevices = lookup.Group.DeviceIds.Select(id => new DeviceId(id)).ToList();
 
                 if (targetDevices.Count == 0)
                 {

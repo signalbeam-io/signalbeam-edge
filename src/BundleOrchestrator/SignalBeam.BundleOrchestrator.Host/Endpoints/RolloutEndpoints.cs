@@ -1,6 +1,7 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
 using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
+using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 
@@ -71,15 +72,17 @@ public static class RolloutEndpoints
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(command, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Created($"/api/rollouts/{result.Value!.RolloutId}", result.Value);
+        }
 
-        return result.IsSuccess
-            ? Results.Created($"/api/rollouts/{result.Value!.RolloutId}", result.Value)
-            : Results.BadRequest(new
-            {
-                error = result.Error!.Code,
-                message = result.Error.Message,
-                type = result.Error.Type.ToString()
-            });
+        // DeviceManager unreachable while expanding target groups (#491); everything else stays 400.
+        return Results.Json(
+            new { error = result.Error!.Code, message = result.Error.Message, type = result.Error.Type.ToString() },
+            statusCode: result.Error.Type == ErrorType.Failure
+                ? StatusCodes.Status503ServiceUnavailable
+                : StatusCodes.Status400BadRequest);
     }
 
     private static async Task<IResult> GetRolloutById(
