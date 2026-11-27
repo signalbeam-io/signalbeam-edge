@@ -89,6 +89,30 @@ public class RolloutRepositoryTests : IAsyncLifetime
         saved.Phases.Single().DeviceAssignments.Should().ContainSingle();
     }
 
+    [Fact]
+    public async Task GetByIdAsync_ReturnsPhasesInPhaseOrder()
+    {
+        // Arrange: Rollout picks the current phase by position, and the IDs sort opposite to the phases.
+        var rollout = Rollout.Create(Guid.NewGuid(), new TenantId(Guid.NewGuid()), new BundleId(Guid.NewGuid()),
+            BundleVersion.Parse("1.0.0"), null, "two-phase", null, Guid.NewGuid(), null, 0.05m, DateTimeOffset.UtcNow);
+        rollout.AddPhase(RolloutPhase.Create(Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"), rollout.Id, 0, "canary", 1, 50m, null));
+        rollout.AddPhase(RolloutPhase.Create(Guid.Parse("00000000-0000-0000-0000-000000000001"), rollout.Id, 1, "rest", 2, 50m, null));
+        await using (var context = Context())
+        {
+            var repository = new RolloutRepository(context);
+            await repository.AddAsync(rollout);
+            await repository.SaveChangesAsync();
+        }
+
+        // Act
+        await using var verify = Context();
+        var loaded = (await new RolloutRepository(verify).GetByIdAsync(rollout.Id))!;
+
+        // Assert
+        loaded.Phases.Select(p => p.Name).Should().Equal("canary", "rest");
+        loaded.GetCurrentPhase()!.Name.Should().Be("canary");
+    }
+
     private async Task<(Guid RolloutId, DeviceId DeviceId)> SeedRolloutAsync()
     {
         var rollout = Rollout.Create(Guid.NewGuid(), new TenantId(Guid.NewGuid()), new BundleId(Guid.NewGuid()),

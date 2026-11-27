@@ -21,7 +21,7 @@ public class RolloutRepository : IRolloutRepository
     public async Task<Rollout?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Rollouts
-            .Include(r => r.Phases)
+            .Include(r => r.Phases.OrderBy(p => p.PhaseNumber)) // Rollout indexes phases by position
                 .ThenInclude(p => p.DeviceAssignments)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
@@ -73,7 +73,7 @@ public class RolloutRepository : IRolloutRepository
         CancellationToken cancellationToken = default)
     {
         return await _context.Rollouts
-            .Include(r => r.Phases)
+            .Include(r => r.Phases.OrderBy(p => p.PhaseNumber)) // Rollout indexes phases by position
                 .ThenInclude(p => p.DeviceAssignments)
             .Where(r => r.TenantId == tenantId &&
                        (r.Status == RolloutLifecycleStatus.InProgress ||
@@ -98,7 +98,7 @@ public class RolloutRepository : IRolloutRepository
     {
         // Find rollouts that have assignments for this device
         return await _context.Rollouts
-            .Include(r => r.Phases)
+            .Include(r => r.Phases.OrderBy(p => p.PhaseNumber)) // Rollout indexes phases by position
                 .ThenInclude(p => p.DeviceAssignments)
             .Where(r => r.Phases.Any(p =>
                 p.DeviceAssignments.Any(a => a.DeviceId == deviceId)))
