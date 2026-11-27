@@ -16,6 +16,13 @@ import type {
 
 const BASE_PATH = '/api/alerts'
 
+// The alert API needs a tenant when the credential carries none (an OIDC token without a tenant claim).
+function tenantParams(): string {
+  const params = new URLSearchParams()
+  appendTenantId(params)
+  return params.toString()
+}
+
 export const alertsApi = {
   /**
    * Get list of alerts with filtering
@@ -46,7 +53,7 @@ export const alertsApi = {
   async getAlertById(id: string): Promise<AlertDetailResponse> {
     return apiRequest<AlertDetailResponse>({
       method: 'GET',
-      url: `${BASE_PATH}/${id}`,
+      url: `${BASE_PATH}/${id}?${tenantParams()}`,
     })
   },
 
@@ -77,7 +84,7 @@ export const alertsApi = {
   ): Promise<AcknowledgeAlertResponse> {
     return apiRequest<AcknowledgeAlertResponse>({
       method: 'POST',
-      url: `${BASE_PATH}/${id}/acknowledge`,
+      url: `${BASE_PATH}/${id}/acknowledge?${tenantParams()}`,
       data: request,
     })
   },
@@ -88,7 +95,7 @@ export const alertsApi = {
   async resolveAlert(id: string): Promise<ResolveAlertResponse> {
     return apiRequest<ResolveAlertResponse>({
       method: 'POST',
-      url: `${BASE_PATH}/${id}/resolve`,
+      url: `${BASE_PATH}/${id}/resolve?${tenantParams()}`,
     })
   },
 }

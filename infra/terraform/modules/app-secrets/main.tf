@@ -37,7 +37,7 @@ resource "azurerm_key_vault_secret" "ghcr_pat" {
 
 # Tenant API key for the MVP/dogfood auth path (X-Api-Key header). Generated
 # strong here and injected into the API-key services (DeviceManager,
-# BundleOrchestrator, IdentityManager) as a Key Vault reference, so the deployed
+# BundleOrchestrator, IdentityManager, TelemetryProcessor) as a Key Vault reference, so the deployed
 # apps never rely on the guessable `dev-api-key-1` placeholders baked into
 # appsettings.json (those remain for LOCAL dev only). The env injection overrides
 # `Authentication:ApiKeys:0` at runtime, so the weak keys are invalid in the cloud

@@ -83,8 +83,8 @@ curl -s -H "$KEY" -H 'Content-Type: application/json' $API/api/devices/<deviceId
 - Device status and bundle status: `GET /api/devices/<deviceId>` through the gateway.
 - Activity log: `GET /api/devices/<deviceId>/activity-log`.
 - Rollout status per device: `GET /api/rollouts/bundles/<bundleId>`.
-- Alerts: TelemetryProcessor's `GET /api/alerts` (not routed by the gateway; use the service's
-  endpoint from the Aspire dashboard), or `select type, severity, title from telemetry_processor.alerts`.
+- Alerts: `GET /api/alerts` through the gateway with the same `X-Api-Key` (the dev tenant's alerts),
+  or `select type, severity, title from telemetry_processor.alerts`.
 - Traces: `.tracebeam/otlp/traces.jsonl`. A NATS heartbeat continues the simulator's trace into
   TelemetryProcessor (`simulate heartbeat` → `signalbeam.devices publish` → `receive` → `process`).
   The stale-device event continues from TelemetryProcessor's check into DeviceManager

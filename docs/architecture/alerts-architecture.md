@@ -727,9 +727,9 @@ public static IEndpointRouteBuilder MapAlertEndpoints(this IEndpointRouteBuilder
 }
 ```
 
-**Authentication:** Inherited from TelemetryProcessor service (JWT or API Key)
+**Authentication:** Operator API (`OperatorAccess` policy): a Zitadel JWT, or the tenant API key outside Production. Device credentials are rejected. Results are scoped to the caller's tenant; another tenant's alert is a 404.
 
-**Rate Limiting:** Inherits global rate limiting (100 req/min per tenant)
+**Rate Limiting:** None in TelemetryProcessor yet (DeviceManager and BundleOrchestrator limit per tenant).
 
 ## Frontend Architecture
 
@@ -897,7 +897,7 @@ Distributed traces for:
 
 ### Authentication & Authorization
 
-- **API Endpoints**: Require JWT or API key authentication
+- **API Endpoints**: Operator-only (`OperatorAccess`): Zitadel JWT, or the tenant API key outside Production
 - **Tenant Isolation**: All queries filtered by TenantId
 - **Row-Level Security**: Repository pattern enforces tenant boundaries
 

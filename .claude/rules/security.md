@@ -59,7 +59,7 @@ policy:
 - If an endpoint must be public, annotate with `.AllowAnonymous()` and add a code comment explaining why
 - Service-to-service endpoints (e.g., quota checks) that use `.AllowAnonymous()` must validate the caller via other means (internal network, service token)
 - The anonymous device-registration handshake (`POST /api/devices`) is rate-limited per client IP (`RateLimitPolicies.DeviceRegistration`, configurable via `RateLimiting:Registration:*`) so it can't be used to flood Pending devices; operators that don't use tokenless onboarding can require a token via `Registration:RequireRegistrationToken`
-- Never add a new service without authentication middleware — TelemetryProcessor and ApiGateway are known gaps to be fixed
+- Never add a new service without authentication middleware — ApiGateway and TelemetryProcessor's non-alert endpoints (metrics stream) are known gaps to be fixed; TelemetryProcessor's alert API uses `UseApiKeyAuthentication` + `OperatorAccess`, scoped to `/api/alerts`
 - Path exclusions in middleware (health, metrics, scalar, openapi) must use exact prefix matching, not contains
 
 **When adding a new microservice:**

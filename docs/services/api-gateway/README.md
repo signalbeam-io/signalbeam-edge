@@ -9,9 +9,11 @@ Routes requests from the frontend to the appropriate microservice:
 - `/api/device-groups/*` → BundleOrchestrator (port 5002)
 - `/api/devices/*` → DeviceManager (port 5296)
 - `/api/groups/*` → DeviceManager (port 5296)
+- `/api/tags/*` → DeviceManager (port 5296)
 - `/api/bundles/*` → BundleOrchestrator (port 5002)
 - `/api/rollouts/*` → BundleOrchestrator (port 5002)
 - `/api/heartbeat/*` → TelemetryProcessor (port 5003)
+- `/api/alerts/*` → TelemetryProcessor (port 5003)
 
 ## Running
 

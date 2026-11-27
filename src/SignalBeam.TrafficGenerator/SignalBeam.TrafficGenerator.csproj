@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SignalBeam.TrafficGenerator</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SignalBeam.TrafficGenerator.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- OpenTelemetry pipeline (HttpClient tracing, OTLP export) shared with the services. -->
+    <ProjectReference Include="..\SignalBeam.ServiceDefaults\SignalBeam.ServiceDefaults.csproj" />
+    <!-- Request bodies use the services' own command records, so they stay in sync with the APIs. -->
+    <ProjectReference Include="..\DeviceManager\SignalBeam.DeviceManager.Application\SignalBeam.DeviceManager.Application.csproj" />
+    <ProjectReference Include="..\BundleOrchestrator\SignalBeam.BundleOrchestrator.Application\SignalBeam.BundleOrchestrator.Application.csproj" />
+  </ItemGroup>
+
+</Project>

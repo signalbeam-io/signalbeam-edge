@@ -89,6 +89,9 @@ To inject failures (devices going offline, resource spikes, failed deploys), see
 [simulator-scenarios.md](simulator-scenarios.md). The AppHost also gives the simulator the NATS URL,
 so heartbeats and metrics reach TelemetryProcessor the way a real agent's do.
 
+Next to the fleet, the AppHost runs an operator traffic generator that calls the control-plane APIs
+like the web UI; see [operator-traffic.md](operator-traffic.md).
+
 `--fleet-size 1` (the default) is the original single-device mode, including `--use-device-auth`
 and `--use-mtls`. With `--seed` it also gets fleet device 1's ID and name and the +/-10% jitter.
 

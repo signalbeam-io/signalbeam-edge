@@ -1,4 +1,5 @@
 using SignalBeam.Domain.Entities;
+using SignalBeam.Domain.ValueObjects;
 using SignalBeam.TelemetryProcessor.Application.Repositories;
 
 namespace SignalBeam.TelemetryProcessor.Application.Queries;
@@ -9,6 +10,9 @@ namespace SignalBeam.TelemetryProcessor.Application.Queries;
 public record GetAlertByIdQuery
 {
     public Guid AlertId { get; init; }
+
+    // When set, alerts of other tenants are treated as not found.
+    public TenantId? TenantId { get; init; }
 }
 
 /// <summary>
@@ -70,7 +74,7 @@ public class GetAlertByIdHandler
     {
         var alert = await _alertRepository.FindByIdAsync(query.AlertId, cancellationToken);
 
-        if (alert == null)
+        if (alert == null || (query.TenantId is not null && alert.TenantId != query.TenantId))
         {
             return null;
         }
