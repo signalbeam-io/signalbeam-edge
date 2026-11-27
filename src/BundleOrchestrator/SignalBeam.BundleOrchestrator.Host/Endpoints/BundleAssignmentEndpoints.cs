@@ -35,7 +35,7 @@ public static class BundleAssignmentEndpoints
         deviceGroup.MapGet("/{deviceId:guid}/desired-state", GetDeviceDesiredState)
             .WithName("GetDeviceDesiredState")
             .WithSummary("Get device desired state")
-            .WithDescription("Returns the bundle the device should run, with its containers. With nothing assigned, bundleId is null and containers is empty.")
+            .WithDescription("Returns the bundle the device should run, with its containers. 404 when nothing is assigned.")
             .RequireAuthorization(AuthorizationPolicies.DeviceOrOperatorAccess);
 
         deviceGroup.MapPost("/{deviceId:guid}/reconciliation-status", ReportReconciliationStatus)
@@ -111,14 +111,20 @@ public static class BundleAssignmentEndpoints
         return result.IsSuccess ? Results.Ok(result.Value) : ErrorResult(result.Error!);
     }
 
-    private static DeviceCaller Caller(HttpContext context)
+    private static DeviceCaller Caller(HttpContext context) => CallerFrom(context.User);
+
+    // device_id counts only for device credentials: a JWT could carry its own device_id claim, and a
+    // caller with a device ID skips the tenant check.
+    internal static DeviceCaller CallerFrom(System.Security.Claims.ClaimsPrincipal user)
     {
-        static Guid? ClaimGuid(HttpContext context, string type) =>
-            Guid.TryParse(context.User.FindFirst(type)?.Value, out var value) ? value : null;
+        Guid? ClaimGuid(string type) => Guid.TryParse(user.FindFirst(type)?.Value, out var value) ? value : null;
+
+        var authMethod = user.FindFirst(AuthenticationConstants.AuthMethodClaimType)?.Value;
+        var isDevice = authMethod is AuthenticationConstants.AuthMethodDeviceApiKey or AuthenticationConstants.AuthMethodCertificate;
 
         return new DeviceCaller(
-            ClaimGuid(context, AuthenticationConstants.TenantIdClaimType),
-            ClaimGuid(context, AuthenticationConstants.DeviceIdClaimType));
+            ClaimGuid(AuthenticationConstants.TenantIdClaimType),
+            isDevice ? ClaimGuid(AuthenticationConstants.DeviceIdClaimType) : null);
     }
 
     private static IResult ErrorResult(Error error)
