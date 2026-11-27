@@ -365,7 +365,11 @@ dotnet build
 
 ### Simulator (API Key)
 
-Use the simulator to register a device and emit heartbeats/metrics against the local APIs:
+Use the simulator to register a device and emit heartbeats/metrics against the local APIs. The
+tenant API key (`--api-key`) is used only to register and approve the device; approval issues the
+device its own `sb_device_*` key, which it then uses for heartbeats, metrics, desired state and
+reconciliation reports, like a real agent. Rerunning for the same device issues a fresh key and
+revokes the old one.
 
 ```bash
 dotnet run --project src/EdgeAgent/SignalBeam.EdgeAgent.Simulator -- \

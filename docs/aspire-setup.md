@@ -76,7 +76,10 @@ traffic shape. Devices are split across the `lab` and `prod-eu` groups and tagge
 Change the size or seed with `dotnet run -- --Simulator:FleetSize=5 --Simulator:Seed=7`.
 
 Fleet setup registers devices at DeviceManager's registration limit (10 per minute per IP), so
-20 devices take about two minutes to come up; setup waits out 429s. At steady state each device
+20 devices take about two minutes to come up; setup waits out 429s. Setup uses the tenant API key
+to register, approve, group and tag each device; approval issues every device its own key, and
+from then on each device sends only its own key, as a real agent does. A rerun issues fresh keys
+and revokes the previous ones. At steady state each device
 sends a heartbeat and a metrics report every 30s, ~80 DeviceManager calls a minute for the default
 fleet, against a per-tenant limit of 100 that the UI and other callers in the dev tenant share.
 Fleet devices report bundle state only when their desired bundle changes, so a rollout adds a
