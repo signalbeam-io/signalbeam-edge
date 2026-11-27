@@ -301,6 +301,8 @@ public class DeviceRegisteredHandler
 - `GET /api/devices` - List devices (paginated)
 - `GET /api/devices/{id}` - Get device details
 - `POST /api/devices/{id}/heartbeat` - Update heartbeat
+- `GET /api/devices/{id}/desired-state` - Bundle and containers the device should run (served by BundleOrchestrator, device key)
+- `POST /api/devices/{id}/reconciliation-status` - Device reports the reconciliation result (served by BundleOrchestrator, device key)
 - `GET /api/groups` - List device groups
 
 **Database Tables**:
