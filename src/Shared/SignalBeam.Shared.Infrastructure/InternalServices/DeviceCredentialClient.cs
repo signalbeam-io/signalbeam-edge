@@ -36,6 +36,10 @@ public interface IDeviceCredentialClient
 // for less; a failed call barely at all, so an outage clears quickly.
 public sealed class DeviceCredentialClient : IDeviceCredentialClient
 {
+    // Its own bounded cache: one entry per distinct key presented, so a flood of different keys
+    // can't grow memory without limit (or evict other services' cache entries).
+    public const int MaxCachedKeys = 10_000;
+
     public static readonly TimeSpan ValidTtl = TimeSpan.FromMinutes(2);
     public static readonly TimeSpan RejectedTtl = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan FailureTtl = TimeSpan.FromSeconds(5);
@@ -44,7 +48,7 @@ public sealed class DeviceCredentialClient : IDeviceCredentialClient
     private readonly IMemoryCache _cache;
     private readonly ILogger<DeviceCredentialClient> _logger;
 
-    public DeviceCredentialClient(HttpClient httpClient, IMemoryCache cache, ILogger<DeviceCredentialClient> logger)
+    public DeviceCredentialClient(HttpClient httpClient, DeviceCredentialCache cache, ILogger<DeviceCredentialClient> logger)
     {
         _httpClient = httpClient;
         _cache = cache;
@@ -66,7 +70,7 @@ public sealed class DeviceCredentialClient : IDeviceCredentialClient
             DeviceCredentialStatus.Rejected => RejectedTtl,
             _ => FailureTtl
         };
-        _cache.Set(cacheKey, verification, ttl);
+        _cache.Set(cacheKey, verification, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl, Size = 1 });
         return verification;
     }
 
@@ -119,7 +123,8 @@ public sealed class DeviceCredentialClient : IDeviceCredentialClient
         {
             using var document = JsonDocument.Parse(content);
             return document.RootElement.ValueKind == JsonValueKind.Object
-                   && document.RootElement.TryGetProperty("error", out _);
+                   && document.RootElement.TryGetProperty("error", out var error)
+                   && error.GetString() is "INVALID_API_KEY" or "DEVICE_NOT_APPROVED";
         }
         catch (JsonException)
         {
@@ -130,6 +135,8 @@ public sealed class DeviceCredentialClient : IDeviceCredentialClient
     private sealed record VerifyResponse(Guid DeviceId, Guid TenantId);
 }
 
+public sealed class DeviceCredentialCache() : MemoryCache(new MemoryCacheOptions { SizeLimit = DeviceCredentialClient.MaxCachedKeys });
+
 public static class DeviceCredentialClientExtensions
 {
     // Registers IDeviceCredentialClient against DeviceManager:BaseUrl, sending InternalServices:ApiKey.
@@ -138,7 +145,7 @@ public static class DeviceCredentialClientExtensions
         var baseUrl = configuration[DeviceTenantClient.BaseUrlConfigurationKey] ?? "http://localhost:5296";
         var internalServiceKey = configuration[InternalServiceAuthentication.ConfigurationKey];
 
-        services.AddMemoryCache();
+        services.AddSingleton<DeviceCredentialCache>();
         services.AddHttpClient<IDeviceCredentialClient, DeviceCredentialClient>(client =>
         {
             client.BaseAddress = new Uri(baseUrl);

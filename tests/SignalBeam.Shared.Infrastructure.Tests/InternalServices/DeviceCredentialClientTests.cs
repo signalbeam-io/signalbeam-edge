@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text;
 using FluentAssertions;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using SignalBeam.Shared.Infrastructure.InternalServices;
 
@@ -52,6 +51,7 @@ public class DeviceCredentialClientTests
 
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, "")]
+    [InlineData(HttpStatusCode.Unauthorized, "{\"error\":\"invalid_token\"}")]
     [InlineData(HttpStatusCode.ServiceUnavailable, "{}")]
     [InlineData(HttpStatusCode.OK, "<html>not json</html>")]
     [InlineData(HttpStatusCode.OK, "{}")]
@@ -91,7 +91,7 @@ public class DeviceCredentialClientTests
 
     private static DeviceCredentialClient Client(StubHandler handler) => new(
         new HttpClient(handler) { BaseAddress = new Uri("http://device-manager") },
-        new MemoryCache(new MemoryCacheOptions()),
+        new DeviceCredentialCache(),
         NullLogger<DeviceCredentialClient>.Instance);
 
     private sealed class StubHandler(HttpStatusCode status, string body) : HttpMessageHandler

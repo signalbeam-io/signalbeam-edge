@@ -23,7 +23,10 @@ public class VerifyDeviceApiKeyHandler
 
     public async Task<Result<VerifyDeviceApiKeyResponse>> Handle(VerifyDeviceApiKeyQuery query, CancellationToken cancellationToken)
     {
-        var keyPrefix = string.IsNullOrWhiteSpace(query.ApiKey) ? null : _apiKeyService.ExtractKeyPrefix(query.ApiKey);
+        const int maxKeyLength = 256;
+        var keyPrefix = string.IsNullOrWhiteSpace(query.ApiKey) || query.ApiKey.Length > maxKeyLength
+            ? null
+            : _apiKeyService.ExtractKeyPrefix(query.ApiKey);
         if (string.IsNullOrWhiteSpace(keyPrefix))
         {
             return Result.Failure<VerifyDeviceApiKeyResponse>(

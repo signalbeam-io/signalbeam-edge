@@ -136,7 +136,10 @@ public class ApiKeyAuthenticationMiddleware
 
     private async Task AuthenticateDeviceAsync(HttpContext context, IDeviceCredentialClient deviceCredentials, string apiKey)
     {
-        var verification = await deviceCredentials.VerifyApiKeyAsync(apiKey, context.RequestAborted);
+        // Malformed keys never reach DeviceManager, so made-up keys cost it nothing.
+        var verification = AuthenticationConstants.IsWellFormedDeviceApiKey(apiKey)
+            ? await deviceCredentials.VerifyApiKeyAsync(apiKey, context.RequestAborted)
+            : DeviceCredentialVerification.Rejected;
         switch (verification.Status)
         {
             case DeviceCredentialStatus.Valid:

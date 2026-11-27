@@ -13,7 +13,7 @@ namespace SignalBeam.Shared.Infrastructure.Tests.Authentication;
 // #489: services that register IDeviceCredentialClient accept device keys through UseApiKeyAuthentication.
 public class ApiKeyDeviceAuthenticationTests
 {
-    private const string DeviceKey = "sb_device_abcd1234_secret";
+    private const string DeviceKey = "sb_device_abcd1234_0123456789abcdefghijklmnopqrstuvwxyz0123";
 
     [Fact]
     public async Task DeviceKey_Valid_SetsDevicePrincipal()
@@ -60,6 +60,24 @@ public class ApiKeyDeviceAuthenticationTests
         // Assert
         context.Response.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
         nextCalled[0].Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("sb_device_abcd1234_short")]
+    [InlineData("sb_device_ABCD1234_0123456789abcdefghijklmnopqrstuvwxyz0123")]
+    [InlineData("sb_device_abcd1234_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123")]
+    [InlineData("sb_device_abcd1234-0123456789abcdefghijklmnopqrstuvwxyz0123")]
+    public async Task DeviceKey_Malformed_Returns401WithoutCallingDeviceManager(string apiKey)
+    {
+        // Arrange
+        var (context, nextCalled, credentials) = Build(apiKey, DeviceCredentialVerification.Valid(Guid.NewGuid(), Guid.NewGuid()));
+
+        // Act
+        await Middleware(nextCalled).InvokeAsync(context);
+
+        // Assert
+        context.Response.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
+        credentials.Verify(c => c.VerifyApiKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

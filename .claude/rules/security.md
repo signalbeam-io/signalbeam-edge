@@ -67,6 +67,11 @@ BundleOrchestrator serves two device endpoints, `GET /api/devices/{deviceId}/des
 - **Caching:** results are cached in memory by a SHA-256 of the key (never the key itself): valid for
   2 minutes, rejected for 30 seconds, failures for 5 seconds. A revoked or rotated key therefore keeps
   working in BundleOrchestrator for up to 2 minutes after DeviceManager stops accepting it.
+- **Malformed keys:** a value that starts with `sb_device_` but isn't exactly `sb_device_{8 hex}_{40 [a-z0-9]}`
+  gets `401` without a call to DeviceManager, and the verification cache is bounded (10,000 keys), so
+  made-up keys can't load DeviceManager or grow memory without limit.
+- **Rate limiting:** device principals get a rate-limit bucket each (`device:{id}`); everyone else
+  shares their tenant's bucket, so a large fleet can't starve its operators.
 - **Failure modes:** a key DeviceManager rejects returns `401`; DeviceManager unreachable, or the service
   key missing or wrong, returns `503` with `Retry-After` so devices retry instead of treating their key
   as bad.
@@ -76,6 +81,8 @@ BundleOrchestrator serves two device endpoints, `GET /api/devices/{deviceId}/des
   outside Production, like `OperatorAccess`. Wire them with `services.AddDeviceAuthorization(!builder.Environment.IsProduction())`.
   Callers that aren't the device (JWT, tenant key) must also belong to the device's tenant, checked by
   `DeviceOwnershipVerifier` through DeviceManager's internal tenant lookup; another tenant's device reads as `404`.
+  The endpoint takes `device_id` from the principal only when `auth_method` is a device credential, so a
+  JWT carrying its own `device_id` claim can't skip that check.
 - **mTLS:** client certificates end at the gateway, so BundleOrchestrator never sees one. Devices that
   use mTLS still send their device API key, and that key is what BundleOrchestrator checks.
 - Services that don't register `IDeviceCredentialClient` (e.g. TelemetryProcessor) keep rejecting device keys.
