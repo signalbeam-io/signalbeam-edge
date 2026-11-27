@@ -124,6 +124,7 @@ public sealed class DeviceCredentialClient : IDeviceCredentialClient
             using var document = JsonDocument.Parse(content);
             return document.RootElement.ValueKind == JsonValueKind.Object
                    && document.RootElement.TryGetProperty("error", out var error)
+                   && error.ValueKind == JsonValueKind.String
                    && error.GetString() is "INVALID_API_KEY" or "DEVICE_NOT_APPROVED";
         }
         catch (JsonException)

@@ -52,6 +52,7 @@ public class DeviceCredentialClientTests
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, "")]
     [InlineData(HttpStatusCode.Unauthorized, "{\"error\":\"invalid_token\"}")]
+    [InlineData(HttpStatusCode.Unauthorized, "{\"error\":42}")]
     [InlineData(HttpStatusCode.ServiceUnavailable, "{}")]
     [InlineData(HttpStatusCode.OK, "<html>not json</html>")]
     [InlineData(HttpStatusCode.OK, "{}")]
