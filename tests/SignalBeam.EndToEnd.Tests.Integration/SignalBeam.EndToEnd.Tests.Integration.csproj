@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <!-- All three hosts declare a global Program, so each gets an alias. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DeviceManager\SignalBeam.DeviceManager.Host\SignalBeam.DeviceManager.Host.csproj" Aliases="DeviceManagerHost" />
+    <ProjectReference Include="..\..\src\BundleOrchestrator\SignalBeam.BundleOrchestrator.Host\SignalBeam.BundleOrchestrator.Host.csproj" Aliases="BundleOrchestratorHost" />
+    <ProjectReference Include="..\..\src\SignalBeam.ApiGateway\SignalBeam.ApiGateway.csproj" Aliases="GatewayHost" />
+    <ProjectReference Include="..\..\src\EdgeAgent\SignalBeam.EdgeAgent.Infrastructure\SignalBeam.EdgeAgent.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+</Project>
