@@ -68,6 +68,10 @@ builder.Services.AddAuthentication(options =>
 // Production only the JWT authorizes. (#431)
 builder.Services.AddOperatorAuthorization(!builder.Environment.IsProduction());
 
+// Device endpoints (desired-state, reconciliation-status) need the device's own key, verified
+// through DeviceManager by the API key middleware (#489).
+builder.Services.AddDeviceAuthorization(!builder.Environment.IsProduction());
+
 // Add Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
@@ -157,6 +161,7 @@ builder.Services.AddScoped<GetBundleRolloutHistoryHandler>();
 
 // Rollout orchestration services
 builder.Services.AddScoped<RolloutOrchestrationService>();
+builder.Services.AddScoped<DeviceOwnershipVerifier>();
 
 // Configure rollout orchestrator options
 builder.Services.Configure<RolloutOrchestratorOptions>(
@@ -228,7 +233,7 @@ if (app.Environment.IsDevelopment())
     app.UseCors("WebDev");
 }
 
-// Add API key authentication middleware (for edge devices)
+// API key authentication: tenant keys, and device keys verified through DeviceManager
 app.UseApiKeyAuthentication();
 
 // Add standard authentication and authorization

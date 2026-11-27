@@ -3,6 +3,8 @@ using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Queries;
 using SignalBeam.Shared.Infrastructure.Authentication;
 using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
+using SignalBeam.BundleOrchestrator.Application.Services;
+using Error = SignalBeam.Shared.Infrastructure.Results.Error;
 using ErrorType = SignalBeam.Shared.Infrastructure.Results.ErrorType;
 
 namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
@@ -27,19 +29,20 @@ public static class BundleAssignmentEndpoints
             .WithDescription("Assigns a specific bundle version to a device, updating its desired state.")
             .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
 
-        // Device action: the agent polls its own desired state to reconcile — keep the existing auth
-        // path (this is the reconcile/desired-state endpoint the device-endpoint carve-out preserves).
-        deviceGroup.MapGet("/{deviceId}/desired-state", GetDeviceDesiredState)
+        // Device endpoints (#489). The device's own key, verified through DeviceManager, must name the
+        // route's device. Operators may read desired state with a JWT; the tenant key works only
+        // outside Production. Callers that aren't the device must belong to its tenant.
+        deviceGroup.MapGet("/{deviceId:guid}/desired-state", GetDeviceDesiredState)
             .WithName("GetDeviceDesiredState")
             .WithSummary("Get device desired state")
-            .WithDescription("Retrieves the desired bundle state for a specific device.");
+            .WithDescription("Returns the bundle the device should run, with its containers. With nothing assigned, bundleId is null and containers is empty.")
+            .RequireAuthorization(AuthorizationPolicies.DeviceOrOperatorAccess);
 
-        // Device action: the agent reports the outcome of reconciling its desired state, which
-        // updates the device's rollout status. Same device auth path as desired-state.
         deviceGroup.MapPost("/{deviceId:guid}/reconciliation-status", ReportReconciliationStatus)
             .WithName("ReportReconciliationStatus")
             .WithSummary("Report reconciliation status")
-            .WithDescription("Records whether the device succeeded or failed to reconcile its assigned bundle version.");
+            .WithDescription("Records whether the device succeeded or failed to reconcile its assigned bundle version.")
+            .RequireAuthorization(AuthorizationPolicies.DeviceAccess);
 
         // Operator action: assigning a bundle to a whole group.
         var groupGroup = app.MapGroup("/api/device-groups")
@@ -75,21 +78,13 @@ public static class BundleAssignmentEndpoints
     }
 
     private static async Task<IResult> GetDeviceDesiredState(
-        string deviceId,
+        Guid deviceId,
         GetDeviceDesiredStateHandler handler,
+        HttpContext context,
         CancellationToken cancellationToken)
     {
-        var query = new GetDeviceDesiredStateQuery(deviceId);
-        var result = await handler.Handle(query, cancellationToken);
-
-        return result.IsSuccess
-            ? Results.Ok(result.Value)
-            : Results.NotFound(new
-            {
-                error = result.Error!.Code,
-                message = result.Error.Message,
-                type = result.Error.Type.ToString()
-            });
+        var result = await handler.Handle(new GetDeviceDesiredStateQuery(deviceId), Caller(context), cancellationToken);
+        return result.IsSuccess ? Results.Ok(result.Value) : ErrorResult(result.Error!);
     }
 
     private static async Task<IResult> ReportReconciliationStatus(
@@ -112,27 +107,33 @@ public static class BundleAssignmentEndpoints
             });
         }
 
-        var callerTenantId = Guid.TryParse(
-            context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value, out var tenantId)
-            ? tenantId
-            : (Guid?)null;
+        var result = await handler.Handle(updatedCommand, Caller(context), cancellationToken);
+        return result.IsSuccess ? Results.Ok(result.Value) : ErrorResult(result.Error!);
+    }
 
-        var result = await handler.Handle(updatedCommand, callerTenantId, cancellationToken);
-        if (result.IsSuccess)
-        {
-            return Results.Ok(result.Value);
-        }
+    private static DeviceCaller Caller(HttpContext context)
+    {
+        static Guid? ClaimGuid(HttpContext context, string type) =>
+            Guid.TryParse(context.User.FindFirst(type)?.Value, out var value) ? value : null;
 
-        var statusCode = result.Error!.Type switch
+        return new DeviceCaller(
+            ClaimGuid(context, AuthenticationConstants.TenantIdClaimType),
+            ClaimGuid(context, AuthenticationConstants.DeviceIdClaimType));
+    }
+
+    private static IResult ErrorResult(Error error)
+    {
+        var statusCode = error.Type switch
         {
             ErrorType.NotFound => StatusCodes.Status404NotFound,
             ErrorType.Forbidden => StatusCodes.Status403Forbidden,
             ErrorType.Failure => StatusCodes.Status503ServiceUnavailable,
+            ErrorType.Unexpected => StatusCodes.Status500InternalServerError,
             _ => StatusCodes.Status400BadRequest
         };
 
         return Results.Json(
-            new { error = result.Error.Code, message = result.Error.Message, type = result.Error.Type.ToString() },
+            new { error = error.Code, message = error.Message, type = error.Type.ToString() },
             statusCode: statusCode);
     }
 
