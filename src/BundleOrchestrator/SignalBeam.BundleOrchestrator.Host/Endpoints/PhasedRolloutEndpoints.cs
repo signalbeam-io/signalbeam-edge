@@ -236,10 +236,7 @@ public static class PhasedRolloutEndpoints
                 type = error.Type.ToString()
             }),
             ErrorType.Forbidden => Results.Forbid(),
-            // DeviceManager unreachable while reading the target group (#491)
-            ErrorType.Failure => Results.Json(
-                new { error = error.Code, message = error.Message, type = error.Type.ToString() },
-                statusCode: StatusCodes.Status503ServiceUnavailable),
+            _ when DependencyErrors.IsUnavailable(error) => DependencyErrors.ServiceUnavailable(error),
             _ => Results.Problem(
                 title: "Internal Server Error",
                 detail: error.Message,

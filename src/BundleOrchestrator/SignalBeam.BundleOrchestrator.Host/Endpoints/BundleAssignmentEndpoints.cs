@@ -150,15 +150,16 @@ public static class BundleAssignmentEndpoints
             return Results.Ok(result.Value);
         }
 
-        var statusCode = result.Error!.Type switch
+        var error = result.Error!;
+        if (DependencyErrors.IsUnavailable(error))
         {
-            ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorType.Failure => StatusCodes.Status503ServiceUnavailable,
-            _ => StatusCodes.Status400BadRequest
-        };
+            return DependencyErrors.ServiceUnavailable(error);
+        }
 
         return Results.Json(
-            new { error = result.Error.Code, message = result.Error.Message, type = result.Error.Type.ToString() },
-            statusCode: statusCode);
+            new { error = error.Code, message = error.Message, type = error.Type.ToString() },
+            statusCode: error.Type == ErrorType.NotFound
+                ? StatusCodes.Status404NotFound
+                : StatusCodes.Status400BadRequest);
     }
 }

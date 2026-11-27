@@ -69,10 +69,7 @@ public class DeviceGroupTargetingTests
     public async Task StartRollout_AssignsTheFirstPhaseToTheEarliestMembers()
     {
         // Arrange
-        var rollout = Rollout.Create(Guid.NewGuid(), new TenantId(Tenant), _bundle.Id, BundleVersion.Parse("1.0.0"), null,
-            "canary", null, GroupId, null, 0.05m, DateTimeOffset.UtcNow);
-        rollout.AddPhase(RolloutPhase.Create(Guid.NewGuid(), rollout.Id, 0, "canary", 1, 10m, null));
-        rollout.AddPhase(RolloutPhase.Create(Guid.NewGuid(), rollout.Id, 1, "fleet", 3, 100m, null));
+        var rollout = TwoPhaseRollout();
         _rolloutRepository.GetByIdAsync(rollout.Id, Arg.Any<CancellationToken>()).Returns(rollout);
         GroupReturns(DeviceGroupLookup.Found(new DeviceGroupMembers(GroupId, "fleet", Devices)));
 
@@ -84,6 +81,49 @@ public class DeviceGroupTargetingTests
         result.IsSuccess.Should().BeTrue();
         await _groupClient.Received(1).GetAsync(Tenant, GroupId, Arg.Any<CancellationToken>());
         rollout.Phases.First().DeviceAssignments.Select(a => a.DeviceId.Value).Should().Equal(Devices[0]);
+    }
+
+    [Fact]
+    public async Task AdvancePhase_AssignsTheNextMembersNotYetInTheRollout()
+    {
+        // Arrange: the canary phase already has the first member.
+        var rollout = TwoPhaseRollout();
+        rollout.Start(DateTimeOffset.UtcNow);
+        rollout.StartCurrentPhase(DateTimeOffset.UtcNow);
+        var canary = rollout.GetCurrentPhase()!;
+        canary.AddDeviceAssignment(RolloutDeviceAssignment.Create(Guid.NewGuid(), rollout.Id, canary.Id, new DeviceId(Devices[0])));
+        _rolloutRepository.GetByIdAsync(rollout.Id, Arg.Any<CancellationToken>()).Returns(rollout);
+        GroupReturns(DeviceGroupLookup.Found(new DeviceGroupMembers(GroupId, "fleet", Devices)));
+
+        // Act
+        var result = await new AdvancePhaseHandler(_rolloutRepository, _groupClient, _desiredStateRepository)
+            .Handle(new AdvancePhaseCommand(rollout.Id), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        await _groupClient.Received(1).GetAsync(Tenant, GroupId, Arg.Any<CancellationToken>());
+        rollout.GetCurrentPhase()!.DeviceAssignments.Select(a => a.DeviceId.Value).Should().Equal(Devices[1], Devices[2]);
+    }
+
+    [Theory]
+    [InlineData(DeviceGroupLookupStatus.NotFound, ErrorType.NotFound)]
+    [InlineData(DeviceGroupLookupStatus.Unavailable, ErrorType.Failure)]
+    public async Task CreateRollout_ForAGroupNotLoaded_AssignsNothing(DeviceGroupLookupStatus status, ErrorType expected)
+    {
+        // Arrange
+        GroupReturns(new DeviceGroupLookup(status, null));
+        var handler = new CreateRolloutHandler(
+            _bundleRepository, _bundleVersionRepository, _groupClient, _desiredStateRepository, _rolloutStatusRepository);
+
+        // Act
+        var result = await handler.Handle(
+            new CreateRolloutCommand(_bundle.Id.Value.ToString(), "1.0.0", "group", [GroupId.ToString()]),
+            CancellationToken.None);
+
+        // Assert
+        result.Error!.Type.Should().Be(expected);
+        await _groupClient.Received(1).GetAsync(Tenant, GroupId, Arg.Any<CancellationToken>());
+        await _desiredStateRepository.DidNotReceive().AddAsync(Arg.Any<DeviceDesiredState>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -116,6 +156,16 @@ public class DeviceGroupTargetingTests
         // Assert
         result.Error!.Type.Should().Be(expected);
         await _desiredStateRepository.DidNotReceive().AddAsync(Arg.Any<DeviceDesiredState>(), Arg.Any<CancellationToken>());
+    }
+
+    // Canary takes 1 device, the second phase the other 2.
+    private Rollout TwoPhaseRollout()
+    {
+        var rollout = Rollout.Create(Guid.NewGuid(), new TenantId(Tenant), _bundle.Id, BundleVersion.Parse("1.0.0"), null,
+            "canary", null, GroupId, null, 0.05m, DateTimeOffset.UtcNow);
+        rollout.AddPhase(RolloutPhase.Create(Guid.NewGuid(), rollout.Id, 0, "canary", 1, 10m, null));
+        rollout.AddPhase(RolloutPhase.Create(Guid.NewGuid(), rollout.Id, 1, "fleet", 2, 90m, null));
+        return rollout;
     }
 
     private void GroupReturns(DeviceGroupLookup lookup) =>

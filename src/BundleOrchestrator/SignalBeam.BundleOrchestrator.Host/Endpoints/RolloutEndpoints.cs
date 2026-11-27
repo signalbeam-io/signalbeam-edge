@@ -77,12 +77,11 @@ public static class RolloutEndpoints
             return Results.Created($"/api/rollouts/{result.Value!.RolloutId}", result.Value);
         }
 
-        // DeviceManager unreachable while expanding target groups (#491); everything else stays 400.
-        return Results.Json(
-            new { error = result.Error!.Code, message = result.Error.Message, type = result.Error.Type.ToString() },
-            statusCode: result.Error.Type == ErrorType.Failure
-                ? StatusCodes.Status503ServiceUnavailable
-                : StatusCodes.Status400BadRequest);
+        // Everything but an unreachable DeviceManager stays 400.
+        var error = result.Error!;
+        return DependencyErrors.IsUnavailable(error)
+            ? DependencyErrors.ServiceUnavailable(error)
+            : Results.BadRequest(new { error = error.Code, message = error.Message, type = error.Type.ToString() });
     }
 
     private static async Task<IResult> GetRolloutById(
