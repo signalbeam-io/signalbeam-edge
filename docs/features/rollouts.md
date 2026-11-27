@@ -741,7 +741,7 @@ while (true)
 **Symptom:** Creating, starting or advancing a group rollout, or assigning a bundle to a group, returns 503.
 
 **Cause:** BundleOrchestrator couldn't read the group's devices from DeviceManager: DeviceManager is
-down, `DeviceManager:BaseUrl` is wrong, or `InternalServices:ApiKey` differs between the services
+down or timed out (10 s), `DeviceManager:BaseUrl` is wrong, or `InternalServices:ApiKey` differs between the services
 (BundleOrchestrator logs `Device group lookup ... failed: Unauthorized`).
 
 **Solution:** Retry once DeviceManager is reachable; check both settings. Nothing is saved on a 503.
