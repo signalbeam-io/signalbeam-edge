@@ -23,6 +23,8 @@ SignalBeam Edge implements a modern, cloud-native authentication architecture us
 │  • /oauth/*        → Zitadel (OAuth endpoints)                      │
 │  • /api/auth/*     → IdentityManager                                │
 │  • /api/devices/*  → DeviceManager                                  │
+│    (except /api/devices/{id}/desired-state, /reconciliation-status   │
+│     and /bundle → BundleOrchestrator)                                │
 │  • /api/bundles/*  → BundleOrchestrator                             │
 └────────────────┬────────────────────────────────────────────────────┘
                  │
@@ -228,6 +230,14 @@ apiClient.interceptors.response.use(
       "devices-route": {
         "ClusterId": "device-manager",
         "Match": { "Path": "/api/devices/{**catch-all}" }
+      },
+      "device-desired-state-route": {
+        "ClusterId": "bundle-orchestrator",
+        "Match": { "Path": "/api/devices/{deviceId}/desired-state" }
+      },
+      "device-reconciliation-status-route": {
+        "ClusterId": "bundle-orchestrator",
+        "Match": { "Path": "/api/devices/{deviceId}/reconciliation-status" }
       }
     },
     "Clusters": {

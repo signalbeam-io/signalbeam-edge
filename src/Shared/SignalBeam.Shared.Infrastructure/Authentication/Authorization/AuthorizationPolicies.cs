@@ -13,4 +13,17 @@ public static class AuthorizationPolicies
     /// hashed device API key / mTLS path.
     /// </summary>
     public const string OperatorAccess = "OperatorAccess";
+
+    /// <summary>
+    /// Gate for endpoints a device calls about itself (e.g. reconciliation-status). Requires a
+    /// device credential for the route's <c>{deviceId}</c>; the tenant API key only under the
+    /// dev-only escape hatch. Operator JWTs are refused. See <see cref="DeviceAccessRequirement"/>.
+    /// </summary>
+    public const string DeviceAccess = "DeviceAccess";
+
+    /// <summary>
+    /// Like <see cref="DeviceAccess"/>, but an operator JWT is also accepted (e.g. reading a
+    /// device's desired state from the dashboard).
+    /// </summary>
+    public const string DeviceOrOperatorAccess = "DeviceOrOperatorAccess";
 }

@@ -11,6 +11,47 @@ public static class AuthenticationConstants
     public const string ApiKeyHeaderName = "X-Api-Key";
 
     /// <summary>
+    /// Leading marker of a device API key (<c>sb_device_{prefix}_{secret}</c>).
+    /// </summary>
+    public const string DeviceApiKeyPrefix = "sb_device_";
+
+    /// <summary>
+    /// Whether <paramref name="apiKey"/> has the exact shape DeviceApiKeyService issues:
+    /// <c>sb_device_</c>, 8 lowercase hex characters, <c>_</c>, 40 of <c>[a-z0-9]</c>.
+    /// </summary>
+    public static bool IsWellFormedDeviceApiKey(string apiKey)
+    {
+        const int prefixLength = 8;
+        const int secretLength = 40;
+        if (apiKey.Length != DeviceApiKeyPrefix.Length + prefixLength + 1 + secretLength
+            || !apiKey.StartsWith(DeviceApiKeyPrefix, StringComparison.Ordinal)
+            || apiKey[DeviceApiKeyPrefix.Length + prefixLength] != '_')
+        {
+            return false;
+        }
+
+        var devicePrefix = apiKey.AsSpan(DeviceApiKeyPrefix.Length, prefixLength);
+        var secret = apiKey.AsSpan(DeviceApiKeyPrefix.Length + prefixLength + 1);
+        foreach (var c in devicePrefix)
+        {
+            if (!char.IsAsciiHexDigitLower(c))
+            {
+                return false;
+            }
+        }
+
+        foreach (var c in secret)
+        {
+            if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Tenant ID claim type.
     /// </summary>
     public const string TenantIdClaimType = "tenant_id";

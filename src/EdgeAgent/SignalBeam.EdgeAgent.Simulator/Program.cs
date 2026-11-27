@@ -32,7 +32,7 @@ public class Program
 
         var apiKeyOption = new Option<string?>("--api-key")
         {
-            Description = "API key to send in X-Api-Key header (legacy mode - uses shared tenant key)."
+            Description = "Tenant API key for setup calls (register, approve, group, tag). Devices then use their own keys."
         };
 
         var useDeviceAuthOption = new Option<bool>("--use-device-auth")
@@ -407,17 +407,28 @@ public class Program
         }
         else
         {
-            Console.WriteLine("Using legacy shared API key mode.");
-            (deviceClient, bundleClient) = CreateSharedKeyClients(settings);
+            // The tenant key registers and approves the device; the device then uses its own key.
+            Console.WriteLine("Using the tenant API key to set up the device.");
+            using var operatorClient = CreateOperatorClient(settings);
+            var registered = await FleetSetup.RegisterAsync(
+                operatorClient, settings.TenantId, effectiveDeviceId, effectiveDeviceName, metadata, cancellationToken);
+            Console.WriteLine(registered ? "Device registration succeeded." : "Device already registered; continuing.");
+
+            var deviceKey = await FleetSetup.IssueDeviceKeyAsync(operatorClient, effectiveDeviceId, effectiveDeviceName, cancellationToken);
+            var handler = new SocketsHttpHandler();
+            (deviceClient, bundleClient) = CreateDeviceKeyClients(settings, handler, deviceKey);
         }
 
         Console.WriteLine($"Simulator starting for device {effectiveDeviceId} ({effectiveDeviceName}).");
         Console.WriteLine($"DeviceManager: {settings.DeviceManagerUrl}");
         Console.WriteLine(bundleClient is null ? "BundleOrchestrator: (disabled)" : $"BundleOrchestrator: {bundleUrl}");
 
-        var registered = await FleetSetup.RegisterAsync(
-            deviceClient, settings.TenantId, effectiveDeviceId, effectiveDeviceName, metadata, cancellationToken);
-        Console.WriteLine(registered ? "Device registration succeeded." : "Device already registered; continuing.");
+        if (useDeviceAuth)
+        {
+            var registered = await FleetSetup.RegisterAsync(
+                deviceClient, settings.TenantId, effectiveDeviceId, effectiveDeviceName, metadata, cancellationToken);
+            Console.WriteLine(registered ? "Device registration succeeded." : "Device already registered; continuing.");
+        }
 
         await using var nats = CreateNatsPublisher(settings);
         var loop = spec is null ? settings.Loop : settings.Loop with { Jitter = FleetJitter };
@@ -442,16 +453,20 @@ public class Program
     {
         var seed = settings.Seed ?? Random.Shared.Next();
         var plan = FleetPlan.Create(fleetSize, seed);
-        var (deviceClient, bundleClient) = CreateSharedKeyClients(settings);
+        using var operatorClient = CreateOperatorClient(settings);
 
         Console.WriteLine($"Simulating a fleet of {fleetSize} devices (seed {seed}; rerun with --seed {seed} to reproduce).");
         Console.WriteLine($"DeviceManager: {settings.DeviceManagerUrl}");
-        Console.WriteLine(bundleClient is null
+        Console.WriteLine(string.IsNullOrWhiteSpace(settings.BundleOrchestratorUrl)
             ? "BundleOrchestrator: (disabled)"
             : $"BundleOrchestrator: {settings.BundleOrchestratorUrl}");
 
         await using var nats = CreateNatsPublisher(settings);
-        await FleetSetup.ProvisionAsync(deviceClient, settings.TenantId, plan, cancellationToken);
+        var deviceKeys = await FleetSetup.ProvisionAsync(operatorClient, settings.TenantId, plan, cancellationToken);
+
+        // Each device authenticates with its own key; the clients share one connection pool.
+        using var handler = new SocketsHttpHandler();
+        var clients = plan.ToDictionary(spec => spec.DeviceId, spec => CreateDeviceKeyClients(settings, handler, deviceKeys[spec.DeviceId]));
 
         var faults = ScenarioPlan.Assign(plan, scenarios, seed);
         foreach (var spec in plan.Where(d => faults.ContainsKey(d.DeviceId)))
@@ -467,8 +482,8 @@ public class Program
         var devices = plan.Select(spec => new SimulatedDevice(
             spec.DeviceId,
             spec.Name,
-            deviceClient,
-            bundleClient,
+            clients[spec.DeviceId].DeviceClient,
+            clients[spec.DeviceId].BundleClient,
             loop,
             // Spread device start times over one heartbeat interval.
             settings.Loop.HeartbeatInterval * spec.StartOffsetFraction,
@@ -479,25 +494,30 @@ public class Program
         await Task.WhenAll(devices.Select(d => d.RunAsync(cancellationToken)));
     }
 
-    private static (HttpClient DeviceClient, HttpClient? BundleClient) CreateSharedKeyClients(SimulatorSettings settings)
+    // Operator calls only: registering, approving and grouping devices.
+    private static HttpClient CreateOperatorClient(SimulatorSettings settings)
     {
         var apiKey = ResolveRequiredOption(settings.ApiKey, "SIM_API_KEY", "--api-key");
-        var deviceClient = CreateClient(settings.DeviceManagerUrl, apiKey);
-        var bundleClient = string.IsNullOrWhiteSpace(settings.BundleOrchestratorUrl)
-            ? null
-            : CreateClient(settings.BundleOrchestratorUrl, apiKey);
-        return (deviceClient, bundleClient);
-    }
-
-    private static HttpClient CreateClient(string baseUrl, string apiKey)
-    {
-        var client = new HttpClient
-        {
-            BaseAddress = new Uri(baseUrl.TrimEnd('/'))
-        };
-
+        var client = new HttpClient { BaseAddress = new Uri(settings.DeviceManagerUrl.TrimEnd('/')) };
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
         return client;
+    }
+
+    private static (HttpClient DeviceClient, HttpClient? BundleClient) CreateDeviceKeyClients(
+        SimulatorSettings settings,
+        HttpMessageHandler handler,
+        string deviceKey)
+    {
+        HttpClient Create(string baseUrl)
+        {
+            var client = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri(baseUrl.TrimEnd('/')) };
+            client.DefaultRequestHeaders.Add("X-Api-Key", deviceKey);
+            return client;
+        }
+
+        return (
+            Create(settings.DeviceManagerUrl),
+            string.IsNullOrWhiteSpace(settings.BundleOrchestratorUrl) ? null : Create(settings.BundleOrchestratorUrl));
     }
 
     private static string ResolveRequiredOption(string? optionValue, string envName, string optionName)

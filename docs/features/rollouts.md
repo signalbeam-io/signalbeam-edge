@@ -110,7 +110,7 @@ graph TB
    - UI updates progress bars and device lists
 
 3. **Execute Rollout** (Device Agent ↔ API):
-   - Agent polls `GET /api/devices/{id}/desired-state`
+   - Agent polls `GET /api/devices/{id}/desired-state` with its own device key, and gets the assigned bundle version's containers
    - Agent reconciles container state
    - Agent reports the result via `POST /api/devices/{id}/reconciliation-status` (`succeeded` or `failed` with errors), which marks the device's rollout status Succeeded or Failed
    - Database records updated
@@ -565,10 +565,10 @@ sequenceDiagram
 
 **Steps:**
 
-1. Agent polls `GET /api/devices/{id}/desired-state` every 60 seconds
+1. Agent polls `GET /api/devices/{id}/desired-state` every 60 seconds with its own device key; the
+   response is `{ deviceId, bundleId, bundleVersion, assignedAt, assignedBy, containers[] }`
 2. Compare desired bundle with current bundle
 3. If different:
-   - Update status to "Updating" via `PUT /api/rollouts/{id}/status`
    - Pull new container images
    - Stop old containers
    - Start new containers
@@ -585,15 +585,12 @@ sequenceDiagram
     participant DB as PostgreSQL
 
     loop Every 60 seconds
-        Agent->>API: GET /api/devices/{id}/desired-state
-        API->>DB: Fetch DeviceDesiredState
-        DB-->>API: Return desired bundle
-        API-->>Agent: Desired bundle configuration
+        Agent->>API: GET /api/devices/{id}/desired-state<br/>X-Api-Key: device key
+        API->>DB: Fetch DeviceDesiredState and bundle version
+        DB-->>API: Return desired bundle and containers
+        API-->>Agent: bundleId, bundleVersion, containers
 
         alt Desired state differs from current state
-            Agent->>API: PUT /api/rollouts/{id}/status<br/>status: "updating"
-            API->>DB: Update RolloutStatus
-
             Agent->>Docker: Pull container images
             Docker-->>Agent: Images pulled
 

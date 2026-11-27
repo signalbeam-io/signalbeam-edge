@@ -239,9 +239,9 @@ internal sealed class SimulatedDevice
             return;
         }
 
-        var desired = (await response.Content.ReadFromJsonAsync<DeviceDesiredStateResponse>(
-            SimulatorJson.Options, cancellationToken))?.DesiredState;
-        if (desired is null)
+        var desired = await response.Content.ReadFromJsonAsync<DeviceDesiredStateResponse>(
+            SimulatorJson.Options, cancellationToken);
+        if (desired?.BundleId is null || desired.BundleVersion is null)
         {
             _reconciliationFailing = false;
             return;
@@ -282,7 +282,7 @@ internal sealed class SimulatedDevice
                 new ReconciliationStatusRequest(
                     _deviceId,
                     failed ? "failed" : "succeeded",
-                    desired.BundleId.ToString(),
+                    desired.BundleId,
                     desired.BundleVersion,
                     DateTime.UtcNow,
                     [],

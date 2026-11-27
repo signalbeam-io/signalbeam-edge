@@ -1,66 +1,75 @@
 using SignalBeam.BundleOrchestrator.Application.Repositories;
+using SignalBeam.BundleOrchestrator.Application.Services;
 using SignalBeam.Domain.ValueObjects;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Queries;
 
-/// <summary>
-/// Query to get the desired state for a device.
-/// </summary>
-public record GetDeviceDesiredStateQuery(string DeviceId);
+public record GetDeviceDesiredStateQuery(Guid DeviceId);
 
-/// <summary>
-/// Device desired state DTO.
-/// </summary>
-public record DeviceDesiredStateDto(
+// The edge agent deserializes this as DesiredState(BundleId, BundleVersion, Containers) from
+// SignalBeam.EdgeAgent.Application.
+public record DeviceDesiredStateResponse(
     Guid DeviceId,
-    Guid BundleId,
+    string BundleId,
     string BundleVersion,
     DateTimeOffset AssignedAt,
-    string? AssignedBy);
+    string? AssignedBy,
+    IReadOnlyList<DesiredContainerDto> Containers);
 
-/// <summary>
-/// Response for GetDeviceDesiredStateQuery.
-/// </summary>
-public record GetDeviceDesiredStateResponse(DeviceDesiredStateDto? DesiredState);
-
-/// <summary>
-/// Handler for GetDeviceDesiredStateQuery.
-/// Uses Wolverine's IMessageHandler pattern.
-/// </summary>
 public class GetDeviceDesiredStateHandler
 {
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
+    private readonly IBundleVersionRepository _bundleVersionRepository;
+    private readonly DeviceOwnershipVerifier _ownershipVerifier;
 
-    public GetDeviceDesiredStateHandler(IDeviceDesiredStateRepository desiredStateRepository)
+    public GetDeviceDesiredStateHandler(
+        IDeviceDesiredStateRepository desiredStateRepository,
+        IBundleVersionRepository bundleVersionRepository,
+        DeviceOwnershipVerifier ownershipVerifier)
     {
         _desiredStateRepository = desiredStateRepository;
+        _bundleVersionRepository = bundleVersionRepository;
+        _ownershipVerifier = ownershipVerifier;
     }
 
-    public async Task<Result<GetDeviceDesiredStateResponse>> Handle(
+    public async Task<Result<DeviceDesiredStateResponse>> Handle(
         GetDeviceDesiredStateQuery query,
+        DeviceCaller caller,
         CancellationToken cancellationToken)
     {
-        // Parse and validate device ID
-        if (!DeviceId.TryParse(query.DeviceId, out var deviceId))
+        var accessError = await _ownershipVerifier.CheckAsync(query.DeviceId, caller, cancellationToken);
+        if (accessError is not null)
         {
-            return Result.Failure<GetDeviceDesiredStateResponse>(
-                Error.Validation("INVALID_DEVICE_ID", $"Invalid device ID format: {query.DeviceId}"));
+            return Result.Failure<DeviceDesiredStateResponse>(accessError);
         }
 
-        // Get desired state
-        var desiredState = await _desiredStateRepository.GetByDeviceIdAsync(deviceId, cancellationToken);
+        var desiredState = await _desiredStateRepository.GetByDeviceIdAsync(new DeviceId(query.DeviceId), cancellationToken);
+        // Nothing assigned is a 404, which the agent treats as "leave the device alone". An empty
+        // container list would mean "stop everything", and the agent stops every running container
+        // on the host, not only ones it started.
+        if (desiredState is null)
+        {
+            return Result.Failure<DeviceDesiredStateResponse>(Error.NotFound(
+                "NO_DESIRED_STATE", $"No bundle is assigned to device {query.DeviceId}."));
+        }
 
-        // Map to DTO (null if no desired state exists)
-        var desiredStateDto = desiredState is not null
-            ? new DeviceDesiredStateDto(
-                desiredState.DeviceId.Value,
-                desiredState.BundleId.Value,
-                desiredState.BundleVersion.ToString(),
-                desiredState.AssignedAt,
-                desiredState.AssignedBy)
-            : null;
+        var version = await _bundleVersionRepository.GetByBundleAndVersionAsync(
+            desiredState.BundleId, desiredState.BundleVersion, cancellationToken);
+        if (version is null)
+        {
+            // Not "nothing assigned": an empty answer would make the agent stop every container.
+            return Result.Failure<DeviceDesiredStateResponse>(Error.Unexpected(
+                "DESIRED_BUNDLE_VERSION_MISSING",
+                $"The assigned bundle version {desiredState.BundleVersion} could not be found."));
+        }
 
-        return Result<GetDeviceDesiredStateResponse>.Success(new GetDeviceDesiredStateResponse(desiredStateDto));
+        return Result<DeviceDesiredStateResponse>.Success(new DeviceDesiredStateResponse(
+            query.DeviceId,
+            desiredState.BundleId.Value.ToString(),
+            desiredState.BundleVersion.ToString(),
+            desiredState.AssignedAt,
+            desiredState.AssignedBy,
+            version.Containers.Select(DesiredContainerMapper.Map).ToList()));
     }
 }

@@ -174,7 +174,7 @@ The service is designed to run as a Deployment with multiple replicas for high a
 | `DeviceStatusMonitor__CheckInterval` | How often to check for stale devices | `00:01:00` |
 | `DeviceStatusMonitor__HeartbeatThreshold` | Heartbeat timeout threshold | `00:02:00` |
 | `DeviceManager__BaseUrl` | DeviceManager URL, used to look up a device's tenant for alerts | - |
-| `InternalServices__ApiKey` | Shared key for DeviceManager's `/api/internal` endpoints (same value in both services); without it alerts are skipped | - |
+| `InternalServices__ApiKey` | Shared key for DeviceManager's `/api/internal` endpoints (same value in DeviceManager, TelemetryProcessor and BundleOrchestrator); without it alerts are skipped | - |
 | `Authentication__Jwt__Authority` / `__Audience` / `__RequireHttpsMetadata` | Zitadel JWT validation for the alert API (`/api/alerts` is the only authenticated path; metrics stream and health are not) | - / - / `true` |
 | `Authentication__ApiKeys__<n>` | Tenant API keys (`tenantId:key:scopes`); accepted for the alert API only outside Production | - |
 | `ZITADEL_CONFIG_PATH` | Optional Zitadel config file whose `backend.audience` overrides the JWT audience | - |
