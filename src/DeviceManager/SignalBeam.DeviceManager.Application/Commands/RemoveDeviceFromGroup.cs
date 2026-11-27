@@ -114,8 +114,14 @@ public class RemoveDeviceFromGroupHandler
             return Result.Failure<RemoveDeviceFromGroupResponse>(error);
         }
 
-        // Remove membership
+        // Remove membership. AddDeviceToGroup also set the device's group, and rollouts read both (#491).
         await _membershipRepository.RemoveAsync(membership.Id, cancellationToken);
+        if (device.DeviceGroupId == deviceGroupId)
+        {
+            device.RemoveFromGroup();
+            await _deviceRepository.SaveChangesAsync(cancellationToken);
+        }
+
         await _membershipRepository.SaveChangesAsync(cancellationToken);
 
         return Result<RemoveDeviceFromGroupResponse>.Success(new RemoveDeviceFromGroupResponse(
