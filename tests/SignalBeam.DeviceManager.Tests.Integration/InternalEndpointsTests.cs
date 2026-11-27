@@ -87,6 +87,70 @@ public class InternalEndpointsTests : IClassFixture<InternalServiceKeyFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task GetGroupDevices_WithKey_ReturnsMembersOldestFirst()
+    {
+        // Arrange
+        var groupId = await CreateGroupAsync();
+        var first = await RegisterDeviceAsync();
+        var second = await RegisterDeviceAsync();
+        await AddToGroupAsync(groupId, first);
+        await AddToGroupAsync(groupId, second);
+
+        // Act
+        var response = await InternalClient(InternalServiceKeyFactory.Key)
+            .GetAsync($"/api/internal/tenants/{_factory.DefaultTenantId}/groups/{groupId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("groupId").GetGuid().Should().Be(groupId);
+        body.GetProperty("deviceIds").EnumerateArray().Select(d => d.GetGuid()).Should().Equal(first, second);
+    }
+
+    [Fact]
+    public async Task GetGroupDevices_ForAnotherTenant_ReturnsNotFound()
+    {
+        // Arrange
+        var groupId = await CreateGroupAsync();
+
+        // Act
+        var response = await InternalClient(InternalServiceKeyFactory.Key)
+            .GetAsync($"/api/internal/tenants/{Guid.NewGuid()}/groups/{groupId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetGroupDevices_WithTenantApiKeyOnly_ReturnsUnauthorized()
+    {
+        // Arrange
+        var groupId = await CreateGroupAsync();
+
+        // Act
+        var response = await _factory.CreateAuthenticatedClient()
+            .GetAsync($"/api/internal/tenants/{_factory.DefaultTenantId}/groups/{groupId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private async Task<Guid> CreateGroupAsync()
+    {
+        var response = await _factory.CreateAuthenticatedClient().PostAsJsonAsync("/api/groups",
+            new CreateDeviceGroupCommand(TenantId: _factory.DefaultTenantId, Name: $"internal-{Guid.NewGuid():N}"[..20]));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<CreateDeviceGroupResponse>())!.DeviceGroupId;
+    }
+
+    private async Task AddToGroupAsync(Guid groupId, Guid deviceId)
+    {
+        var response = await _factory.CreateAuthenticatedClient()
+            .PostAsJsonAsync($"/api/groups/{groupId}/devices", new { DeviceId = deviceId });
+        response.IsSuccessStatusCode.Should().BeTrue();
+    }
+
     private HttpClient InternalClient(string? key)
     {
         var client = _factory.CreateClient();
