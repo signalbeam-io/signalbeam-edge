@@ -24,6 +24,8 @@ paths:
 - Convert `Result<T>` to HTTP using `.ToHttpResult()` extension method
 - This maps ErrorType to status codes automatically:
   - Validation -> 400, NotFound -> 404, Conflict -> 409, Unauthorized -> 401, Forbidden -> 403
+- A dependency that can't be reached (e.g. DeviceManager during a group lookup) is a retryable 503:
+  BundleOrchestrator maps `DEVICE_GROUP_LOOKUP_UNAVAILABLE` through `DependencyErrors`, not every `Failure`
 
 ## Pattern
 ```csharp

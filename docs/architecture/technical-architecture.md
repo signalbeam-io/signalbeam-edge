@@ -93,6 +93,9 @@ C4Container
     Rel(bundleOrchestrator, database, "Reads/Writes bundles and rollouts", "EF Core")
     Rel(telemetryProcessor, database, "Writes metrics", "EF Core")
 
+    Rel(bundleOrchestrator, deviceManager, "Reads group members (internal, X-Internal-Service-Key)", "REST/JSON")
+    Rel(telemetryProcessor, deviceManager, "Looks up device tenants (internal, X-Internal-Service-Key)", "REST/JSON")
+
     Rel(deviceManager, cache, "Caches device state", "Redis Protocol")
     Rel(bundleOrchestrator, cache, "Caches bundle data", "Redis Protocol")
     Rel(telemetryProcessor, cache, "Caches aggregated metrics", "Redis Protocol")
