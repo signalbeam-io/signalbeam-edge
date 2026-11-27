@@ -91,8 +91,9 @@ public class AlertEndpointsTests : IClassFixture<TelemetryProcessorWebApplicatio
     public async Task TenantApiKey_InProduction_IsForbidden()
     {
         // Arrange: in Production only an operator JWT authorizes the alert API (#431).
-        var client = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
-            services.AddOperatorAuthorization(allowTenantApiKeyFallback: false))).CreateClient();
+        await using var production = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddOperatorAuthorization(allowTenantApiKeyFallback: false)));
+        var client = production.CreateClient();
         client.DefaultRequestHeaders.Add("X-API-Key", TelemetryProcessorWebApplicationFactory.TenantAKey);
 
         // Act
