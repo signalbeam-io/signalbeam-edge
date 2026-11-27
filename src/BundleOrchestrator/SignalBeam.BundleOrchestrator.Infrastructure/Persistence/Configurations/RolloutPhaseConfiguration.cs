@@ -17,8 +17,10 @@ public class RolloutPhaseConfiguration : IEntityTypeConfiguration<RolloutPhase>
         // Primary key
         builder.HasKey(p => p.Id);
 
+        // IDs come from the domain, so EF must treat ones it hasn't seen as new rows, not updates.
         builder.Property(p => p.Id)
-            .HasColumnName("id");
+            .HasColumnName("id")
+            .ValueGeneratedNever();
 
         // RolloutId
         builder.Property(p => p.RolloutId)

@@ -18,8 +18,10 @@ public class RolloutDeviceAssignmentConfiguration : IEntityTypeConfiguration<Rol
         // Primary key
         builder.HasKey(a => a.Id);
 
+        // IDs come from the domain, so EF must treat ones it hasn't seen as new rows, not updates.
         builder.Property(a => a.Id)
-            .HasColumnName("id");
+            .HasColumnName("id")
+            .ValueGeneratedNever();
 
         // RolloutId
         builder.Property(a => a.RolloutId)

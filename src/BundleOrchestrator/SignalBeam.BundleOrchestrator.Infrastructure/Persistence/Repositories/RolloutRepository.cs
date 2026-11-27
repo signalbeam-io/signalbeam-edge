@@ -124,30 +124,11 @@ public class RolloutRepository : IRolloutRepository
 
     public Task UpdateAsync(Rollout rollout, CancellationToken cancellationToken = default)
     {
-        // Device assignments get their IDs in the domain, so Update() or change detection would take
-        // a new one on a loaded rollout for an existing row and UPDATE nothing. Track new ones as
-        // Added before change detection can see them.
-        var autoDetectChanges = _context.ChangeTracker.AutoDetectChangesEnabled;
-        _context.ChangeTracker.AutoDetectChangesEnabled = false;
-        try
+        // A rollout loaded by this context is already tracked: change detection picks up new phases
+        // and assignments as inserts. Update() would mark them as modified rows instead.
+        if (_context.Entry(rollout).State == EntityState.Detached)
         {
-            if (_context.Entry(rollout).State == EntityState.Detached)
-            {
-                _context.Rollouts.Update(rollout);
-                return Task.CompletedTask;
-            }
-
-            foreach (var assignment in rollout.Phases.SelectMany(p => p.DeviceAssignments))
-            {
-                if (_context.Entry(assignment).State == EntityState.Detached)
-                {
-                    _context.Add(assignment);
-                }
-            }
-        }
-        finally
-        {
-            _context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+            _context.Rollouts.Update(rollout);
         }
 
         return Task.CompletedTask;
