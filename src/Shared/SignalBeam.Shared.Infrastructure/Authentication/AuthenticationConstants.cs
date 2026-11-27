@@ -11,6 +11,11 @@ public static class AuthenticationConstants
     public const string ApiKeyHeaderName = "X-Api-Key";
 
     /// <summary>
+    /// Leading marker of a device API key (<c>sb_device_{prefix}_{secret}</c>).
+    /// </summary>
+    public const string DeviceApiKeyPrefix = "sb_device_";
+
+    /// <summary>
     /// Tenant ID claim type.
     /// </summary>
     public const string TenantIdClaimType = "tenant_id";

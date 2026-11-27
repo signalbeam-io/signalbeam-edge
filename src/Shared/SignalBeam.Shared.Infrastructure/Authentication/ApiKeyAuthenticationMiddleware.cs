@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using System.Security.Claims;
 
 namespace SignalBeam.Shared.Infrastructure.Authentication;
@@ -80,6 +82,16 @@ public class ApiKeyAuthenticationMiddleware
 
         var apiKey = apiKeyValue.ToString();
 
+        // Device keys are owned by DeviceManager. A service that registers IDeviceCredentialClient
+        // (BundleOrchestrator, for its device endpoints) verifies them there; elsewhere they fall
+        // through to the tenant validator and are rejected as before.
+        if (apiKey.StartsWith(AuthenticationConstants.DeviceApiKeyPrefix, StringComparison.Ordinal)
+            && context.RequestServices.GetService<IDeviceCredentialClient>() is { } deviceCredentials)
+        {
+            await AuthenticateDeviceAsync(context, deviceCredentials, apiKey);
+            return;
+        }
+
         // Validate API key
         var validationResult = await _validator.ValidateAsync(apiKey, context.RequestAborted);
 
@@ -120,6 +132,47 @@ public class ApiKeyAuthenticationMiddleware
         context.User = new ClaimsPrincipal(identity);
 
         await _next(context);
+    }
+
+    private async Task AuthenticateDeviceAsync(HttpContext context, IDeviceCredentialClient deviceCredentials, string apiKey)
+    {
+        var verification = await deviceCredentials.VerifyApiKeyAsync(apiKey, context.RequestAborted);
+        switch (verification.Status)
+        {
+            case DeviceCredentialStatus.Valid:
+                var identity = new ClaimsIdentity(
+                    [
+                        new Claim(AuthenticationConstants.DeviceIdClaimType, verification.DeviceId.ToString()),
+                        new Claim(AuthenticationConstants.TenantIdClaimType, verification.TenantId.ToString()),
+                        new Claim(ClaimTypes.AuthenticationMethod, AuthenticationConstants.DeviceApiKeyScheme),
+                        new Claim(AuthenticationConstants.AuthMethodClaimType, AuthenticationConstants.AuthMethodDeviceApiKey)
+                    ],
+                    AuthenticationConstants.DeviceApiKeyScheme);
+                context.User = new ClaimsPrincipal(identity);
+                await _next(context);
+                return;
+
+            case DeviceCredentialStatus.Rejected:
+                _logger.LogWarning("Device API key rejected by DeviceManager");
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "INVALID_API_KEY",
+                    message = "The provided API key is invalid or has expired."
+                });
+                return;
+
+            default:
+                // Not the device's fault: let it retry rather than treat its key as bad.
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                context.Response.Headers.RetryAfter = "5";
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "DEVICE_AUTH_UNAVAILABLE",
+                    message = "The device credential could not be verified right now. Try again later."
+                });
+                return;
+        }
     }
 }
 
