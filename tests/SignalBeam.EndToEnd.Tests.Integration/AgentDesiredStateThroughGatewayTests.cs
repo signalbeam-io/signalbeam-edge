@@ -47,18 +47,16 @@ public class AgentDesiredStateThroughGatewayTests : IClassFixture<DeviceFlowFixt
     }
 
     [Fact]
-    public async Task Agent_WithNothingAssigned_GetsAnEmptyDesiredState()
+    public async Task Agent_WithNothingAssigned_GetsNoDesiredState()
     {
         // Arrange
         var (deviceId, apiKey) = await OnboardDeviceAsync();
 
-        // Act
+        // Act: the agent turns the 404 into null and skips reconciliation, leaving containers alone.
         var desired = await AgentClient(deviceId, apiKey).FetchDesiredStateAsync(deviceId);
 
         // Assert
-        desired.Should().NotBeNull();
-        desired!.BundleId.Should().BeNull();
-        desired.Containers.Should().BeEmpty();
+        desired.Should().BeNull();
     }
 
     [Fact]

@@ -8,13 +8,12 @@ namespace SignalBeam.BundleOrchestrator.Application.Queries;
 public record GetDeviceDesiredStateQuery(Guid DeviceId);
 
 // The edge agent deserializes this as DesiredState(BundleId, BundleVersion, Containers) from
-// SignalBeam.EdgeAgent.Application. With nothing assigned, BundleId is null and Containers is empty:
-// the device should run no bundle containers.
+// SignalBeam.EdgeAgent.Application.
 public record DeviceDesiredStateResponse(
     Guid DeviceId,
-    string? BundleId,
-    string? BundleVersion,
-    DateTimeOffset? AssignedAt,
+    string BundleId,
+    string BundleVersion,
+    DateTimeOffset AssignedAt,
     string? AssignedBy,
     IReadOnlyList<DesiredContainerDto> Containers);
 
@@ -46,10 +45,13 @@ public class GetDeviceDesiredStateHandler
         }
 
         var desiredState = await _desiredStateRepository.GetByDeviceIdAsync(new DeviceId(query.DeviceId), cancellationToken);
+        // Nothing assigned is a 404, which the agent treats as "leave the device alone". An empty
+        // container list would mean "stop everything", and the agent stops every running container
+        // on the host, not only ones it started.
         if (desiredState is null)
         {
-            return Result<DeviceDesiredStateResponse>.Success(
-                new DeviceDesiredStateResponse(query.DeviceId, null, null, null, null, []));
+            return Result.Failure<DeviceDesiredStateResponse>(Error.NotFound(
+                "NO_DESIRED_STATE", $"No bundle is assigned to device {query.DeviceId}."));
         }
 
         var version = await _bundleVersionRepository.GetByBundleAndVersionAsync(

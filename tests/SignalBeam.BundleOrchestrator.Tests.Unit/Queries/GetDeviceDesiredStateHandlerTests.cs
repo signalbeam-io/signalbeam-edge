@@ -55,15 +55,15 @@ public class GetDeviceDesiredStateHandlerTests
     }
 
     [Fact]
-    public async Task Handle_NothingAssigned_ReturnsEmptyState()
+    public async Task Handle_NothingAssigned_ReturnsNotFound()
     {
-        // Act
+        // Act: an empty container list would make the agent stop every container on the host.
         var result = await _handler.Handle(new GetDeviceDesiredStateQuery(_deviceId), Device, CancellationToken.None);
 
         // Assert
-        result.IsSuccess.Should().BeTrue();
-        result.Value!.BundleId.Should().BeNull();
-        result.Value.Containers.Should().BeEmpty();
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Type.Should().Be(ErrorType.NotFound);
+        result.Error.Code.Should().Be("NO_DESIRED_STATE");
     }
 
     [Fact]
