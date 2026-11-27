@@ -31,7 +31,7 @@ Apply these rules while writing code, not just during review.
 Every new endpoint MUST have authentication. The project uses a layered auth middleware chain:
 
 **DeviceManager** — `UseDeviceAuthentication()` middleware handles: mTLS cert → device API key (`sb_device_*`) → tenant API key → JWT Bearer passthrough
-**BundleOrchestrator** — `UseApiKeyAuthentication()` middleware handles: tenant API key → JWT Bearer passthrough
+**BundleOrchestrator** — `UseApiKeyAuthentication()` middleware handles: JWT Bearer → device API key (`sb_device_*`, verified by DeviceManager) → tenant API key
 **IdentityManager** — JWT Bearer only via standard ASP.NET Core middleware
 
 ### Operator vs device endpoints (#431)
@@ -53,6 +53,32 @@ policy:
   reach operator endpoints. `OperatorAccessHandler` rejects device credentials outright.
 - Wire the policy with `services.AddOperatorAuthorization(!builder.Environment.IsProduction())` and
   apply `.RequireAuthorization(AuthorizationPolicies.OperatorAccess)` per endpoint or per group.
+
+### How BundleOrchestrator authenticates devices (#489)
+
+BundleOrchestrator serves two device endpoints, `GET /api/devices/{deviceId}/desired-state` and
+`POST /api/devices/{deviceId}/reconciliation-status`, but device keys live in DeviceManager's database.
+
+- **Verification:** when `UseApiKeyAuthentication()` sees an `sb_device_*` key and the service has
+  registered `IDeviceCredentialClient` (`AddDeviceCredentialClient`), it posts the key to DeviceManager's
+  `POST /api/internal/device-credentials/verify` with `X-Internal-Service-Key`. DeviceManager applies its
+  usual rules (active key, BCrypt match, approved device) and returns the device and tenant IDs. The key
+  travels in the body, never the URL.
+- **Caching:** results are cached in memory by a SHA-256 of the key (never the key itself): valid for
+  2 minutes, rejected for 30 seconds, failures for 5 seconds. A revoked or rotated key therefore keeps
+  working in BundleOrchestrator for up to 2 minutes after DeviceManager stops accepting it.
+- **Failure modes:** a key DeviceManager rejects returns `401`; DeviceManager unreachable, or the service
+  key missing or wrong, returns `503` with `Retry-After` so devices retry instead of treating their key
+  as bad.
+- **Authorization:** `AuthorizationPolicies.DeviceAccess` (reconciliation-status) and
+  `DeviceOrOperatorAccess` (desired-state) require a device credential whose `device_id` claim equals the
+  route `{deviceId}`. `DeviceOrOperatorAccess` also admits an operator JWT. Both admit the tenant key only
+  outside Production, like `OperatorAccess`. Wire them with `services.AddDeviceAuthorization(!builder.Environment.IsProduction())`.
+  Callers that aren't the device (JWT, tenant key) must also belong to the device's tenant, checked by
+  `DeviceOwnershipVerifier` through DeviceManager's internal tenant lookup; another tenant's device reads as `404`.
+- **mTLS:** client certificates end at the gateway, so BundleOrchestrator never sees one. Devices that
+  use mTLS still send their device API key, and that key is what BundleOrchestrator checks.
+- Services that don't register `IDeviceCredentialClient` (e.g. TelemetryProcessor) keep rejecting device keys.
 
 **Rules:**
 - Every new endpoint requires auth unless it is a health check, metrics, or explicitly public registration endpoint

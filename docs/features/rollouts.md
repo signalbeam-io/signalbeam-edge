@@ -110,7 +110,7 @@ graph TB
    - UI updates progress bars and device lists
 
 3. **Execute Rollout** (Device Agent ↔ API):
-   - Agent polls `GET /api/devices/{id}/desired-state`
+   - Agent polls `GET /api/devices/{id}/desired-state` with its own device key, and gets the assigned bundle version's containers
    - Agent reconciles container state
    - Agent reports the result via `POST /api/devices/{id}/reconciliation-status` (`succeeded` or `failed` with errors), which marks the device's rollout status Succeeded or Failed
    - Database records updated
