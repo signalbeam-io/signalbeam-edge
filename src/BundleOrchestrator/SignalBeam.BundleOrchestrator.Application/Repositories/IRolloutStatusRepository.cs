@@ -43,6 +43,9 @@ public interface IRolloutStatusRepository
         Guid rolloutId,
         CancellationToken cancellationToken = default);
 
+    // The bundle a /api/rollouts rollout belongs to, or null when it has no statuses.
+    Task<BundleId?> GetBundleIdOfRolloutAsync(Guid rolloutId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Gets paginated list of a tenant's distinct rollouts (by the bundle's tenant), optionally filtered by bundle ID.
     /// </summary>

@@ -7,6 +7,9 @@ namespace SignalBeam.BundleOrchestrator.Host.Endpoints;
 // Operator endpoints act only within the caller's tenant (#498). The tenant comes from the
 // principal's tenant_id claim; tenantId query or body values are ignored. A caller without the
 // claim gets 403 (Zitadel JWTs get one with #492).
+// Marks endpoints that require the caller's tenant; a test checks every operator endpoint has it.
+public sealed class TenantScopedMetadata;
+
 public static class TenantScoping
 {
     public static Guid? CallerTenant(HttpContext context) =>
@@ -24,8 +27,10 @@ public static class TenantScoping
     // Rejects callers without a tenant before the handler runs.
     public static TBuilder RequireCallerTenant<TBuilder>(this TBuilder builder)
         where TBuilder : IEndpointConventionBuilder =>
-        builder.AddEndpointFilter(async (invocation, next) =>
-            CallerTenant(invocation.HttpContext) is null ? TenantRequired() : await next(invocation));
+        builder
+            .WithMetadata(new TenantScopedMetadata())
+            .AddEndpointFilter(async (invocation, next) =>
+                CallerTenant(invocation.HttpContext) is null ? TenantRequired() : await next(invocation));
 
     // The {bundleId} route value must be one of the caller's bundles.
     public static TBuilder RequireOwnBundle<TBuilder>(this TBuilder builder)
@@ -51,8 +56,19 @@ public static class TenantScoping
         this TBuilder builder,
         string routeKey,
         Func<TenantOwnership, Guid, string?, CancellationToken, Task<Error?>> check)
-        where TBuilder : IEndpointConventionBuilder =>
-        builder.AddEndpointFilter(async (invocation, next) =>
+        where TBuilder : IEndpointConventionBuilder
+    {
+        // A route without the parameter would skip the check silently, so fail at startup instead.
+        builder.Add(endpoint =>
+        {
+            if (endpoint is RouteEndpointBuilder route && route.RoutePattern.GetParameter(routeKey) is null)
+            {
+                throw new InvalidOperationException(
+                    $"Ownership check on '{route.RoutePattern.RawText}' needs a {{{routeKey}}} route parameter.");
+            }
+        });
+
+        return builder.AddEndpointFilter(async (invocation, next) =>
         {
             var context = invocation.HttpContext;
             if (CallerTenant(context) is not { } tenant)
@@ -67,4 +83,5 @@ public static class TenantScoping
                 context.RequestAborted);
             return error is null ? await next(invocation) : NotFound(error);
         });
+    }
 }

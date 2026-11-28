@@ -1,7 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SignalBeam.BundleOrchestrator.Host.Endpoints;
+using SignalBeam.Shared.Infrastructure.Authentication.Authorization;
 
 namespace SignalBeam.BundleOrchestrator.Tests.Unit.Integration;
 
@@ -186,6 +191,44 @@ public class TenantScopingTests : IClassFixture<BundleOrchestratorFactory>
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString().Should().Be("TENANT_REQUIRED");
+    }
+
+    [Fact]
+    public void EveryOperatorEndpoint_RequiresTheCallersTenant()
+    {
+        // Arrange: a new operator endpoint without RequireCallerTenant fails here.
+        var endpoints = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>();
+
+        // Act
+        var operatorEndpoints = endpoints
+            .Where(e => e.Metadata.GetOrderedMetadata<IAuthorizeData>().Any(a => a.Policy == AuthorizationPolicies.OperatorAccess))
+            .ToList();
+
+        // Assert
+        operatorEndpoints.Should().NotBeEmpty();
+        operatorEndpoints.Where(e => e.Metadata.GetMetadata<TenantScopedMetadata>() is null)
+            .Select(e => e.RoutePattern.RawText).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/rollouts/{0}/cancel")]
+    [InlineData("PUT", "/api/rollouts/{0}/status")]
+    [InlineData("GET", "/api/rollouts/bundles/{0}")]
+    [InlineData("POST", "/api/bundles/{0}/versions")]
+    [InlineData("POST", "/api/phased-rollouts/{0}/start")]
+    public async Task MissingId_IsNotFound_LikeAnotherTenants(string method, string template)
+    {
+        // Arrange: a missing ID must look exactly like another tenant's, so IDs can't be probed.
+        var request = new HttpRequestMessage(new HttpMethod(method), string.Format(template, Guid.NewGuid()))
+        {
+            Content = method == "GET" ? null : JsonContent.Create(new { status = "Failed", version = "2.0.0" })
+        };
+
+        // Act
+        var response = await _a.SendAsync(request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     private static async Task<Guid> CreateBundleAsync(HttpClient client, Guid? tenantIdParameter = null)

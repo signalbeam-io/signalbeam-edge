@@ -89,6 +89,8 @@ Operator endpoints act only within the caller's tenant (#498):
 - A bundle, version, rollout, phased rollout, device or group of another tenant reads as `404` with the
   same error code as a missing one, so IDs can't be probed. That includes assigning a bundle to another
   tenant's device or group, and naming another tenant's device in a rollout.
+- A well-formed ID that doesn't exist is also `404`, from the same check, on every route that names
+  a bundle or rollout in its path.
 - Checking a device's tenant calls DeviceManager; if it can't be reached the request gets `503
   DEVICE_LOOKUP_UNAVAILABLE`.
 
@@ -345,7 +347,7 @@ Adds a version from a `BundleDefinition` (same body and validation as `POST /api
 
 **Response (201):** `{ "versionId", "bundleId", "version", "blobStorageUri", "checksum", "sizeBytes", "createdAt" }`.
 
-**Error Codes** (all `400`): `INVALID_BUNDLE_ID`, `INVALID_BUNDLE_DEFINITION`, `INVALID_VERSION`, `INVALID_CONTAINER_SPEC`, `BUNDLE_NOT_FOUND`.
+**Error Codes:** `INVALID_BUNDLE_ID`, `INVALID_BUNDLE_DEFINITION`, `INVALID_VERSION`, `INVALID_CONTAINER_SPEC` (400); `BUNDLE_NOT_FOUND` (404).
 
 ### GET /api/bundles/{bundleId}/versions/{version} and /latest
 
@@ -415,7 +417,7 @@ rollout statuses don't record whether a group was targeted).
 
 **Response:** `204`.
 
-**Error Codes** for these three: `INVALID_ROLLOUT_ID`, `ROLLOUT_NOT_FOUND`; `404` on the two reads and `400` on cancel. These bodies have no `type`.
+**Error Codes** for these three: `INVALID_ROLLOUT_ID`, `ROLLOUT_NOT_FOUND`; a malformed ID is `400` on cancel, a missing one `404` everywhere. These bodies have no `type`.
 
 ### GET /api/rollouts/bundles/{bundleId}
 

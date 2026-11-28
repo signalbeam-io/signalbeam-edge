@@ -4,9 +4,9 @@ using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Services;
 
-// Checks that a resource named by ID belongs to the caller's tenant (#498). Another tenant's
-// resource reads as not found, with the same code as a missing one, so IDs can't be probed.
-// A malformed or unknown ID passes: the handler reports it as before.
+// Checks that a resource named by ID exists in the caller's tenant (#498). A missing resource and
+// another tenant's both read as not found here, so IDs can't be probed through status codes.
+// A malformed ID passes: the handler rejects it as before.
 public class TenantOwnership
 {
     private readonly IBundleRepository _bundleRepository;
@@ -31,7 +31,7 @@ public class TenantOwnership
         }
 
         var bundle = await _bundleRepository.GetByIdAsync(new BundleId(id), cancellationToken);
-        return bundle is null || bundle.TenantId.Value == tenantId ? null : BundleNotFound(id);
+        return bundle is not null && bundle.TenantId.Value == tenantId ? null : BundleNotFound(id);
     }
 
     public async Task<Error?> CheckPhasedRolloutAsync(Guid tenantId, string? rolloutId, CancellationToken cancellationToken)
@@ -42,7 +42,7 @@ public class TenantOwnership
         }
 
         var rollout = await _rolloutRepository.GetByIdWithoutIncludesAsync(id, cancellationToken);
-        return rollout is null || rollout.TenantId.Value == tenantId
+        return rollout is not null && rollout.TenantId.Value == tenantId
             ? null
             : Error.NotFound("ROLLOUT_NOT_FOUND", $"Rollout {id} not found.");
     }
@@ -55,8 +55,8 @@ public class TenantOwnership
             return null;
         }
 
-        var statuses = await _rolloutStatusRepository.GetByRolloutIdAsync(id, cancellationToken);
-        return statuses.Count == 0 || await BelongsAsync(tenantId, statuses[0].BundleId, cancellationToken)
+        var bundleId = await _rolloutStatusRepository.GetBundleIdOfRolloutAsync(id, cancellationToken);
+        return bundleId is { } owner && await BelongsAsync(tenantId, owner, cancellationToken)
             ? null
             : Error.NotFound("ROLLOUT_NOT_FOUND", $"Rollout {id} not found.");
     }
@@ -69,7 +69,7 @@ public class TenantOwnership
         }
 
         var status = await _rolloutStatusRepository.GetByIdAsync(id, cancellationToken);
-        return status is null || await BelongsAsync(tenantId, status.BundleId, cancellationToken)
+        return status is not null && await BelongsAsync(tenantId, status.BundleId, cancellationToken)
             ? null
             : Error.NotFound("ROLLOUT_NOT_FOUND", $"Rollout status {id} not found.");
     }
