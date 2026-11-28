@@ -152,14 +152,21 @@ public static class BundleAssignmentEndpoints
         // Override deviceGroupId from route
         var updatedCommand = command with { DeviceGroupId = deviceGroupId };
         var result = await handler.Handle(updatedCommand, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Ok(result.Value);
+        }
 
-        return result.IsSuccess
-            ? Results.Ok(result.Value)
-            : Results.BadRequest(new
-            {
-                error = result.Error!.Code,
-                message = result.Error.Message,
-                type = result.Error.Type.ToString()
-            });
+        var error = result.Error!;
+        if (DependencyErrors.IsUnavailable(error))
+        {
+            return DependencyErrors.ServiceUnavailable(error);
+        }
+
+        return Results.Json(
+            new { error = error.Code, message = error.Message, type = error.Type.ToString() },
+            statusCode: error.Type == ErrorType.NotFound
+                ? StatusCodes.Status404NotFound
+                : StatusCodes.Status400BadRequest);
     }
 }

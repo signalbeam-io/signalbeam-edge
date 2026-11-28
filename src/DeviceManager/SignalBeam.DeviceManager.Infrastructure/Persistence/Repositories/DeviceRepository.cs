@@ -35,6 +35,20 @@ public class DeviceRepository : IDeviceRepository, IDeviceQueryRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<DeviceId>> GetIdsInGroupAsync(
+        TenantId tenantId,
+        DeviceGroupId groupId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Devices
+            .AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.DeviceGroupId == groupId)
+            .OrderBy(d => d.RegisteredAt)
+            .ThenBy(d => d.Id)
+            .Select(d => d.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<(IReadOnlyCollection<Device> Devices, int TotalCount)> GetDevicesAsync(
         Guid? tenantId,
         DeviceStatus? status,

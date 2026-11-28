@@ -62,7 +62,8 @@ dotnet run --project src/SignalBeam.TrafficGenerator -- \
 | `--iterations` | Number of actions; 0 runs until stopped (default) |
 | `--start-delay` | Seconds before the first action (default 0) |
 
-## Known server errors
+## Group rollouts
 
-Creating a phased rollout for a device group currently returns 500 (#491), so `create-rollout`
-spans show errors until that is fixed.
+BundleOrchestrator reads the target group's members from DeviceManager
+(`GET /api/internal/tenants/{tenantId}/groups/{groupId}`), so a `create-rollout` or `start-rollout`
+trace continues into DeviceManager. If DeviceManager is unreachable, those calls return 503.

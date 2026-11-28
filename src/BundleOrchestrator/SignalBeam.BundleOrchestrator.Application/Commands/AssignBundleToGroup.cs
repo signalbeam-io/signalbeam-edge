@@ -1,6 +1,8 @@
 using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.BundleOrchestrator.Application.Services;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Commands;
@@ -32,20 +34,20 @@ public class AssignBundleToGroupHandler
 {
     private readonly IBundleRepository _bundleRepository;
     private readonly IBundleVersionRepository _bundleVersionRepository;
-    private readonly IDeviceGroupRepository _deviceGroupRepository;
+    private readonly IDeviceGroupClient _deviceGroupClient;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
     private readonly IRolloutStatusRepository _rolloutStatusRepository;
 
     public AssignBundleToGroupHandler(
         IBundleRepository bundleRepository,
         IBundleVersionRepository bundleVersionRepository,
-        IDeviceGroupRepository deviceGroupRepository,
+        IDeviceGroupClient deviceGroupClient,
         IDeviceDesiredStateRepository desiredStateRepository,
         IRolloutStatusRepository rolloutStatusRepository)
     {
         _bundleRepository = bundleRepository;
         _bundleVersionRepository = bundleVersionRepository;
-        _deviceGroupRepository = deviceGroupRepository;
+        _deviceGroupClient = deviceGroupClient;
         _desiredStateRepository = desiredStateRepository;
         _rolloutStatusRepository = rolloutStatusRepository;
     }
@@ -61,14 +63,6 @@ public class AssignBundleToGroupHandler
                 Error.Validation("INVALID_GROUP_ID", $"Invalid device group ID format: {command.DeviceGroupId}"));
         }
 
-        // Check if device group exists
-        var deviceGroup = await _deviceGroupRepository.GetByIdAsync(deviceGroupId, cancellationToken);
-        if (deviceGroup is null)
-        {
-            return Result.Failure<AssignBundleToGroupResponse>(
-                Error.NotFound("GROUP_NOT_FOUND", $"Device group with ID {command.DeviceGroupId} not found."));
-        }
-
         // Parse and validate bundle ID
         if (!BundleId.TryParse(command.BundleId, out var bundleId))
         {
@@ -82,6 +76,13 @@ public class AssignBundleToGroupHandler
         {
             return Result.Failure<AssignBundleToGroupResponse>(
                 Error.NotFound("BUNDLE_NOT_FOUND", $"Bundle with ID {command.BundleId} not found."));
+        }
+
+        // The group must belong to the bundle's tenant
+        var lookup = await _deviceGroupClient.GetAsync(bundle.TenantId.Value, deviceGroupId.Value, cancellationToken);
+        if (lookup.Group is not { } deviceGroup)
+        {
+            return Result.Failure<AssignBundleToGroupResponse>(DeviceGroupErrors.From(lookup, deviceGroupId.Value));
         }
 
         // Parse and validate version
@@ -104,7 +105,7 @@ public class AssignBundleToGroupHandler
         }
 
         // Get all devices in the group
-        var deviceIds = await _deviceGroupRepository.GetDeviceIdsInGroupAsync(deviceGroupId, cancellationToken);
+        var deviceIds = deviceGroup.DeviceIds.Select(id => new DeviceId(id)).ToList();
 
         if (deviceIds.Count == 0)
         {

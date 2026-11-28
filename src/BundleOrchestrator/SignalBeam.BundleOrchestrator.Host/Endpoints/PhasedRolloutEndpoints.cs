@@ -236,6 +236,7 @@ public static class PhasedRolloutEndpoints
                 type = error.Type.ToString()
             }),
             ErrorType.Forbidden => Results.Forbid(),
+            _ when DependencyErrors.IsUnavailable(error) => DependencyErrors.ServiceUnavailable(error),
             _ => Results.Problem(
                 title: "Internal Server Error",
                 detail: error.Message,

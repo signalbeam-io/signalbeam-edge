@@ -24,11 +24,27 @@ public static class InternalEndpoints
         group.MapGet("/devices/{deviceId:guid}/tenant", GetDeviceTenant)
             .WithName("GetDeviceTenant");
 
+        group.MapGet("/tenants/{tenantId:guid}/groups/{groupId:guid}", GetGroupDevices)
+            .WithName("GetGroupDevices");
+
         // The key travels in the body, never the URL, so it stays out of request logs.
         group.MapPost("/device-credentials/verify", VerifyDeviceApiKey)
             .WithName("VerifyDeviceApiKey");
 
         return app;
+    }
+
+    private static async Task<IResult> GetGroupDevices(
+        Guid tenantId,
+        Guid groupId,
+        [FromServices] GetGroupDevicesHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(new GetGroupDevicesQuery(tenantId, groupId), cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.NotFound(new { error = result.Error!.Code, message = result.Error.Message, type = result.Error.Type.ToString() });
     }
 
     private static async Task<IResult> GetDeviceTenant(

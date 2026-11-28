@@ -1,6 +1,8 @@
 using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.BundleOrchestrator.Application.Services;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Commands;
@@ -47,18 +49,18 @@ public class CreatePhasedRolloutHandler
     private readonly IRolloutRepository _rolloutRepository;
     private readonly IBundleRepository _bundleRepository;
     private readonly IBundleVersionRepository _bundleVersionRepository;
-    private readonly IDeviceGroupRepository _deviceGroupRepository;
+    private readonly IDeviceGroupClient _deviceGroupClient;
 
     public CreatePhasedRolloutHandler(
         IRolloutRepository rolloutRepository,
         IBundleRepository bundleRepository,
         IBundleVersionRepository bundleVersionRepository,
-        IDeviceGroupRepository deviceGroupRepository)
+        IDeviceGroupClient deviceGroupClient)
     {
         _rolloutRepository = rolloutRepository;
         _bundleRepository = bundleRepository;
         _bundleVersionRepository = bundleVersionRepository;
-        _deviceGroupRepository = deviceGroupRepository;
+        _deviceGroupClient = deviceGroupClient;
     }
 
     public async Task<Result<CreatePhasedRolloutResponse>> Handle(
@@ -118,15 +120,17 @@ public class CreatePhasedRolloutHandler
         }
 
         // 7. Validate device group if specified
+        DeviceGroupMembers? targetGroup = null;
         if (command.TargetDeviceGroupId.HasValue)
         {
-            var groupId = new DeviceGroupId(command.TargetDeviceGroupId.Value);
-            var group = await _deviceGroupRepository.GetByIdAsync(groupId, cancellationToken);
-            if (group is null)
+            var lookup = await _deviceGroupClient.GetAsync(tenantId.Value, command.TargetDeviceGroupId.Value, cancellationToken);
+            if (lookup.Group is null)
             {
                 return Result.Failure<CreatePhasedRolloutResponse>(
-                    Error.NotFound("GROUP_NOT_FOUND", $"Device group {command.TargetDeviceGroupId} not found."));
+                    DeviceGroupErrors.From(lookup, command.TargetDeviceGroupId.Value));
             }
+
+            targetGroup = lookup.Group;
         }
 
         // 8. Validate phases
@@ -158,9 +162,7 @@ public class CreatePhasedRolloutHandler
         int totalDeviceCount = 0;
         if (command.TargetDeviceGroupId.HasValue)
         {
-            var groupId = new DeviceGroupId(command.TargetDeviceGroupId.Value);
-            var deviceIds = await _deviceGroupRepository.GetDeviceIdsInGroupAsync(groupId, cancellationToken);
-            totalDeviceCount = deviceIds.Count;
+            totalDeviceCount = targetGroup!.DeviceIds.Count;
 
             if (totalDeviceCount == 0)
             {

@@ -20,4 +20,10 @@ public interface IDeviceQueryRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    // Devices whose DeviceGroupId points at the group (set by PUT /api/devices/{id}/group), oldest first.
+    Task<IReadOnlyList<DeviceId>> GetIdsInGroupAsync(
+        TenantId tenantId,
+        DeviceGroupId groupId,
+        CancellationToken cancellationToken = default);
 }

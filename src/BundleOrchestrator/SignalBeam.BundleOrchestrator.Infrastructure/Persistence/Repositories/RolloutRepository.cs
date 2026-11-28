@@ -21,7 +21,7 @@ public class RolloutRepository : IRolloutRepository
     public async Task<Rollout?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Rollouts
-            .Include(r => r.Phases)
+            .Include(r => r.Phases.OrderBy(p => p.PhaseNumber)) // Rollout indexes phases by position
                 .ThenInclude(p => p.DeviceAssignments)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
@@ -73,7 +73,7 @@ public class RolloutRepository : IRolloutRepository
         CancellationToken cancellationToken = default)
     {
         return await _context.Rollouts
-            .Include(r => r.Phases)
+            .Include(r => r.Phases.OrderBy(p => p.PhaseNumber)) // Rollout indexes phases by position
                 .ThenInclude(p => p.DeviceAssignments)
             .Where(r => r.TenantId == tenantId &&
                        (r.Status == RolloutLifecycleStatus.InProgress ||
@@ -98,7 +98,7 @@ public class RolloutRepository : IRolloutRepository
     {
         // Find rollouts that have assignments for this device
         return await _context.Rollouts
-            .Include(r => r.Phases)
+            .Include(r => r.Phases.OrderBy(p => p.PhaseNumber)) // Rollout indexes phases by position
                 .ThenInclude(p => p.DeviceAssignments)
             .Where(r => r.Phases.Any(p =>
                 p.DeviceAssignments.Any(a => a.DeviceId == deviceId)))
@@ -124,7 +124,14 @@ public class RolloutRepository : IRolloutRepository
 
     public Task UpdateAsync(Rollout rollout, CancellationToken cancellationToken = default)
     {
-        _context.Rollouts.Update(rollout);
+        // A rollout loaded by this context is already tracked: change detection picks up new phases
+        // and assignments as inserts. Update() would mark them as modified rows instead, so a
+        // detached rollout is only safe here when nothing was added to it.
+        if (_context.Entry(rollout).State == EntityState.Detached)
+        {
+            _context.Rollouts.Update(rollout);
+        }
+
         return Task.CompletedTask;
     }
 

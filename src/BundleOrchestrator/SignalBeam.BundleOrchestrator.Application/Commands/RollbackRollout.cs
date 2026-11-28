@@ -26,16 +26,13 @@ public class RollbackRolloutHandler
 {
     private readonly IRolloutRepository _rolloutRepository;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
-    private readonly IDeviceGroupRepository _deviceGroupRepository;
 
     public RollbackRolloutHandler(
         IRolloutRepository rolloutRepository,
-        IDeviceDesiredStateRepository desiredStateRepository,
-        IDeviceGroupRepository deviceGroupRepository)
+        IDeviceDesiredStateRepository desiredStateRepository)
     {
         _rolloutRepository = rolloutRepository;
         _desiredStateRepository = desiredStateRepository;
-        _deviceGroupRepository = deviceGroupRepository;
     }
 
     public async Task<Result<RollbackRolloutResponse>> Handle(

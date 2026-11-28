@@ -1,6 +1,8 @@
 using SignalBeam.BundleOrchestrator.Application.Repositories;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
+using SignalBeam.BundleOrchestrator.Application.Services;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Commands;
@@ -27,16 +29,16 @@ public record AdvancePhaseResponse(
 public class AdvancePhaseHandler
 {
     private readonly IRolloutRepository _rolloutRepository;
-    private readonly IDeviceGroupRepository _deviceGroupRepository;
+    private readonly IDeviceGroupClient _deviceGroupClient;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
 
     public AdvancePhaseHandler(
         IRolloutRepository rolloutRepository,
-        IDeviceGroupRepository deviceGroupRepository,
+        IDeviceGroupClient deviceGroupClient,
         IDeviceDesiredStateRepository desiredStateRepository)
     {
         _rolloutRepository = rolloutRepository;
-        _deviceGroupRepository = deviceGroupRepository;
+        _deviceGroupClient = deviceGroupClient;
         _desiredStateRepository = desiredStateRepository;
     }
 
@@ -88,8 +90,14 @@ public class AdvancePhaseHandler
             IReadOnlyList<DeviceId> targetDevices = new List<DeviceId>();
             if (rollout.TargetDeviceGroupId.HasValue)
             {
-                var groupId = new DeviceGroupId(rollout.TargetDeviceGroupId.Value);
-                targetDevices = await _deviceGroupRepository.GetDeviceIdsInGroupAsync(groupId, cancellationToken);
+                var lookup = await _deviceGroupClient.GetAsync(
+                    rollout.TenantId.Value, rollout.TargetDeviceGroupId.Value, cancellationToken);
+                if (lookup.Group is null)
+                {
+                    return Result.Failure<AdvancePhaseResponse>(DeviceGroupErrors.From(lookup, rollout.TargetDeviceGroupId.Value));
+                }
+
+                targetDevices = lookup.Group.DeviceIds.Select(id => new DeviceId(id)).ToList();
             }
 
             // 5. Get devices already assigned in previous phases

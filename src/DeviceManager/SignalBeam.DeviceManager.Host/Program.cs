@@ -193,6 +193,7 @@ builder.Services.AddScoped<RevokeDeviceApiKeyHandler>();
 builder.Services.AddScoped<GetDevicesHandler>();
 builder.Services.AddScoped<GetDeviceByIdHandler>();
 builder.Services.AddScoped<GetDeviceTenantHandler>();
+builder.Services.AddScoped<GetGroupDevicesHandler>();
 builder.Services.AddScoped<VerifyDeviceApiKeyHandler>();
 builder.Services.AddScoped<GetDeviceHealthHandler>();
 builder.Services.AddScoped<GetDevicesByGroupHandler>();

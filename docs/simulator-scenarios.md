@@ -97,15 +97,18 @@ tenant up in DeviceManager (`GET /api/internal/devices/{id}/tenant`, cached). Bu
 device endpoints (desired-state, reconciliation-status) take the device's own key, which it verifies
 with DeviceManager (`POST /api/internal/device-credentials/verify`, cached); a key for a different
 device gets 403. Operators reading desired state with a JWT, or the dev tenant key, go through the
-tenant lookup instead, and another tenant's device reads as 404.
+tenant lookup instead, and another tenant's device reads as 404. For group rollouts and group
+assignment BundleOrchestrator reads the group's members from DeviceManager
+(`GET /api/internal/tenants/{tenantId}/groups/{groupId}`, not cached), scoped to the bundle's or
+rollout's tenant.
 
-That endpoint is for service-to-service calls only: the gateway doesn't route `/api/internal`, only
+These endpoints are for service-to-service calls only: the gateway doesn't route `/api/internal`, only
 the gateway and Zitadel have public Container Apps ingress (both checked by
 `InternalEndpointExposureTests`), and callers must send the shared `X-Internal-Service-Key`,
 configured as `InternalServices:ApiKey` in all three services. The AppHost generates one per run;
 in Azure it is the `internal-service-key` Key Vault secret. Without a matching key, lookups fail:
 rules skip alerts with a warning, and BundleOrchestrator answers device requests (desired-state,
-reconciliation-status) with 503.
+reconciliation-status) and group rollouts with 503.
 
 Alerts don't resolve themselves. While a device has an active alert of a type, no new one of that
 type is created for it, so resolve old alerts (or reset the database) before rerunning a scenario.

@@ -100,7 +100,8 @@ graph TB
 1. **Create Rollout** (User → UI → API):
    - User selects bundle and target devices/groups
    - UI calls `POST /api/rollouts`
-   - API creates rollout and device status records
+   - API creates rollout and device status records; group targets are expanded to their devices
+     through DeviceManager's internal group lookup
    - UI redirects to rollout status page
 
 2. **Monitor Rollout** (UI ↔ API):
@@ -731,6 +732,16 @@ while (true)
 - Ensure indexes exist on `rollout_id`, `device_id`, `bundle_id`
 - Implement query result caching with Valkey
 - Stagger device polling intervals
+
+### 503 "DEVICE_GROUP_LOOKUP_UNAVAILABLE"
+
+**Symptom:** Creating, starting or advancing a group rollout, or assigning a bundle to a group, returns 503.
+
+**Cause:** BundleOrchestrator couldn't read the group's devices from DeviceManager: DeviceManager is
+down or timed out (10 s), `DeviceManager:BaseUrl` is wrong, or `InternalServices:ApiKey` differs between the services
+(BundleOrchestrator logs `Device group lookup ... failed: Unauthorized`).
+
+**Solution:** Retry once DeviceManager is reachable; check both settings. Nothing is saved on a 503.
 
 ### "Rollout Not Found" Error
 
