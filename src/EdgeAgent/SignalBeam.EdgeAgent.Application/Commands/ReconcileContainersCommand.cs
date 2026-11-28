@@ -123,6 +123,17 @@ public class ReconcileContainersCommandHandler
             {
                 try
                 {
+                    // Checked before the pull, so a device stuck on a conflict (e.g. after upgrading
+                    // from an agent that didn't label containers) doesn't pull every interval.
+                    if (await _containerManager.IsNameHeldByUnmanagedContainerAsync(desired.Name, cancellationToken))
+                    {
+                        _logger.LogWarning(
+                            "Not starting {Name}: the name belongs to a container SignalBeam didn't create", desired.Name);
+                        failed++;
+                        errors.Add(ContainerNameConflictException.Describe(desired.Name));
+                        continue;
+                    }
+
                     _logger.LogInformation("Starting new container: {Name} ({Image})", desired.Name, desired.Image);
 
                     // Pull image first
@@ -132,6 +143,12 @@ public class ReconcileContainersCommandHandler
                     await _containerManager.StartContainerAsync(desired, owner, cancellationToken);
                     started++;
                     actions.Add(new ReconciliationAction("started", desired.Name, desired.Image));
+                }
+                catch (ContainerNameConflictException ex)
+                {
+                    _logger.LogWarning("Not starting {Name}: {Message}", desired.Name, ex.Message);
+                    failed++;
+                    errors.Add(ex.Message);
                 }
                 catch (Exception ex)
                 {

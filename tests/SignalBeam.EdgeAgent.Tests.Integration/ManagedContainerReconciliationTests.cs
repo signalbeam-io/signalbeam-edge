@@ -13,6 +13,10 @@ namespace SignalBeam.EdgeAgent.Tests.Integration;
 // #494: reconciliation must only touch containers the agent created. Containers it didn't create
 // (the agent's own, Home Assistant, anything else on the Pi) are started here without the label
 // and must still be running afterwards.
+//
+// Reconciling stops every managed container not in the desired state, including ones that aren't
+// this test's (a local agent's workloads). So the tests refuse to run while any managed container
+// other than their own exists on this Docker host.
 [Collection("Docker")]
 public class ManagedContainerReconciliationTests : IAsyncLifetime
 {
@@ -28,6 +32,15 @@ public class ManagedContainerReconciliationTests : IAsyncLifetime
     {
         _manager = new DockerContainerManager(NullLogger<DockerContainerManager>.Instance);
         _handler = new ReconcileContainersCommandHandler(_manager, NullLogger<ReconcileContainersCommandHandler>.Instance);
+
+        var foreign = (await _manager.GetManagedContainersAsync()).Where(c => !c.Name.StartsWith("sb-it-", StringComparison.Ordinal)).ToList();
+        if (foreign.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Refusing to run: these tests would stop SignalBeam-managed containers on this Docker host: "
+                + string.Join(", ", foreign.Select(c => c.Name)));
+        }
+
         await _manager.PullImageAsync(Image);
     }
 

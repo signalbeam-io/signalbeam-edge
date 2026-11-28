@@ -11,6 +11,9 @@ public interface IContainerManager
 
     Task PullImageAsync(string image, IProgress<ImagePullProgress>? progress = null, CancellationToken cancellationToken = default);
 
+    // Whether a container the agent didn't create already has this exact name.
+    Task<bool> IsNameHeldByUnmanagedContainerAsync(string name, CancellationToken cancellationToken = default);
+
     // Throws ContainerNameConflictException when the name belongs to a container the agent doesn't manage.
     Task StartContainerAsync(ContainerSpec spec, ContainerOwner owner, CancellationToken cancellationToken = default);
     Task StopContainerAsync(string containerId, CancellationToken cancellationToken = default);

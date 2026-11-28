@@ -174,8 +174,9 @@ containers with that label. The agent's own container and anything else on the h
 | None (`404`, nothing assigned) | Nothing; containers are left as they are |
 
 If a bundle container's name is already taken by a container the agent didn't create, the agent
-leaves that container alone and reports the reconciliation as failed with a "not created by
-SignalBeam" error. Rename or remove the other container, then let the agent reconcile again.
+leaves that container alone and reports the reconciliation as failed with a
+`CONTAINER_NAME_CONFLICT` error. It checks for the clash before pulling the image, so a stuck
+device doesn't pull every interval. Rename or remove the other container, then let the agent reconcile again.
 Containers started by an agent older than this change carry no label, so the same applies to them:
 remove them once and the agent recreates them labelled.
 

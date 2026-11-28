@@ -162,4 +162,35 @@ public class ReconcileContainersCommandHandlerTests
         result.Value.Errors.Should().ContainSingle().Which.Should().Contain("not created by SignalBeam");
         await _containerManager.DidNotReceive().StopContainerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Handle_NameHeldByUnmanagedContainer_ReportsConflictWithoutPulling()
+    {
+        // Arrange: e.g. a container left by an agent that predates labels.
+        ManagedRunning();
+        _containerManager.IsNameHeldByUnmanagedContainerAsync("app1", Arg.Any<CancellationToken>()).Returns(true);
+
+        // Act
+        var result = await _handler.Handle(Command(new ContainerSpec("app1", "image1:v1")), CancellationToken.None);
+
+        // Assert
+        result.Value!.ContainersFailed.Should().Be(1);
+        result.Value.Errors.Should().ContainSingle().Which.Should().StartWith(ContainerNameConflictException.ErrorCode);
+        await _containerManager.DidNotReceive().PullImageAsync(Arg.Any<string>(), Arg.Any<IProgress<ImagePullProgress>?>(), Arg.Any<CancellationToken>());
+        await _containerManager.DidNotReceive().StartContainerAsync(Arg.Any<ContainerSpec>(), Arg.Any<ContainerOwner>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ManagedContainerWithoutImageLabel_ComparesAgainstDockersImage()
+    {
+        // Arrange
+        ManagedRunning(new ContainerStatus("container-1", "app1", "image1:v1", "running", DateTime.UtcNow, IsManaged: true));
+
+        // Act
+        var result = await _handler.Handle(Command(new ContainerSpec("app1", "image1:v1")), CancellationToken.None);
+
+        // Assert
+        result.Value!.ContainersStarted.Should().Be(0);
+        await _containerManager.DidNotReceive().StopContainerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 }

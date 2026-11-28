@@ -107,6 +107,30 @@ public class DockerContainerManager : IContainerManager, IDisposable
 
     private static string? ContainerName(ContainerListResponse c) => c.Names?.FirstOrDefault()?.TrimStart('/');
 
+    public async Task<bool> IsNameHeldByUnmanagedContainerAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var existing = await FindByExactNameAsync(name, cancellationToken);
+        return existing is not null && !ManagedContainerLabels.IsManaged(existing.Labels);
+    }
+
+    // Docker's name filter matches substrings ("web" also matches "my-webserver"), so the result is
+    // narrowed to the exact name. Includes stopped containers, which still hold the name.
+    private async Task<ContainerListResponse?> FindByExactNameAsync(string name, CancellationToken cancellationToken)
+    {
+        var candidates = await _client.Containers.ListContainersAsync(
+            new ContainersListParameters
+            {
+                All = true,
+                Filters = new Dictionary<string, IDictionary<string, bool>>
+                {
+                    ["name"] = new Dictionary<string, bool> { [name] = true }
+                }
+            },
+            cancellationToken);
+
+        return candidates.FirstOrDefault(c => ContainerName(c) == name);
+    }
+
     public async Task PullImageAsync(
         string image,
         IProgress<ImagePullProgress>? progress = null,
@@ -162,21 +186,7 @@ public class DockerContainerManager : IContainerManager, IDisposable
         {
             _logger.LogInformation("Starting container: {Name} with image {Image}", spec.Name, spec.Image);
 
-            // Check if container with same name already exists
-            var existingContainers = await _client.Containers.ListContainersAsync(
-                new ContainersListParameters
-                {
-                    All = true,
-                    Filters = new Dictionary<string, IDictionary<string, bool>>
-                    {
-                        ["name"] = new Dictionary<string, bool> { [spec.Name] = true }
-                    }
-                },
-                cancellationToken);
-
-            // Docker's name filter matches substrings ("web" also matches "my-webserver"), so compare
-            // exactly. Only a container the agent created may be replaced.
-            var existingContainer = existingContainers.FirstOrDefault(c => ContainerName(c) == spec.Name);
+            var existingContainer = await FindByExactNameAsync(spec.Name, cancellationToken);
             if (existingContainer is not null)
             {
                 if (!ManagedContainerLabels.IsManaged(existingContainer.Labels))

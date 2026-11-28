@@ -12,7 +12,7 @@ public static class ManagedContainerLabels
     public static bool IsManaged(IDictionary<string, string>? labels) =>
         labels is not null
         && labels.TryGetValue(Managed, out var value)
-        && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        && string.Equals(value, "true", StringComparison.Ordinal); // same as the Docker label filter
 
     public static Dictionary<string, string> For(ContainerSpec spec, ContainerOwner owner)
     {
@@ -34,11 +34,4 @@ public static class ManagedContainerLabels
 
         return labels;
     }
-}
-
-public sealed class ContainerNameConflictException(string containerName)
-    : InvalidOperationException(
-        $"A container named '{containerName}' already exists and was not created by SignalBeam; it was left untouched.")
-{
-    public string ContainerName { get; } = containerName;
 }

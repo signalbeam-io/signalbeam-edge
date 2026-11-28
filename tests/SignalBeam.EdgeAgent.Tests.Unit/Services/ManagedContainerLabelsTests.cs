@@ -31,6 +31,7 @@ public class ManagedContainerLabelsTests
     [Theory]
     [InlineData(null)]
     [InlineData("false")]
+    [InlineData("TRUE")] // Docker's label filter is exact, so IsManaged is too
     [InlineData("")]
     public void IsManaged_WithoutTheTrueLabel_IsFalse(string? value)
     {
