@@ -43,38 +43,69 @@ public class DockerContainerManager : IContainerManager, IDisposable
                 });
     }
 
-    public async Task<List<Application.Services.ContainerStatus>> GetRunningContainersAsync(
-        CancellationToken cancellationToken = default)
+    public Task<List<Application.Services.ContainerStatus>> GetRunningContainersAsync(
+        CancellationToken cancellationToken = default) =>
+        ListRunningAsync(managedOnly: false, cancellationToken);
+
+    public Task<List<Application.Services.ContainerStatus>> GetManagedContainersAsync(
+        CancellationToken cancellationToken = default) =>
+        ListRunningAsync(managedOnly: true, cancellationToken);
+
+    private async Task<List<Application.Services.ContainerStatus>> ListRunningAsync(
+        bool managedOnly,
+        CancellationToken cancellationToken)
     {
         try
         {
-            _logger.LogDebug("Fetching running containers");
+            var parameters = new ContainersListParameters { All = false };
+            if (managedOnly)
+            {
+                parameters.Filters = new Dictionary<string, IDictionary<string, bool>>
+                {
+                    ["label"] = new Dictionary<string, bool> { [$"{ManagedContainerLabels.Managed}=true"] = true }
+                };
+            }
 
             var containers = await _retryPolicy.ExecuteAsync(async () =>
-                await _client.Containers.ListContainersAsync(
-                    new ContainersListParameters
-                    {
-                        All = false
-                    },
-                    cancellationToken));
+                await _client.Containers.ListContainersAsync(parameters, cancellationToken));
 
-            var result = containers.Select(c => new Application.Services.ContainerStatus(
-                Id: c.ID,
-                Name: c.Names.FirstOrDefault()?.TrimStart('/') ?? c.ID[..12],
-                Image: c.Image,
-                State: c.State,
-                CreatedAt: c.Created
-            )).ToList();
+            var result = containers
+                .Select(ToStatus)
+                // The Docker filter already does this; checked again so a filter ignored by an
+                // older daemon can't widen what reconciliation may stop.
+                .Where(c => !managedOnly || c.IsManaged)
+                .ToList();
 
-            _logger.LogInformation("Found {Count} running containers", result.Count);
+            _logger.LogDebug("Found {Count} running containers (managed only: {ManagedOnly})", result.Count, managedOnly);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get running containers");
+            _logger.LogError(ex, "Failed to list running containers");
             throw;
         }
     }
+
+    private static Application.Services.ContainerStatus ToStatus(ContainerListResponse c)
+    {
+        var isManaged = ManagedContainerLabels.IsManaged(c.Labels);
+        string? managedImage = null;
+        if (isManaged)
+        {
+            c.Labels!.TryGetValue(ManagedContainerLabels.Image, out managedImage);
+        }
+
+        return new Application.Services.ContainerStatus(
+            Id: c.ID,
+            Name: ContainerName(c) ?? c.ID[..12],
+            Image: c.Image,
+            State: c.State,
+            CreatedAt: c.Created,
+            IsManaged: isManaged,
+            ManagedImage: managedImage);
+    }
+
+    private static string? ContainerName(ContainerListResponse c) => c.Names?.FirstOrDefault()?.TrimStart('/');
 
     public async Task PullImageAsync(
         string image,
@@ -124,6 +155,7 @@ public class DockerContainerManager : IContainerManager, IDisposable
 
     public async Task StartContainerAsync(
         Application.Services.ContainerSpec spec,
+        ContainerOwner owner,
         CancellationToken cancellationToken = default)
     {
         try
@@ -142,10 +174,16 @@ public class DockerContainerManager : IContainerManager, IDisposable
                 },
                 cancellationToken);
 
-            // Remove existing container if it exists
-            if (existingContainers.Any())
+            // Docker's name filter matches substrings ("web" also matches "my-webserver"), so compare
+            // exactly. Only a container the agent created may be replaced.
+            var existingContainer = existingContainers.FirstOrDefault(c => ContainerName(c) == spec.Name);
+            if (existingContainer is not null)
             {
-                var existingContainer = existingContainers.First();
+                if (!ManagedContainerLabels.IsManaged(existingContainer.Labels))
+                {
+                    throw new ContainerNameConflictException(spec.Name);
+                }
+
                 _logger.LogInformation("Removing existing container: {ContainerId}", existingContainer.ID);
 
                 await _client.Containers.RemoveContainerAsync(
@@ -161,6 +199,7 @@ public class DockerContainerManager : IContainerManager, IDisposable
                     {
                         Name = spec.Name,
                         Image = spec.Image,
+                        Labels = ManagedContainerLabels.For(spec, owner),
                         Env = spec.Environment?.Select(kvp => $"{kvp.Key}={kvp.Value}").ToList() ?? [],
                         HostConfig = new HostConfig
                         {
