@@ -77,12 +77,6 @@ public class AssignBundleToDeviceHandler
                 Error.NotFound("BUNDLE_NOT_FOUND", $"Bundle with ID {command.BundleId} not found."));
         }
 
-        if (await _deviceOwnership.CheckAsync(deviceId.Value, new DeviceCaller(callerTenantId, null), cancellationToken)
-            is { } deviceError)
-        {
-            return Result.Failure<AssignBundleToDeviceResponse>(deviceError);
-        }
-
         // Parse and validate version
         if (!BundleVersion.TryParse(command.Version, out var bundleVersion) || bundleVersion is null)
         {
@@ -100,6 +94,13 @@ public class AssignBundleToDeviceHandler
         {
             return Result.Failure<AssignBundleToDeviceResponse>(
                 Error.NotFound("VERSION_NOT_FOUND", $"Version {command.Version} not found for bundle {bundle.Name}."));
+        }
+
+        // Checked last: it calls DeviceManager.
+        if (await _deviceOwnership.CheckAsync(deviceId.Value, new DeviceCaller(callerTenantId, null), cancellationToken)
+            is { } deviceError)
+        {
+            return Result.Failure<AssignBundleToDeviceResponse>(deviceError);
         }
 
         var assignedAt = DateTimeOffset.UtcNow;

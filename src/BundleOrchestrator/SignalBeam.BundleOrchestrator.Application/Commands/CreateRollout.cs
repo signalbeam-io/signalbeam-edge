@@ -100,7 +100,7 @@ public class CreateRolloutHandler
         if (command.TargetType.Equals("group", StringComparison.OrdinalIgnoreCase))
         {
             // Expand groups to device IDs
-            foreach (var targetId in command.TargetIds)
+            foreach (var targetId in command.TargetIds.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 if (!DeviceGroupId.TryParse(targetId, out var groupId))
                 {
@@ -121,7 +121,7 @@ public class CreateRolloutHandler
         else if (command.TargetType.Equals("device", StringComparison.OrdinalIgnoreCase))
         {
             // Parse device IDs directly
-            foreach (var targetId in command.TargetIds)
+            foreach (var targetId in command.TargetIds.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 if (!DeviceId.TryParse(targetId, out var deviceId))
                 {
