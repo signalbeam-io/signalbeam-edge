@@ -159,6 +159,26 @@ The agent will:
 - Reconcile Docker containers to match the desired state
 - Log all activities to console and file
 
+### Which containers the agent manages
+
+The agent only manages containers it created. Every container it starts carries the label
+`signalbeam.managed=true`, plus `signalbeam.bundle.id`, `signalbeam.bundle.version`, and
+`signalbeam.image` (the image it asked for). Reconciliation lists, replaces and stops only
+containers with that label. The agent's own container and anything else on the host
+(Home Assistant, databases, containers started by hand or by Compose) are never touched.
+
+| Desired state from the cloud | What the agent does |
+|------------------------------|---------------------|
+| Bundle with containers | Starts missing managed containers, replaces those whose image changed, stops managed containers not in the bundle |
+| Bundle with no containers | Stops all managed containers |
+| None (`404`, nothing assigned) | Nothing; containers are left as they are |
+
+If a bundle container's name is already taken by a container the agent didn't create, the agent
+leaves that container alone and reports the reconciliation as failed with a "not created by
+SignalBeam" error. Rename or remove the other container, then let the agent reconcile again.
+Containers started by an agent older than this change carry no label, so the same applies to them:
+remove them once and the agent recreates them labelled.
+
 **To run in the background:**
 
 ```bash
@@ -353,6 +373,11 @@ export Agent__HeartbeatIntervalSeconds=60
    ```
 
 3. Verify desired state in SignalBeam dashboard matches agent logs
+
+4. List the containers the agent manages, and check for a name clash with an unmanaged container:
+   ```bash
+   docker ps --filter label=signalbeam.managed=true
+   ```
 
 ## Development
 

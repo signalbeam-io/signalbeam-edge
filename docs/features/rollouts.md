@@ -571,7 +571,7 @@ sequenceDiagram
 2. Compare desired bundle with current bundle
 3. If different:
    - Pull new container images
-   - Stop old containers
+   - Stop old containers (only containers the agent created, labelled `signalbeam.managed=true`)
    - Start new containers
    - Report success/failure
 4. Agent continues heartbeats with current bundle version
