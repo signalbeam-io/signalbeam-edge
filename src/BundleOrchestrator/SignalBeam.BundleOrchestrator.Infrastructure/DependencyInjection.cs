@@ -54,8 +54,9 @@ public static class DependencyInjection
         // API Key Authentication
         services.AddSingleton<IApiKeyValidator, ApiKeyValidator>();
 
-        // Device -> tenant lookups (reconciliation reports), via DeviceManager's internal endpoint
+        // Device -> tenant lookups and device-key verification, via DeviceManager's internal endpoints
         SignalBeam.Shared.Infrastructure.InternalServices.DeviceTenantClientExtensions.AddDeviceTenantClient(services, configuration);
+        SignalBeam.Shared.Infrastructure.InternalServices.DeviceCredentialClientExtensions.AddDeviceCredentialClient(services, configuration);
 
         return services;
     }

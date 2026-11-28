@@ -1,7 +1,7 @@
 using SignalBeam.BundleOrchestrator.Application.Repositories;
+using SignalBeam.BundleOrchestrator.Application.Services;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
-using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Shared.Infrastructure.Results;
 
 namespace SignalBeam.BundleOrchestrator.Application.Commands;
@@ -27,21 +27,19 @@ public class ReportReconciliationStatusHandler
     public const string Failed = "failed";
 
     private readonly IRolloutStatusRepository _rolloutStatusRepository;
-    private readonly IDeviceTenantClient _deviceTenantClient;
+    private readonly DeviceOwnershipVerifier _ownershipVerifier;
 
     public ReportReconciliationStatusHandler(
         IRolloutStatusRepository rolloutStatusRepository,
-        IDeviceTenantClient deviceTenantClient)
+        DeviceOwnershipVerifier ownershipVerifier)
     {
         _rolloutStatusRepository = rolloutStatusRepository;
-        _deviceTenantClient = deviceTenantClient;
+        _ownershipVerifier = ownershipVerifier;
     }
 
-    // callerTenantId comes from the authenticated principal: only a credential of the device's own
-    // tenant may report for it. Device-key authentication in BundleOrchestrator is tracked separately.
     public async Task<Result<ReportReconciliationStatusResponse>> Handle(
         ReportReconciliationStatusCommand command,
-        Guid? callerTenantId,
+        DeviceCaller caller,
         CancellationToken cancellationToken)
     {
         var succeeded = string.Equals(command.Status, Succeeded, StringComparison.OrdinalIgnoreCase);
@@ -52,10 +50,10 @@ public class ReportReconciliationStatusHandler
                 Error.Validation("INVALID_RECONCILIATION_STATUS", $"Status must be '{Succeeded}' or '{Failed}'."));
         }
 
-        var tenantCheck = await CheckDeviceTenantAsync(command.DeviceId, callerTenantId, cancellationToken);
-        if (tenantCheck is not null)
+        var accessError = await _ownershipVerifier.CheckAsync(command.DeviceId, caller, cancellationToken);
+        if (accessError is not null)
         {
-            return Result.Failure<ReportReconciliationStatusResponse>(tenantCheck);
+            return Result.Failure<ReportReconciliationStatusResponse>(accessError);
         }
 
         // No bundle in the desired state (nothing to roll out), or an unparseable reference: nothing to track.
@@ -98,28 +96,6 @@ public class ReportReconciliationStatusHandler
         return Result<ReportReconciliationStatusResponse>.Success(
             new ReportReconciliationStatusResponse(command.DeviceId, true, rolloutStatus.Status.ToString()));
     }
-
-    private async Task<Error?> CheckDeviceTenantAsync(Guid deviceId, Guid? callerTenantId, CancellationToken cancellationToken)
-    {
-        if (callerTenantId is null || callerTenantId == Guid.Empty)
-        {
-            return Error.Forbidden("TENANT_REQUIRED", "The caller has no tenant.");
-        }
-
-        var lookup = await _deviceTenantClient.LookupAsync(deviceId, cancellationToken);
-        return lookup.Status switch
-        {
-            DeviceTenantLookupStatus.Unavailable => Error.Failure(
-                "DEVICE_LOOKUP_UNAVAILABLE", "The device could not be verified right now. Try again later."),
-            // Another tenant's device looks the same as a missing one, so device IDs can't be probed.
-            DeviceTenantLookupStatus.NotFound => DeviceNotFound(deviceId),
-            _ when lookup.TenantId != callerTenantId => DeviceNotFound(deviceId),
-            _ => null
-        };
-    }
-
-    private static Error DeviceNotFound(Guid deviceId) =>
-        Error.NotFound("DEVICE_NOT_FOUND", $"Device {deviceId} not found.");
 
     private static Result<ReportReconciliationStatusResponse> Untracked(Guid deviceId) =>
         Result<ReportReconciliationStatusResponse>.Success(new ReportReconciliationStatusResponse(deviceId, false, null));

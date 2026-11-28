@@ -13,7 +13,7 @@ namespace SignalBeam.Shared.Infrastructure.Authentication;
 /// </summary>
 public class DeviceApiKeyService : IDeviceApiKeyService
 {
-    private const string KeyPrefix = "sb_device_";
+    private const string KeyPrefix = AuthenticationConstants.DeviceApiKeyPrefix;
     private const int SecretLength = 40; // 40 characters = 240 bits of entropy
     private const int DevicePrefixLength = 8;
 

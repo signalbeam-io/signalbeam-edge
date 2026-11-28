@@ -1,5 +1,6 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Repositories;
+using SignalBeam.BundleOrchestrator.Application.Services;
 using SignalBeam.BundleOrchestrator.Application.Validators;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
@@ -18,7 +19,7 @@ public class ReportReconciliationStatusHandlerTests
 
     public ReportReconciliationStatusHandlerTests()
     {
-        _handler = new ReportReconciliationStatusHandler(_repository, _tenantClient);
+        _handler = new ReportReconciliationStatusHandler(_repository, new DeviceOwnershipVerifier(_tenantClient));
         _tenantClient.LookupAsync(_deviceId, Arg.Any<CancellationToken>()).Returns(DeviceTenantLookup.Found(_tenantId));
     }
 
@@ -31,7 +32,7 @@ public class ReportReconciliationStatusHandlerTests
             _deviceId, "failed", _bundleId.ToString(), "1.2.0", ["image pull failed: nginx:9.9", "container exited"]);
 
         // Act
-        var result = await _handler.Handle(command, _tenantId, CancellationToken.None);
+        var result = await _handler.Handle(command, Operator(_tenantId), CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -52,7 +53,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
-            _tenantId, CancellationToken.None);
+            Operator(_tenantId), CancellationToken.None);
 
         // Assert
         rolloutStatus.ErrorMessage.Should().Be("Reconciliation failed on device.");
@@ -67,7 +68,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "Succeeded", _bundleId.ToString(), "1.2.0"),
-            _tenantId, CancellationToken.None);
+            Operator(_tenantId), CancellationToken.None);
 
         // Assert
         result.Value!.RolloutStatus.Should().Be("Succeeded");
@@ -84,7 +85,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", bundleId, version),
-            _tenantId, CancellationToken.None);
+            Operator(_tenantId), CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -103,7 +104,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
-            _tenantId, CancellationToken.None);
+            Operator(_tenantId), CancellationToken.None);
 
         // Assert
         result.Value!.Tracked.Should().BeFalse();
@@ -116,7 +117,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "exploded", _bundleId.ToString(), "1.2.0"),
-            _tenantId, CancellationToken.None);
+            Operator(_tenantId), CancellationToken.None);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -133,7 +134,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "succeeded", _bundleId.ToString(), "1.2.0"),
-            _tenantId, CancellationToken.None);
+            Operator(_tenantId), CancellationToken.None);
 
         // Assert
         result.Value!.Tracked.Should().BeFalse();
@@ -151,7 +152,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
-            Guid.NewGuid(), CancellationToken.None);
+            Operator(Guid.NewGuid()), CancellationToken.None);
 
         // Assert
         result.Error!.Code.Should().Be("DEVICE_NOT_FOUND");
@@ -171,7 +172,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
-            _tenantId, CancellationToken.None);
+            Operator(_tenantId), CancellationToken.None);
 
         // Assert
         result.Error!.Code.Should().Be(expectedCode);
@@ -183,7 +184,7 @@ public class ReportReconciliationStatusHandlerTests
         // Act
         var result = await _handler.Handle(
             new ReportReconciliationStatusCommand(_deviceId, "failed", _bundleId.ToString(), "1.2.0"),
-            null, CancellationToken.None);
+            new DeviceCaller(null, null), CancellationToken.None);
 
         // Assert
         result.Error!.Code.Should().Be("TENANT_REQUIRED");
@@ -216,4 +217,37 @@ public class ReportReconciliationStatusHandlerTests
 
         return rolloutStatus;
     }
+
+    [Fact]
+    public async Task Handle_DeviceReportingForItself_SkipsTenantLookup()
+    {
+        // Arrange
+        var rolloutStatus = TrackedRolloutStatus();
+
+        // Act
+        var result = await _handler.Handle(
+            new ReportReconciliationStatusCommand(_deviceId, "succeeded", _bundleId.ToString(), "1.2.0"),
+            new DeviceCaller(_tenantId, _deviceId), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        rolloutStatus.Status.Should().Be(RolloutState.Succeeded);
+        await _tenantClient.DidNotReceive().LookupAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_DeviceReportingForAnotherDevice_ReturnsNotFound()
+    {
+        // Act
+        var result = await _handler.Handle(
+            new ReportReconciliationStatusCommand(_deviceId, "succeeded", _bundleId.ToString(), "1.2.0"),
+            new DeviceCaller(_tenantId, Guid.NewGuid()), CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Code.Should().Be("DEVICE_NOT_FOUND");
+        await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    private static DeviceCaller Operator(Guid tenantId) => new(tenantId, null);
 }

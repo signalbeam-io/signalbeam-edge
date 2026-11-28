@@ -44,3 +44,4 @@ jobs:
           dotnet test tests/SignalBeam.DeviceManager.Tests.Integration/SignalBeam.DeviceManager.Tests.Integration.csproj --no-build --verbosity normal
           dotnet test tests/SignalBeam.TelemetryProcessor.Tests.Integration/SignalBeam.TelemetryProcessor.Tests.Integration.csproj --no-build --verbosity normal
           dotnet test tests/SignalBeam.EdgeAgent.Tests.Integration/SignalBeam.EdgeAgent.Tests.Integration.csproj --no-build --verbosity normal
+          dotnet test tests/SignalBeam.EndToEnd.Tests.Integration/SignalBeam.EndToEnd.Tests.Integration.csproj --no-build --verbosity normal

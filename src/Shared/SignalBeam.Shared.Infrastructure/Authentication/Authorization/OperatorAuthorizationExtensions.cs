@@ -21,9 +21,11 @@ public static class OperatorAuthorizationExtensions
         this IServiceCollection services,
         bool allowTenantApiKeyFallback)
     {
-        // TryAdd so a second call (e.g. a test overriding the policy via ConfigureTestServices to
-        // simulate Production) doesn't accumulate duplicate handler instances in the container.
-        services.TryAddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, OperatorAccessHandler>();
+        // TryAddEnumerable so a second call (e.g. a test overriding the policy via ConfigureTestServices
+        // to simulate Production) doesn't add a duplicate handler, while handlers for other policies
+        // (TryAddSingleton would skip this one if any IAuthorizationHandler were already registered) still do.
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, OperatorAccessHandler>());
 
         services.AddAuthorization(options =>
         {
@@ -31,6 +33,36 @@ public static class OperatorAuthorizationExtensions
             {
                 policy.RequireAuthenticatedUser();
                 policy.AddRequirements(new OperatorAccessRequirement(allowTenantApiKeyFallback));
+            });
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the <see cref="AuthorizationPolicies.DeviceAccess"/> and
+    /// <see cref="AuthorizationPolicies.DeviceOrOperatorAccess"/> policies and their handler.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="allowTenantApiKeyFallback">Pass <c>!env.IsProduction()</c>, as for operator access.</param>
+    public static IServiceCollection AddDeviceAuthorization(
+        this IServiceCollection services,
+        bool allowTenantApiKeyFallback)
+    {
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, DeviceAccessHandler>());
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(AuthorizationPolicies.DeviceAccess, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.AddRequirements(new DeviceAccessRequirement(allowOperatorJwt: false, allowTenantApiKeyFallback));
+            });
+            options.AddPolicy(AuthorizationPolicies.DeviceOrOperatorAccess, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.AddRequirements(new DeviceAccessRequirement(allowOperatorJwt: true, allowTenantApiKeyFallback));
             });
         });
 

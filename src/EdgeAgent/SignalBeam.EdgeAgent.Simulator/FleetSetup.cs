@@ -8,22 +8,25 @@ namespace SignalBeam.EdgeAgent.Simulator;
 // Idempotent: re-running with the same seed finds the existing devices, groups and tags.
 internal static class FleetSetup
 {
-    public static async Task ProvisionAsync(
-        HttpClient deviceClient,
+    // Returns each device's own API key; devices send nothing with the operator's tenant key.
+    public static async Task<IReadOnlyDictionary<Guid, string>> ProvisionAsync(
+        HttpClient operatorClient,
         Guid tenantId,
         IReadOnlyList<DeviceSpec> devices,
         CancellationToken cancellationToken)
     {
+        var deviceKeys = new Dictionary<Guid, string>();
         using (SimulatorTelemetry.Source.StartActivity("simulate fleet setup"))
         {
-            var groupIds = await EnsureGroupsAsync(deviceClient, tenantId, cancellationToken);
+            var groupIds = await EnsureGroupsAsync(operatorClient, tenantId, cancellationToken);
 
             foreach (var device in devices)
             {
-                await RegisterAsync(deviceClient, tenantId, device.DeviceId, device.Name, metadata: null, cancellationToken);
+                await RegisterAsync(operatorClient, tenantId, device.DeviceId, device.Name, metadata: null, cancellationToken);
+                deviceKeys[device.DeviceId] = await IssueDeviceKeyAsync(operatorClient, device.DeviceId, device.Name, cancellationToken);
 
                 await SendAsync(
-                    () => deviceClient.PutAsJsonAsync(
+                    () => operatorClient.PutAsJsonAsync(
                         $"/api/devices/{device.DeviceId}/group",
                         new AssignDeviceToGroupRequest(device.DeviceId, groupIds[device.Environment]),
                         cancellationToken),
@@ -33,7 +36,7 @@ internal static class FleetSetup
                 foreach (var tag in device.Tags)
                 {
                     await SendAsync(
-                        () => deviceClient.PostAsJsonAsync(
+                        () => operatorClient.PostAsJsonAsync(
                             $"/api/devices/{device.DeviceId}/tags",
                             new AddDeviceTagRequest(device.DeviceId, tag),
                             cancellationToken),
@@ -45,6 +48,52 @@ internal static class FleetSetup
 
         Console.WriteLine($"Fleet ready: {devices.Count} devices, "
             + string.Join(", ", devices.GroupBy(d => d.Environment).OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key}")) + ".");
+        return deviceKeys;
+    }
+
+    // Approves a newly registered device, which issues its key. An already approved device gets a
+    // fresh key with the old ones revoked, so reruns don't pile up keys (and the key from the last
+    // run, which the simulator didn't keep, stops working).
+    public static async Task<string> IssueDeviceKeyAsync(
+        HttpClient operatorClient,
+        Guid deviceId,
+        string deviceName,
+        CancellationToken cancellationToken)
+    {
+        using (var approve = await SendWithRateLimitRetryAsync(
+                   () => operatorClient.PostAsync($"/api/devices/{deviceId}/approve", content: null, cancellationToken),
+                   $"approve {deviceName}",
+                   cancellationToken))
+        {
+            if (approve.IsSuccessStatusCode)
+            {
+                return await ReadKeyAsync(approve, deviceName, cancellationToken);
+            }
+        }
+
+        using var generate = await SendWithRateLimitRetryAsync(
+            () => operatorClient.PostAsJsonAsync(
+                $"/api/devices/{deviceId}/api-keys",
+                new GenerateDeviceApiKeyRequest(RevokeExistingKeys: true),
+                cancellationToken),
+            $"issue a key for {deviceName}",
+            cancellationToken);
+
+        if (!generate.IsSuccessStatusCode)
+        {
+            var content = await generate.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"Could not issue an API key for {deviceName}: {generate.StatusCode} {content}");
+        }
+
+        return await ReadKeyAsync(generate, deviceName, cancellationToken);
+    }
+
+    private static async Task<string> ReadKeyAsync(HttpResponseMessage response, string deviceName, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadFromJsonAsync<IssuedDeviceKeyResponse>(SimulatorJson.Options, cancellationToken);
+        return !string.IsNullOrWhiteSpace(body?.ApiKey)
+            ? body.ApiKey
+            : throw new InvalidOperationException($"No API key returned for {deviceName}.");
     }
 
     // Returns false when the device was already registered.

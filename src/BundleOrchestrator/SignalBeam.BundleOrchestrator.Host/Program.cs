@@ -68,16 +68,24 @@ builder.Services.AddAuthentication(options =>
 // Production only the JWT authorizes. (#431)
 builder.Services.AddOperatorAuthorization(!builder.Environment.IsProduction());
 
+// Device endpoints (desired-state, reconciliation-status) need the device's own key, verified
+// through DeviceManager by the API key middleware (#489).
+builder.Services.AddDeviceAuthorization(!builder.Environment.IsProduction());
+
 // Add Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        // Get tenant ID from claims or API key
-        var tenantId = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value ?? "anonymous";
+        // Devices get a bucket each, so a tenant's fleet polling desired state can't starve its
+        // operators (or each other). Everyone else shares their tenant's bucket.
+        var partitionKey = context.User.FindFirst(AuthenticationConstants.AuthMethodClaimType)?.Value
+            is AuthenticationConstants.AuthMethodDeviceApiKey or AuthenticationConstants.AuthMethodCertificate
+            ? $"device:{context.User.FindFirst(AuthenticationConstants.DeviceIdClaimType)?.Value}"
+            : $"tenant:{context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value ?? "anonymous"}";
 
         return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: tenantId,
+            partitionKey: partitionKey,
             factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
                 PermitLimit = 100,
@@ -157,6 +165,7 @@ builder.Services.AddScoped<GetBundleRolloutHistoryHandler>();
 
 // Rollout orchestration services
 builder.Services.AddScoped<RolloutOrchestrationService>();
+builder.Services.AddScoped<DeviceOwnershipVerifier>();
 
 // Configure rollout orchestrator options
 builder.Services.Configure<RolloutOrchestratorOptions>(
@@ -228,7 +237,7 @@ if (app.Environment.IsDevelopment())
     app.UseCors("WebDev");
 }
 
-// Add API key authentication middleware (for edge devices)
+// API key authentication: tenant keys, and device keys verified through DeviceManager
 app.UseApiKeyAuthentication();
 
 // Add standard authentication and authorization

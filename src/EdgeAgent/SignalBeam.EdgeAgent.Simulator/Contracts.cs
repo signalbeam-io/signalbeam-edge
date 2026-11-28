@@ -36,14 +36,13 @@ internal sealed record ReconciliationStatusRequest(
     IReadOnlyList<object> Actions,
     IReadOnlyList<string> Errors);
 
-internal sealed record DeviceDesiredStateResponse(DeviceDesiredStateDto? DesiredState);
+// Same shape the real agent reads (DesiredState in SignalBeam.EdgeAgent.Application); containers
+// are ignored because nothing is run. BundleId is null when nothing is assigned.
+internal sealed record DeviceDesiredStateResponse(string? BundleId, string? BundleVersion);
 
-internal sealed record DeviceDesiredStateDto(
-    Guid DeviceId,
-    Guid BundleId,
-    string BundleVersion,
-    DateTimeOffset AssignedAt,
-    string? AssignedBy);
+internal sealed record GenerateDeviceApiKeyRequest(bool RevokeExistingKeys);
+
+internal sealed record IssuedDeviceKeyResponse(string ApiKey);
 
 internal enum BundleDeploymentStatus
 {

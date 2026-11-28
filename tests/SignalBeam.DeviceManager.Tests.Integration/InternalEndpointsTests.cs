@@ -88,6 +88,78 @@ public class InternalEndpointsTests : IClassFixture<InternalServiceKeyFactory>
     }
 
     [Fact]
+    public async Task VerifyDeviceApiKey_ApprovedDeviceKey_ReturnsDeviceAndTenant()
+    {
+        // Arrange
+        var deviceId = await RegisterDeviceAsync();
+        var apiKey = await ApproveDeviceAsync(deviceId);
+
+        // Act
+        var response = await InternalClient(InternalServiceKeyFactory.Key)
+            .PostAsJsonAsync("/api/internal/device-credentials/verify", new { apiKey });
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("deviceId").GetGuid().Should().Be(deviceId);
+        body.GetProperty("tenantId").GetGuid().Should().Be(_factory.DefaultTenantId);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("test-api-key")]
+    [InlineData("sb_device_00000000_notarealsecret")]
+    public async Task VerifyDeviceApiKey_InvalidKey_ReturnsUnauthorized(string apiKey)
+    {
+        // Act
+        var response = await InternalClient(InternalServiceKeyFactory.Key)
+            .PostAsJsonAsync("/api/internal/device-credentials/verify", new { apiKey });
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task VerifyDeviceApiKey_RightPrefixWrongSecret_ReturnsUnauthorized()
+    {
+        // Arrange
+        var deviceId = await RegisterDeviceAsync();
+        var apiKey = await ApproveDeviceAsync(deviceId);
+        var tampered = apiKey[..^4] + "XXXX";
+
+        // Act
+        var response = await InternalClient(InternalServiceKeyFactory.Key)
+            .PostAsJsonAsync("/api/internal/device-credentials/verify", new { apiKey = tampered });
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task VerifyDeviceApiKey_WithoutServiceKey_ReturnsUnauthorized()
+    {
+        // Arrange
+        var deviceId = await RegisterDeviceAsync();
+        var apiKey = await ApproveDeviceAsync(deviceId);
+
+        // Act: a valid device key alone must not be able to call the service endpoint.
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+        var response = await client.PostAsJsonAsync("/api/internal/device-credentials/verify", new { apiKey });
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private async Task<string> ApproveDeviceAsync(Guid deviceId)
+    {
+        var response = await _factory.CreateAuthenticatedClient().PostAsync($"/api/devices/{deviceId}/approve", null);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("apiKey").GetString()!;
+    }
+
+    [Fact]
     public async Task GetGroupDevices_WithKey_ReturnsMembersOldestFirst()
     {
         // Arrange

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SignalBeam.DeviceManager.Application.Queries;
 using SignalBeam.Shared.Infrastructure.Authentication;
+using ErrorType = SignalBeam.Shared.Infrastructure.Results.ErrorType;
 
 namespace SignalBeam.DeviceManager.Host.Endpoints;
 
@@ -25,6 +26,10 @@ public static class InternalEndpoints
 
         group.MapGet("/tenants/{tenantId:guid}/groups/{groupId:guid}", GetGroupDevices)
             .WithName("GetGroupDevices");
+
+        // The key travels in the body, never the URL, so it stays out of request logs.
+        group.MapPost("/device-credentials/verify", VerifyDeviceApiKey)
+            .WithName("VerifyDeviceApiKey");
 
         return app;
     }
@@ -53,4 +58,25 @@ public static class InternalEndpoints
             ? Results.Ok(result.Value)
             : Results.NotFound(new { error = result.Error!.Code, message = result.Error.Message, type = result.Error.Type.ToString() });
     }
+
+    private static async Task<IResult> VerifyDeviceApiKey(
+        VerifyDeviceApiKeyRequest request,
+        [FromServices] VerifyDeviceApiKeyHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(new VerifyDeviceApiKeyQuery(request.ApiKey ?? string.Empty), cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Ok(result.Value);
+        }
+
+        var statusCode = result.Error!.Type == ErrorType.Forbidden
+            ? StatusCodes.Status403Forbidden
+            : StatusCodes.Status401Unauthorized;
+        return Results.Json(
+            new { error = result.Error.Code, message = result.Error.Message, type = result.Error.Type.ToString() },
+            statusCode: statusCode);
+    }
+
+    public sealed record VerifyDeviceApiKeyRequest(string? ApiKey);
 }
