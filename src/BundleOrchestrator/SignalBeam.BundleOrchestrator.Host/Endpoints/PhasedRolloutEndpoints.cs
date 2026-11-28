@@ -18,7 +18,8 @@ public static class PhasedRolloutEndpoints
         // Phased-rollout management is operator-only.
         var group = app.MapGroup("/api/phased-rollouts")
             .WithTags("Phased Rollouts")
-            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess)
+            .RequireCallerTenant();
 
         // Query endpoints
         group.MapGet("", ListPhasedRollouts)
@@ -28,6 +29,7 @@ public static class PhasedRolloutEndpoints
 
         group.MapGet("/{rolloutId}", GetPhasedRolloutDetails)
             .WithName("GetPhasedRolloutDetails")
+            .RequireOwnPhasedRollout()
             .WithSummary("Get detailed phased rollout information")
             .WithDescription("Retrieves complete rollout details including all phases and device assignments.");
 
@@ -38,6 +40,7 @@ public static class PhasedRolloutEndpoints
 
         group.MapGet("/bundles/{bundleId}/history", GetBundleRolloutHistory)
             .WithName("GetBundleRolloutHistory")
+            .RequireOwnBundle()
             .WithSummary("Get rollout history for a bundle")
             .WithDescription("Retrieves complete rollout history for a specific bundle.");
 
@@ -49,26 +52,31 @@ public static class PhasedRolloutEndpoints
 
         group.MapPost("/{rolloutId}/start", StartRollout)
             .WithName("StartRollout")
+            .RequireOwnPhasedRollout()
             .WithSummary("Start a pending rollout")
             .WithDescription("Starts a rollout and activates the first phase.");
 
         group.MapPost("/{rolloutId}/pause", PauseRollout)
             .WithName("PauseRollout")
+            .RequireOwnPhasedRollout()
             .WithSummary("Pause an in-progress rollout")
             .WithDescription("Pauses an active rollout, preventing further phase progression.");
 
         group.MapPost("/{rolloutId}/resume", ResumeRollout)
             .WithName("ResumeRollout")
+            .RequireOwnPhasedRollout()
             .WithSummary("Resume a paused rollout")
             .WithDescription("Resumes a paused rollout from the current phase.");
 
         group.MapPost("/{rolloutId}/advance", AdvancePhase)
             .WithName("AdvancePhase")
+            .RequireOwnPhasedRollout()
             .WithSummary("Manually advance to next phase")
             .WithDescription("Completes current phase and advances to the next phase.");
 
         group.MapPost("/{rolloutId}/rollback", RollbackRollout)
             .WithName("RollbackRollout")
+            .RequireOwnPhasedRollout()
             .WithSummary("Rollback rollout to previous version")
             .WithDescription("Rolls back all devices to the previous bundle version.");
 
@@ -78,7 +86,7 @@ public static class PhasedRolloutEndpoints
     // Query endpoint handlers
 
     private static async Task<IResult> ListPhasedRollouts(
-        Guid tenantId,
+        HttpContext context,
         string? status,
         string? bundleId,
         int page,
@@ -86,7 +94,7 @@ public static class PhasedRolloutEndpoints
         ListPhasedRolloutsHandler handler,
         CancellationToken cancellationToken)
     {
-        var query = new ListPhasedRolloutsQuery(tenantId, status, bundleId, page, pageSize);
+        var query = new ListPhasedRolloutsQuery(TenantScoping.CallerTenant(context)!.Value, status, bundleId, page, pageSize);
         var result = await handler.Handle(query, cancellationToken);
 
         return result.Match(
@@ -108,11 +116,11 @@ public static class PhasedRolloutEndpoints
     }
 
     private static async Task<IResult> GetActiveRollouts(
-        Guid tenantId,
+        HttpContext context,
         GetActiveRolloutsHandler handler,
         CancellationToken cancellationToken)
     {
-        var query = new GetActiveRolloutsQuery(tenantId);
+        var query = new GetActiveRolloutsQuery(TenantScoping.CallerTenant(context)!.Value);
         var result = await handler.Handle(query, cancellationToken);
 
         return result.Match(
@@ -137,10 +145,13 @@ public static class PhasedRolloutEndpoints
 
     private static async Task<IResult> CreatePhasedRollout(
         CreatePhasedRolloutCommand command,
+        HttpContext context,
         CreatePhasedRolloutHandler handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(command, cancellationToken);
+        // The body's tenantId is ignored: a rollout is always created in the caller's tenant (#498).
+        var result = await handler.Handle(
+            command with { TenantId = TenantScoping.CallerTenant(context)!.Value }, cancellationToken);
 
         return result.Match(
             success => Results.Created($"/api/phased-rollouts/{success.RolloutId}", success),

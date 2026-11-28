@@ -80,13 +80,19 @@ lists them.
 
 ## Tenant scoping
 
-Most operator endpoints don't check the caller's tenant. `GET /api/bundles`, `GET /api/phased-rollouts`
-and `GET /api/phased-rollouts/active` filter by a `tenantId` **query parameter** the caller supplies;
-endpoints addressed by a bundle, rollout or group ID return it whatever its tenant; and
-`GET /api/rollouts` returns rollouts of every tenant with `tenantId` set to an empty GUID. Only the two
-device endpoints check the caller against the device's tenant. `POST /api/bundles` and
-`POST /api/bundles/upload` take the tenant from the `tenantId` query parameter, falling back to the
-caller's `tenant_id` claim.
+Operator endpoints act only within the caller's tenant (#498):
+
+- The tenant comes from the principal's `tenant_id` claim. Tenant API keys carry one; Zitadel JWTs get
+  one with #492. A caller without it gets `403 TENANT_REQUIRED`.
+- `tenantId` query and body values are ignored: lists show only the caller's tenant, and bundles and
+  phased rollouts are always created in it.
+- A bundle, version, rollout, phased rollout, device or group of another tenant reads as `404` with the
+  same error code as a missing one, so IDs can't be probed. That includes assigning a bundle to another
+  tenant's device or group, and naming another tenant's device in a rollout.
+- A well-formed ID that doesn't exist is also `404`, from the same check, on every route that names
+  a bundle or rollout in its path.
+- Checking a device's tenant calls DeviceManager; if it can't be reached the request gets `503
+  DEVICE_LOOKUP_UNAVAILABLE`.
 
 ## Device endpoints
 
@@ -223,7 +229,7 @@ Failures are `400` on the write endpoints and `404` on the reads below, whatever
 
 ### POST /api/bundles
 
-Query: `tenantId` (optional GUID; defaults to the caller's `tenant_id` claim).
+The bundle is created in the caller's tenant.
 
 **Request Body:**
 ```json
@@ -259,7 +265,7 @@ Query: `tenantId` (optional GUID; defaults to the caller's `tenant_id` claim).
 ### POST /api/bundles/upload
 
 Creates a bundle and its first version from a full bundle definition, stored in blob storage.
-Query: `tenantId` (optional GUID; defaults to the caller's `tenant_id` claim).
+The bundle is created in the caller's tenant.
 
 **Request Body** (`BundleDefinition`):
 ```json
@@ -295,7 +301,7 @@ Query: `tenantId` (optional GUID; defaults to the caller's `tenant_id` claim).
 
 ### GET /api/bundles
 
-Query: `tenantId` (required GUID).
+Returns the caller's tenant's bundles.
 
 **Response (200):**
 ```json
@@ -341,7 +347,7 @@ Adds a version from a `BundleDefinition` (same body and validation as `POST /api
 
 **Response (201):** `{ "versionId", "bundleId", "version", "blobStorageUri", "checksum", "sizeBytes", "createdAt" }`.
 
-**Error Codes** (all `400`): `INVALID_BUNDLE_ID`, `INVALID_BUNDLE_DEFINITION`, `INVALID_VERSION`, `INVALID_CONTAINER_SPEC`, `BUNDLE_NOT_FOUND`.
+**Error Codes:** `INVALID_BUNDLE_ID`, `INVALID_BUNDLE_DEFINITION`, `INVALID_VERSION`, `INVALID_CONTAINER_SPEC` (400); `BUNDLE_NOT_FOUND` (404).
 
 ### GET /api/bundles/{bundleId}/versions/{version} and /latest
 
@@ -383,7 +389,8 @@ Query: `bundleId` (optional), `page` (default 1), `pageSize` (default 10).
 }
 ```
 
-`tenantId` is always the empty GUID and `targetType` always `device` (both TODO in `GetRollouts.cs`).
+Only the caller's tenant's rollouts are listed. `targetType` is always `device` (TODO in `GetRollouts.cs`:
+rollout statuses don't record whether a group was targeted).
 
 **Error Codes:** `INVALID_BUNDLE_ID` (400).
 
@@ -410,7 +417,7 @@ Query: `bundleId` (optional), `page` (default 1), `pageSize` (default 10).
 
 **Response:** `204`.
 
-**Error Codes** for these three: `INVALID_ROLLOUT_ID`, `ROLLOUT_NOT_FOUND`; `404` on the two reads and `400` on cancel. These bodies have no `type`.
+**Error Codes** for these three: `INVALID_ROLLOUT_ID`, `ROLLOUT_NOT_FOUND`; a malformed ID is `400` on cancel, a missing one `404` everywhere. These bodies have no `type`.
 
 ### GET /api/rollouts/bundles/{bundleId}
 
@@ -449,7 +456,7 @@ body, anything else → 500 problem details with `error` and `type` extensions.
 
 ### GET /api/phased-rollouts
 
-Query: `tenantId` (required GUID), `page` (required, ≥ 1), `pageSize` (required, 1–100), `status`
+Lists the caller's tenant's rollouts. Query: `page` (required, ≥ 1), `pageSize` (required, 1–100), `status`
 (optional: `Pending`, `InProgress`, `Paused`, `Completed`, `Failed`, `RolledBack`, `Cancelled`), `bundleId` (optional).
 
 **Response (200):** `{ "rollouts": [ { "rolloutId", "bundleId", "name", "targetVersion", "status", "currentPhaseNumber", "totalPhases", "totalDevices", "succeededDevices", "failedDevices", "successRate", "createdAt", "startedAt", "completedAt" } ], "page", "pageSize", "totalCount", "totalPages" }`.
@@ -476,11 +483,11 @@ Query: `tenantId` (required GUID), `page` (required, ≥ 1), `pageSize` (require
 
 **Response (201):** `{ "rolloutId", "bundleId", "targetVersion", "name", "phaseCount", "createdAt" }`.
 
-**Error Codes:** `INVALID_BUNDLE_ID`, `INVALID_VERSION`, `INVALID_PREVIOUS_VERSION`, `NO_PHASES`, `INVALID_PHASE_PERCENTAGES`, `TARGET_GROUP_REQUIRED`, `NO_DEVICES_IN_GROUP` (400); `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND`, `GROUP_NOT_FOUND` (404); `ACTIVE_ROLLOUT_EXISTS` (409); `TENANT_MISMATCH` (403).
+**Error Codes:** `INVALID_BUNDLE_ID`, `INVALID_VERSION`, `INVALID_PREVIOUS_VERSION`, `NO_PHASES`, `INVALID_PHASE_PERCENTAGES`, `TARGET_GROUP_REQUIRED`, `NO_DEVICES_IN_GROUP` (400); `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND`, `GROUP_NOT_FOUND` (404); `ACTIVE_ROLLOUT_EXISTS` (409). A bundle of another tenant is `BUNDLE_NOT_FOUND`.
 
 ### GET /api/phased-rollouts/active
 
-Query: `tenantId` (required GUID).
+Returns the caller's tenant's active rollouts.
 
 **Response (200):** `{ "activeRollouts": [ { "rolloutId", "bundleId", "name", "targetVersion", "status", "currentPhaseNumber", "currentPhaseName", "currentPhaseTargetCount", "currentPhaseSuccessCount", "currentPhaseFailureCount", "currentPhaseSuccessRate", "phaseStartedAt", "startedAt", "failureThreshold" } ], "totalCount" }`.
 

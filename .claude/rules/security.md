@@ -87,6 +87,15 @@ BundleOrchestrator serves two device endpoints, `GET /api/devices/{deviceId}/des
   use mTLS still send their device API key, and that key is what BundleOrchestrator checks.
 - Services that don't register `IDeviceCredentialClient` (e.g. TelemetryProcessor) keep rejecting device keys.
 
+### Tenant scoping in BundleOrchestrator (#498)
+
+Operator endpoints take the tenant from the `tenant_id` claim only (`TenantScoping.CallerTenant`); no
+claim is `403 TENANT_REQUIRED`, and `tenantId` query/body values are ignored. Resources addressed by ID
+must belong to that tenant (`RequireOwnBundle`, `RequireOwnRollout`, `RequireOwnPhasedRollout`,
+`RequireOwnRolloutStatus` endpoint filters over `TenantOwnership`); bundles, devices and groups named in a
+body are checked in the handler. Another tenant's resource is `404`, never `403`. New BundleOrchestrator
+operator endpoints must do the same.
+
 **Rules:**
 - Every new endpoint requires auth unless it is a health check, metrics, or explicitly public registration endpoint
 - If an endpoint must be public, annotate with `.AllowAnonymous()` and add a code comment explaining why

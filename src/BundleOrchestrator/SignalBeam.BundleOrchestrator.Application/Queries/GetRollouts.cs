@@ -9,6 +9,7 @@ namespace SignalBeam.BundleOrchestrator.Application.Queries;
 /// Query to get paginated list of rollouts.
 /// </summary>
 public record GetRolloutsQuery(
+    Guid TenantId,
     string? BundleId = null,
     int Page = 1,
     int PageSize = 10);
@@ -69,6 +70,7 @@ public class GetRolloutsHandler
 
         // Get distinct rollouts with pagination
         var (rolloutIds, totalCount) = await _rolloutStatusRepository.GetDistinctRolloutsAsync(
+            new TenantId(query.TenantId),
             bundleId,
             query.Page,
             query.PageSize,
@@ -120,7 +122,7 @@ public class GetRolloutsHandler
 
                 rolloutSummaries.Add(new RolloutSummaryDto(
                     rolloutId,
-                    Guid.Empty, // TenantId - TODO: Add tenant support
+                    query.TenantId,
                     first.BundleId.Value,
                     first.BundleVersion.ToString(),
                     "device", // TODO: Determine target type from metadata

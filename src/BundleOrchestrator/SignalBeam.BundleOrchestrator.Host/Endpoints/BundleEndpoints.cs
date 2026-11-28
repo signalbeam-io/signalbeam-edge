@@ -65,7 +65,8 @@ public static class BundleEndpoints
         // The agent never reads bundles directly; it reconciles from GET /api/devices/{id}/desired-state.
         var group = app.MapGroup("/api/bundles")
             .WithTags("Bundles")
-            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess)
+            .RequireCallerTenant();
 
         group.MapPost("/", CreateBundle)
             .WithName("CreateBundle")
@@ -80,15 +81,17 @@ public static class BundleEndpoints
         group.MapGet("/", GetBundles)
             .WithName("GetBundles")
             .WithSummary("Get all bundles")
-            .WithDescription("Retrieves all app bundles for the specified tenant.");
+            .WithDescription("Retrieves all app bundles of the caller's tenant.");
 
         group.MapGet("/{bundleId}", GetBundleById)
             .WithName("GetBundleById")
+            .RequireOwnBundle()
             .WithSummary("Get bundle by ID")
             .WithDescription("Retrieves detailed information about a specific bundle including all its versions.");
 
         group.MapGet("/{bundleId}/assigned-devices", GetBundleAssignedDevices)
             .WithName("GetBundleAssignedDevices")
+            .RequireOwnBundle()
             .WithSummary("Get devices assigned to a bundle")
             .WithDescription("Retrieves all devices that have this bundle assigned.");
 
@@ -97,20 +100,12 @@ public static class BundleEndpoints
 
     private static async Task<IResult> CreateBundle(
         CreateBundleRequest request,
-        Guid? tenantId,
         HttpContext context,
         CreateBundleHandler handler,
         IValidator<CreateBundleCommand> validator,
         CancellationToken cancellationToken)
     {
-        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
-        {
-            return Results.BadRequest(new
-            {
-                error = "INVALID_TENANT_ID",
-                message = "Tenant ID is required."
-            });
-        }
+        var resolvedTenantId = TenantScoping.CallerTenant(context)!.Value;
 
         // Map ContainerDefinitionRequest to ContainerSpecDto
         // Note: ContainerSpecDto expects simple List<string> for Ports, but we'll serialize it
@@ -160,19 +155,11 @@ public static class BundleEndpoints
 
     private static async Task<IResult> UploadBundle(
         BundleDefinition definition,
-        Guid? tenantId,
         HttpContext context,
         UploadBundleHandler handler,
         CancellationToken cancellationToken)
     {
-        if (!TryResolveTenantId(tenantId, context, out var resolvedTenantId))
-        {
-            return Results.BadRequest(new
-            {
-                error = "INVALID_TENANT_ID",
-                message = "Tenant ID is required."
-            });
-        }
+        var resolvedTenantId = TenantScoping.CallerTenant(context)!.Value;
 
         var command = new UploadBundleCommand(resolvedTenantId, definition);
         var result = await handler.Handle(command, cancellationToken);
@@ -187,24 +174,12 @@ public static class BundleEndpoints
             });
     }
 
-    private static bool TryResolveTenantId(Guid? tenantId, HttpContext context, out Guid resolvedTenantId)
-    {
-        if (tenantId.HasValue && tenantId.Value != Guid.Empty)
-        {
-            resolvedTenantId = tenantId.Value;
-            return true;
-        }
-
-        var tenantIdClaim = context.User.FindFirst(AuthenticationConstants.TenantIdClaimType)?.Value;
-        return Guid.TryParse(tenantIdClaim, out resolvedTenantId);
-    }
-
     private static async Task<IResult> GetBundles(
-        Guid tenantId,
+        HttpContext context,
         GetBundlesHandler handler,
         CancellationToken cancellationToken)
     {
-        var query = new GetBundlesQuery(tenantId);
+        var query = new GetBundlesQuery(TenantScoping.CallerTenant(context)!.Value);
         var result = await handler.Handle(query, cancellationToken);
 
         return result.IsSuccess

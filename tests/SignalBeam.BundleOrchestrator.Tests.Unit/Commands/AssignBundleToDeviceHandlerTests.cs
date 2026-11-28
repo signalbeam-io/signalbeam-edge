@@ -1,5 +1,7 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Repositories;
+using SignalBeam.BundleOrchestrator.Application.Services;
+using SignalBeam.Shared.Infrastructure.InternalServices;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
 
@@ -7,6 +9,8 @@ namespace SignalBeam.BundleOrchestrator.Tests.Unit.Commands;
 
 public class AssignBundleToDeviceHandlerTests
 {
+    private static readonly Guid Tenant = Guid.NewGuid();
+    private readonly IDeviceTenantClient _deviceTenantClient = Substitute.For<IDeviceTenantClient>();
     private readonly IBundleRepository _bundleRepository;
     private readonly IBundleVersionRepository _bundleVersionRepository;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
@@ -23,7 +27,10 @@ public class AssignBundleToDeviceHandlerTests
             _bundleRepository,
             _bundleVersionRepository,
             _desiredStateRepository,
-            _rolloutStatusRepository);
+            _rolloutStatusRepository,
+            new DeviceOwnershipVerifier(_deviceTenantClient));
+        _deviceTenantClient.LookupAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(DeviceTenantLookup.Found(Tenant));
     }
 
     [Fact]
@@ -34,7 +41,7 @@ public class AssignBundleToDeviceHandlerTests
         var bundleId = Guid.NewGuid();
         var bundle = AppBundle.Create(
             new BundleId(bundleId),
-            new TenantId(Guid.NewGuid()),
+            new TenantId(Tenant),
             "test-bundle",
             null,
             DateTimeOffset.UtcNow);
@@ -63,7 +70,7 @@ public class AssignBundleToDeviceHandlerTests
             .Returns((DeviceDesiredState?)null);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, Tenant, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -89,7 +96,7 @@ public class AssignBundleToDeviceHandlerTests
         var bundleId = Guid.NewGuid();
         var bundle = AppBundle.Create(
             new BundleId(bundleId),
-            new TenantId(Guid.NewGuid()),
+            new TenantId(Tenant),
             "test-bundle",
             null,
             DateTimeOffset.UtcNow);
@@ -126,7 +133,7 @@ public class AssignBundleToDeviceHandlerTests
             .Returns(existingDesiredState);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, Tenant, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -153,7 +160,7 @@ public class AssignBundleToDeviceHandlerTests
             .Returns((AppBundle?)null);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, Tenant, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeFalse();
@@ -168,7 +175,7 @@ public class AssignBundleToDeviceHandlerTests
         var bundleId = Guid.NewGuid();
         var bundle = AppBundle.Create(
             new BundleId(bundleId),
-            new TenantId(Guid.NewGuid()),
+            new TenantId(Tenant),
             "test-bundle",
             null,
             DateTimeOffset.UtcNow);
@@ -185,7 +192,7 @@ public class AssignBundleToDeviceHandlerTests
             .Returns((AppBundleVersion?)null);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, Tenant, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeFalse();

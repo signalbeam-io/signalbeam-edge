@@ -19,12 +19,13 @@ public static class RolloutEndpoints
         // drives rollouts.
         var group = app.MapGroup("/api/rollouts")
             .WithTags("Rollouts")
-            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess)
+            .RequireCallerTenant();
 
         group.MapGet("", GetRollouts)
             .WithName("GetRollouts")
             .WithSummary("Get paginated list of rollouts")
-            .WithDescription("Retrieves rollouts, optionally filtered by bundle ID.");
+            .WithDescription("Retrieves the caller's tenant's rollouts, optionally filtered by bundle ID.");
 
         group.MapPost("", CreateRollout)
             .WithName("CreateRollout")
@@ -33,16 +34,19 @@ public static class RolloutEndpoints
 
         group.MapGet("/{rolloutId}", GetRolloutById)
             .WithName("GetRolloutById")
+            .RequireOwnRollout()
             .WithSummary("Get rollout by ID")
             .WithDescription("Retrieves rollout details including progress.");
 
         group.MapGet("/{rolloutId}/devices", GetRolloutDevices)
             .WithName("GetRolloutDevices")
+            .RequireOwnRollout()
             .WithSummary("Get device-level rollout status")
             .WithDescription("Retrieves status for each device in the rollout.");
 
         group.MapPost("/{rolloutId}/cancel", CancelRollout)
             .WithName("CancelRollout")
+            .RequireOwnRollout()
             .WithSummary("Cancel rollout")
             .WithDescription("Cancels all pending and in-progress devices in the rollout.");
 
@@ -50,10 +54,14 @@ public static class RolloutEndpoints
     }
 
     private static async Task<IResult> GetRollouts(
-        [AsParameters] GetRolloutsQuery query,
+        string? bundleId,
+        HttpContext context,
         GetRolloutsHandler handler,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int page = 1,
+        int pageSize = 10)
     {
+        var query = new GetRolloutsQuery(TenantScoping.CallerTenant(context)!.Value, bundleId, page, pageSize);
         var result = await handler.Handle(query, cancellationToken);
 
         return result.IsSuccess
@@ -68,19 +76,25 @@ public static class RolloutEndpoints
 
     private static async Task<IResult> CreateRollout(
         CreateRolloutCommand command,
+        HttpContext context,
         CreateRolloutHandler handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(command, cancellationToken);
+        var result = await handler.Handle(command, TenantScoping.CallerTenant(context)!.Value, cancellationToken);
         if (result.IsSuccess)
         {
             return Results.Created($"/api/rollouts/{result.Value!.RolloutId}", result.Value);
         }
 
-        // Everything but an unreachable DeviceManager stays 400.
+        // Another tenant's bundle or device is 404; an unreachable DeviceManager 503; the rest 400.
         var error = result.Error!;
-        return DependencyErrors.IsUnavailable(error)
-            ? DependencyErrors.ServiceUnavailable(error)
+        if (DependencyErrors.IsUnavailable(error))
+        {
+            return DependencyErrors.ServiceUnavailable(error);
+        }
+
+        return error.Type == ErrorType.NotFound
+            ? TenantScoping.NotFound(error)
             : Results.BadRequest(new { error = error.Code, message = error.Message, type = error.Type.ToString() });
     }
 

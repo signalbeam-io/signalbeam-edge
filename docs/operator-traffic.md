@@ -55,7 +55,7 @@ dotnet run --project src/SignalBeam.TrafficGenerator -- \
 |---|---|
 | `--gateway-url` / `TRAFFIC_GATEWAY_URL` | Gateway base URL (default `http://localhost:8080`) |
 | `--api-key` / `TRAFFIC_API_KEY` | Tenant API key, sent as `X-API-Key` (default `dev-api-key-1`) |
-| `--tenant-id` / `TRAFFIC_TENANT_ID` | Tenant ID (default the dev tenant) |
+| `--tenant-id` / `TRAFFIC_TENANT_ID` | Tenant ID sent on requests (default the dev tenant). It must be the API key's tenant: BundleOrchestrator ignores it and scopes by the key |
 | `--seed` | Seed for the action mix (default 42) |
 | `--rate` | Actions per minute (default 30) |
 | `--invalid-rate` | Share of invalid requests, 0 to 1 (default 0.05) |

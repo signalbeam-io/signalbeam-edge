@@ -166,6 +166,7 @@ builder.Services.AddScoped<GetBundleRolloutHistoryHandler>();
 // Rollout orchestration services
 builder.Services.AddScoped<RolloutOrchestrationService>();
 builder.Services.AddScoped<DeviceOwnershipVerifier>();
+builder.Services.AddScoped<TenantOwnership>();
 
 // Configure rollout orchestrator options
 builder.Services.Configure<RolloutOrchestratorOptions>(

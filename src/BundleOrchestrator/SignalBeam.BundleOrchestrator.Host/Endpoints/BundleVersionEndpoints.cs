@@ -22,7 +22,9 @@ public static class BundleVersionEndpoints
         // — it reconciles from the inline definition returned by GET /api/devices/{id}/desired-state.
         var group = app.MapGroup("/api/bundles/{bundleId}/versions")
             .WithTags("Bundle Versions")
-            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess)
+            .RequireCallerTenant()
+            .RequireOwnBundle();
 
         group.MapPost("/", CreateBundleVersion)
             .WithName("CreateBundleVersion")

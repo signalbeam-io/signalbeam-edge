@@ -86,10 +86,11 @@ public class CreatePhasedRolloutHandler
         }
 
         // Verify tenant match
+        // Another tenant's bundle reads as missing, so bundle IDs can't be probed (#498).
         if (bundle.TenantId != tenantId)
         {
             return Result.Failure<CreatePhasedRolloutResponse>(
-                Error.Forbidden("TENANT_MISMATCH", "Bundle does not belong to this tenant."));
+                Error.NotFound("BUNDLE_NOT_FOUND", $"Bundle {command.BundleId} not found."));
         }
 
         // 4. Validate and parse target version

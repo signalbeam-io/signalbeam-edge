@@ -68,13 +68,24 @@ public class RolloutStatusRepository : IRolloutStatusRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<BundleId?> GetBundleIdOfRolloutAsync(Guid rolloutId, CancellationToken cancellationToken = default)
+    {
+        return await _context.RolloutStatuses
+            .Where(r => r.RolloutId == rolloutId)
+            .Select(r => (BundleId?)r.BundleId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<(IReadOnlyList<Guid> RolloutIds, int TotalCount)> GetDistinctRolloutsAsync(
+        TenantId tenantId,
         BundleId? bundleId = null,
         int page = 1,
         int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.RolloutStatuses.AsQueryable();
+        // Rollout statuses carry no tenant; a rollout belongs to its bundle's tenant.
+        var query = _context.RolloutStatuses
+            .Where(r => _context.AppBundles.Any(b => b.Id == r.BundleId && b.TenantId == tenantId));
 
         // Filter by bundle ID if provided
         if (bundleId is not null)
