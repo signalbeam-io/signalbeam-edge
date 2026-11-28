@@ -1,4 +1,4 @@
-<!-- Generated from code by /docs on 2026-11-28. Do not edit generated sections. -->
+<!-- Generated from code by /docs on 2026-11-28 (updated for #497). Do not edit generated sections. -->
 # BundleOrchestrator API Reference
 
 BundleOrchestrator manages app bundles and their versions, assigns bundles to devices and groups,
@@ -84,7 +84,10 @@ Most operator endpoints don't check the caller's tenant. `GET /api/bundles`, `GE
 and `GET /api/phased-rollouts/active` filter by a `tenantId` **query parameter** the caller supplies;
 endpoints addressed by a bundle, rollout or group ID return it whatever its tenant; and
 `GET /api/rollouts` returns rollouts of every tenant with `tenantId` set to an empty GUID. Only the two
-device endpoints check the caller against the device's tenant. `POST /api/bundles` and
+device endpoints check the caller against the device's tenant. Device groups are read from
+DeviceManager and must belong to the **bundle's** tenant (the rollout's, for phased rollouts), so a
+group can't be paired with another tenant's bundle; the caller's own tenant is still not checked
+(tracked in #498). `POST /api/bundles` and
 `POST /api/bundles/upload` take the tenant from the `tenantId` query parameter, falling back to the
 caller's `tenant_id` claim.
 
@@ -199,7 +202,9 @@ Sets the device's desired state to a bundle version. `{deviceId}` overrides the 
 
 ### POST /api/device-groups/{deviceGroupId}/bundle
 
-Sets the desired state of every device in the group. `{deviceGroupId}` overrides the body.
+Sets the desired state of every device in the group. `{deviceGroupId}` overrides the body. The group
+and its members are read from DeviceManager (`GET /api/internal/tenants/{tenantId}/groups/{groupId}`,
+not cached) and must belong to the bundle's tenant.
 
 **Request Body:**
 ```json
@@ -211,9 +216,18 @@ Sets the desired state of every device in the group. `{deviceGroupId}` overrides
 { "deviceGroupId": "guid", "bundleId": "guid", "version": "1.4.0", "deviceCount": 12, "assignedAt": "datetime" }
 ```
 
-**Error Codes** (all `400`): `INVALID_GROUP_ID`, `INVALID_BUNDLE_ID`, `INVALID_VERSION`, `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND`, `GROUP_NOT_FOUND`, `EMPTY_GROUP`.
+**Error Codes:**
+| Code | Status | Description |
+|------|--------|-------------|
+| `INVALID_GROUP_ID`, `INVALID_BUNDLE_ID`, `INVALID_VERSION` | 400 | Malformed ID or version |
+| `EMPTY_GROUP` | 400 | The group has no devices |
+| `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND` | 404 | Unknown bundle or version |
+| `GROUP_NOT_FOUND` | 404 | Unknown group, or a group of another tenant than the bundle's |
+| `DEVICE_GROUP_LOOKUP_UNAVAILABLE` | 503 | DeviceManager couldn't be reached; retry |
 
-See: `src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/Endpoints/BundleAssignmentEndpoints.cs`
+See: `src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/Endpoints/BundleAssignmentEndpoints.cs`,
+`src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Application/Services/DeviceGroupErrors.cs`,
+`src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/Endpoints/DependencyErrors.cs`
 <!-- END GENERATED -->
 
 ## Bundles
@@ -394,9 +408,11 @@ Query: `bundleId` (optional), `page` (default 1), `pageSize` (default 10).
 { "bundleId": "guid", "version": "1.0.0", "targetType": "device | group", "targetIds": ["guid"], "assignedBy": "string | null" }
 ```
 
+With `targetType: "group"`, each group is read from DeviceManager and must belong to the bundle's tenant.
+
 **Response (201):** `{ "rolloutId", "bundleId", "version", "targetType", "totalDevices", "createdAt" }`.
 
-**Error Codes** (all `400`): `INVALID_BUNDLE_ID`, `INVALID_VERSION`, `INVALID_TARGET_TYPE`, `INVALID_DEVICE_ID`, `INVALID_GROUP_ID`, `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND`, `GROUP_NOT_FOUND`, `NO_DEVICES`.
+**Error Codes:** `INVALID_BUNDLE_ID`, `INVALID_VERSION`, `INVALID_TARGET_TYPE`, `INVALID_DEVICE_ID`, `INVALID_GROUP_ID`, `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND`, `GROUP_NOT_FOUND`, `NO_DEVICES` (all `400`); `DEVICE_GROUP_LOOKUP_UNAVAILABLE` (`503`, DeviceManager couldn't be reached).
 
 ### GET /api/rollouts/{rolloutId}
 
@@ -445,7 +461,9 @@ See: `src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/Endpoints/Rollou
 
 <!-- BEGIN GENERATED -->
 Errors map by type: `NotFound` → 404, `Validation` → 400, `Conflict` → 409, `Forbidden` → 403 with no
-body, anything else → 500 problem details with `error` and `type` extensions.
+body, `DEVICE_GROUP_LOOKUP_UNAVAILABLE` → 503 (DeviceManager couldn't be reached while reading the
+target group; retry), anything else → 500 problem details with `error` and `type` extensions.
+Target groups are read from DeviceManager and must belong to the rollout's tenant.
 
 ### GET /api/phased-rollouts
 
@@ -476,7 +494,7 @@ Query: `tenantId` (required GUID), `page` (required, ≥ 1), `pageSize` (require
 
 **Response (201):** `{ "rolloutId", "bundleId", "targetVersion", "name", "phaseCount", "createdAt" }`.
 
-**Error Codes:** `INVALID_BUNDLE_ID`, `INVALID_VERSION`, `INVALID_PREVIOUS_VERSION`, `NO_PHASES`, `INVALID_PHASE_PERCENTAGES`, `TARGET_GROUP_REQUIRED`, `NO_DEVICES_IN_GROUP` (400); `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND`, `GROUP_NOT_FOUND` (404); `ACTIVE_ROLLOUT_EXISTS` (409); `TENANT_MISMATCH` (403).
+**Error Codes:** `INVALID_BUNDLE_ID`, `INVALID_VERSION`, `INVALID_PREVIOUS_VERSION`, `NO_PHASES`, `INVALID_PHASE_PERCENTAGES`, `TARGET_GROUP_REQUIRED`, `NO_DEVICES_IN_GROUP` (400); `BUNDLE_NOT_FOUND`, `VERSION_NOT_FOUND`, `GROUP_NOT_FOUND` (404); `ACTIVE_ROLLOUT_EXISTS` (409); `TENANT_MISMATCH` (403); `DEVICE_GROUP_LOOKUP_UNAVAILABLE` (503).
 
 ### GET /api/phased-rollouts/active
 
@@ -505,10 +523,10 @@ Query: `tenantId` (required GUID).
 
 | Route | Response (200) | Error Codes |
 |-------|----------------|-------------|
-| `POST /{rolloutId}/start` | `{ "rolloutId", "startedAt", "currentPhaseNumber", "currentPhaseName" }` | `ROLLOUT_NOT_FOUND`, `INVALID_OPERATION`, `NO_PHASES`, `NO_DEVICES` |
+| `POST /{rolloutId}/start` | `{ "rolloutId", "startedAt", "currentPhaseNumber", "currentPhaseName" }` | `ROLLOUT_NOT_FOUND`, `INVALID_OPERATION`, `NO_PHASES`, `NO_DEVICES`, `GROUP_NOT_FOUND`, `DEVICE_GROUP_LOOKUP_UNAVAILABLE` |
 | `POST /{rolloutId}/pause` | `{ "rolloutId", "currentPhaseNumber", "status" }` | `ROLLOUT_NOT_FOUND`, `INVALID_OPERATION` |
 | `POST /{rolloutId}/resume` | `{ "rolloutId", "resumedAt", "currentPhaseNumber", "status" }` | `ROLLOUT_NOT_FOUND`, `INVALID_OPERATION` |
-| `POST /{rolloutId}/advance` | `{ "rolloutId", "newPhaseNumber", "newPhaseName", "targetDeviceCount", "advancedAt" }` | `ROLLOUT_NOT_FOUND`, `INVALID_OPERATION`, `NO_NEXT_PHASE`, `NO_DEVICES_AVAILABLE` |
+| `POST /{rolloutId}/advance` | `{ "rolloutId", "newPhaseNumber", "newPhaseName", "targetDeviceCount", "advancedAt" }` | `ROLLOUT_NOT_FOUND`, `INVALID_OPERATION`, `NO_NEXT_PHASE`, `NO_DEVICES_AVAILABLE`, `GROUP_NOT_FOUND`, `DEVICE_GROUP_LOOKUP_UNAVAILABLE` |
 | `POST /{rolloutId}/rollback` | `{ "rolloutId", "previousVersion", "rolledBackAt", "devicesAffected" }` | `ROLLOUT_NOT_FOUND`, `INVALID_OPERATION`, `NO_PREVIOUS_VERSION` |
 
 All routes are under `/api/phased-rollouts`; `{rolloutId}` is a GUID.
@@ -521,8 +539,8 @@ See: `src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/Endpoints/Phased
 <!-- BEGIN GENERATED -->
 | Key | Description | Default | Required |
 |-----|-------------|---------|----------|
-| `DeviceManager:BaseUrl` | DeviceManager URL for device-key verification and tenant lookups | `http://localhost:5296` | Yes, when deployed |
-| `InternalServices:ApiKey` | Shared key for DeviceManager's `/api/internal` endpoints; without it every device request is `503` | — | Yes |
+| `DeviceManager:BaseUrl` | DeviceManager URL for device-key verification, device tenant lookups and device group reads | `http://localhost:5296` | Yes, when deployed |
+| `InternalServices:ApiKey` | Shared key for DeviceManager's `/api/internal` endpoints; without it every device request, and every group assignment or group rollout, is `503` | — | Yes |
 | `Authentication:Jwt:Authority` | Zitadel issuer | — | Yes |
 | `Authentication:Jwt:RequireHttpsMetadata` | Require HTTPS for OIDC metadata | `true` | No |
 | `ZITADEL_CONFIG_PATH` | File the JWT audience is read from (`backend.audience`), else `Authentication:Jwt:Audience` | — | No |
@@ -530,5 +548,6 @@ See: `src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/Endpoints/Phased
 
 See: `src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Infrastructure/DependencyInjection.cs`,
 `src/Shared/SignalBeam.Shared.Infrastructure/InternalServices/DeviceCredentialClient.cs`,
+`src/Shared/SignalBeam.Shared.Infrastructure/InternalServices/DeviceGroupClient.cs`,
 `src/BundleOrchestrator/SignalBeam.BundleOrchestrator.Host/appsettings.json`
 <!-- END GENERATED -->
