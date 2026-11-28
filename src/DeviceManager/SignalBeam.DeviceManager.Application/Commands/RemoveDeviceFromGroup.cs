@@ -119,9 +119,9 @@ public class RemoveDeviceFromGroupHandler
         if (device.DeviceGroupId == deviceGroupId)
         {
             device.RemoveFromGroup();
-            await _deviceRepository.SaveChangesAsync(cancellationToken);
         }
 
+        // Both repositories share the DbContext, so this one save writes both changes.
         await _membershipRepository.SaveChangesAsync(cancellationToken);
 
         return Result<RemoveDeviceFromGroupResponse>.Success(new RemoveDeviceFromGroupResponse(

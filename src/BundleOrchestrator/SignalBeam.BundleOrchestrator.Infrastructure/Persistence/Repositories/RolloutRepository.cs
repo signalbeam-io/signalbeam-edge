@@ -125,7 +125,8 @@ public class RolloutRepository : IRolloutRepository
     public Task UpdateAsync(Rollout rollout, CancellationToken cancellationToken = default)
     {
         // A rollout loaded by this context is already tracked: change detection picks up new phases
-        // and assignments as inserts. Update() would mark them as modified rows instead.
+        // and assignments as inserts. Update() would mark them as modified rows instead, so a
+        // detached rollout is only safe here when nothing was added to it.
         if (_context.Entry(rollout).State == EntityState.Detached)
         {
             _context.Rollouts.Update(rollout);
