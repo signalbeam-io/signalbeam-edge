@@ -12,6 +12,18 @@ public class DockerContainerManagerTests : IAsyncLifetime
     private DockerContainerManager _containerManager = null!;
     private ILoggerFactory _loggerFactory = null!;
 
+    // Unique per run: the agent refuses to replace a container it didn't label, so a leftover from an
+    // earlier run (or an older agent) with a fixed name would make the next run fail.
+    private readonly string _runId = Guid.NewGuid().ToString("N")[..8];
+    private readonly List<string> _createdNames = [];
+
+    private string Unique(string name)
+    {
+        var unique = $"{name}-{_runId}";
+        _createdNames.Add(unique);
+        return unique;
+    }
+
     public Task InitializeAsync()
     {
         _loggerFactory = LoggerFactory.Create(builder =>
@@ -26,11 +38,18 @@ public class DockerContainerManagerTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    public Task DisposeAsync()
+    public async Task DisposeAsync()
     {
+        // The manager only stops containers; remove what these tests created.
+        using var client = new Docker.DotNet.DockerClientBuilder().Build();
+        var all = await client.Containers.ListContainersAsync(new Docker.DotNet.Models.ContainersListParameters { All = true });
+        foreach (var container in all.Where(c => c.Names.Any(n => _createdNames.Contains(n.TrimStart('/')))))
+        {
+            await client.Containers.RemoveContainerAsync(container.ID, new Docker.DotNet.Models.ContainerRemoveParameters { Force = true });
+        }
+
         _containerManager?.Dispose();
         _loggerFactory?.Dispose();
-        return Task.CompletedTask;
     }
 
     [Fact]
@@ -77,7 +96,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
     public async Task StartContainerAsync_ShouldStartContainer()
     {
         // Arrange
-        const string containerName = "test-nginx-container";
+        var containerName = Unique("test-nginx-container");
         const string image = "nginx:alpine";
 
         var spec = new Application.Services.ContainerSpec(
@@ -100,7 +119,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
             await _containerManager.PullImageAsync(image);
 
             // Act
-            await _containerManager.StartContainerAsync(spec);
+            await _containerManager.StartContainerAsync(spec, new ContainerOwner("integration-test", "1.0.0"));
 
             // Wait a moment for container to start
             await Task.Delay(1000);
@@ -127,7 +146,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
         // Arrange — use a long-running image (nginx stays in the foreground). A bare alpine:latest
         // runs its default /bin/sh and exits immediately, so it would never appear in the running
         // list for the test to find and stop.
-        const string containerName = "test-stop-container";
+        var containerName = Unique("test-stop-container");
         const string image = "nginx:alpine";
 
         var spec = new Application.Services.ContainerSpec(
@@ -140,7 +159,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
 
         // Pull image and start container
         await _containerManager.PullImageAsync(image);
-        await _containerManager.StartContainerAsync(spec);
+        await _containerManager.StartContainerAsync(spec, new ContainerOwner("integration-test", "1.0.0"));
 
         // Wait for container to start
         await Task.Delay(1000);
@@ -163,7 +182,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
     public async Task GetContainerLogsAsync_ShouldReturnLogs()
     {
         // Arrange
-        const string containerName = "test-logs-container";
+        var containerName = Unique("test-logs-container");
         const string image = "hello-world:latest";
 
         var spec = new Application.Services.ContainerSpec(
@@ -178,7 +197,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
         {
             // Pull image and start container
             await _containerManager.PullImageAsync(image);
-            await _containerManager.StartContainerAsync(spec);
+            await _containerManager.StartContainerAsync(spec, new ContainerOwner("integration-test", "1.0.0"));
 
             // Wait for container to run and exit
             await Task.Delay(2000);
@@ -214,7 +233,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
     public async Task GetContainerStatsAsync_ShouldReturnStats()
     {
         // Arrange
-        const string containerName = "test-stats-container";
+        var containerName = Unique("test-stats-container");
         const string image = "nginx:alpine";
 
         var spec = new Application.Services.ContainerSpec(
@@ -229,7 +248,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
         {
             // Pull image and start container
             await _containerManager.PullImageAsync(image);
-            await _containerManager.StartContainerAsync(spec);
+            await _containerManager.StartContainerAsync(spec, new ContainerOwner("integration-test", "1.0.0"));
 
             // Wait for container to be fully running
             await Task.Delay(2000);
@@ -263,7 +282,7 @@ public class DockerContainerManagerTests : IAsyncLifetime
     public async Task StartContainerAsync_ShouldReplaceExistingContainer_WhenNameAlreadyExists()
     {
         // Arrange
-        const string containerName = "test-replace-container";
+        var containerName = Unique("test-replace-container");
         const string image1 = "nginx:alpine";
         const string image2 = "nginx:latest";
 
@@ -290,11 +309,11 @@ public class DockerContainerManagerTests : IAsyncLifetime
             await _containerManager.PullImageAsync(image2);
 
             // Start first container
-            await _containerManager.StartContainerAsync(spec1);
+            await _containerManager.StartContainerAsync(spec1, new ContainerOwner("integration-test", "1.0.0"));
             await Task.Delay(1000);
 
             // Act - Start second container with same name
-            await _containerManager.StartContainerAsync(spec2);
+            await _containerManager.StartContainerAsync(spec2, new ContainerOwner("integration-test", "1.0.0"));
             await Task.Delay(1000);
 
             // Assert - Should only have one container with this name
