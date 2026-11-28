@@ -29,16 +29,27 @@ public class ReconcileContainersCommandHandler
         {
             _logger.LogInformation("Starting container reconciliation for device {DeviceId}", command.DeviceId);
 
-            var runningContainers = await _containerManager.GetRunningContainersAsync(cancellationToken);
-
-            if (command.DesiredState == null || command.DesiredState.Containers.Count == 0)
+            // No desired state (nothing assigned, or it couldn't be read): leave the device as it is.
+            if (command.DesiredState == null)
             {
-                _logger.LogInformation("No desired state - stopping all {Count} running containers", runningContainers.Count);
+                _logger.LogInformation("No desired state for device {DeviceId}; leaving containers as they are", command.DeviceId);
+                return Result<ReconciliationResult>.Success(new ReconciliationResult(0, 0, 0, [], []));
+            }
 
-                // No desired state - stop all containers
+            // Only containers the agent created; the agent's own container and anything else on the
+            // host are never listed, so never stopped.
+            var runningContainers = await _containerManager.GetManagedContainersAsync(cancellationToken);
+            var owner = new ContainerOwner(command.DesiredState.BundleId, command.DesiredState.BundleVersion);
+
+            // A desired state with no containers means "run nothing": stop the managed containers only.
+            if (command.DesiredState.Containers is not { Count: > 0 })
+            {
+                _logger.LogInformation(
+                    "Desired state has no containers - stopping all {Count} managed containers", runningContainers.Count);
+
                 var (actions, errors) = await StopAllContainersAsync(runningContainers, cancellationToken);
                 return Result<ReconciliationResult>.Success(
-                    new ReconciliationResult(0, runningContainers.Count, errors.Count, actions, errors));
+                    new ReconciliationResult(0, actions.Count, errors.Count, actions, errors));
             }
 
             var desiredContainers = command.DesiredState.Containers;
@@ -49,6 +60,7 @@ public class ReconcileContainersCommandHandler
             var reconciliationResult = await ReconcileAsync(
                 runningContainers,
                 desiredContainers,
+                owner,
                 cancellationToken);
 
             _logger.LogInformation(
@@ -70,6 +82,7 @@ public class ReconcileContainersCommandHandler
     private async Task<ReconciliationResult> ReconcileAsync(
         List<ContainerStatus> runningContainers,
         List<ContainerSpec> desiredContainers,
+        ContainerOwner owner,
         CancellationToken cancellationToken)
     {
         int started = 0;
@@ -110,15 +123,32 @@ public class ReconcileContainersCommandHandler
             {
                 try
                 {
+                    // Checked before the pull, so a device stuck on a conflict (e.g. after upgrading
+                    // from an agent that didn't label containers) doesn't pull every interval.
+                    if (await _containerManager.IsNameHeldByUnmanagedContainerAsync(desired.Name, cancellationToken))
+                    {
+                        _logger.LogWarning(
+                            "Not starting {Name}: the name belongs to a container SignalBeam didn't create", desired.Name);
+                        failed++;
+                        errors.Add(ContainerNameConflictException.Describe(desired.Name));
+                        continue;
+                    }
+
                     _logger.LogInformation("Starting new container: {Name} ({Image})", desired.Name, desired.Image);
 
                     // Pull image first
                     await _containerManager.PullImageAsync(desired.Image, null, cancellationToken);
 
                     // Start container
-                    await _containerManager.StartContainerAsync(desired, cancellationToken);
+                    await _containerManager.StartContainerAsync(desired, owner, cancellationToken);
                     started++;
                     actions.Add(new ReconciliationAction("started", desired.Name, desired.Image));
+                }
+                catch (ContainerNameConflictException ex)
+                {
+                    _logger.LogWarning("Not starting {Name}: {Message}", desired.Name, ex.Message);
+                    failed++;
+                    errors.Add(ex.Message);
                 }
                 catch (Exception ex)
                 {
@@ -131,13 +161,13 @@ public class ReconcileContainersCommandHandler
             {
                 // Check if the image has changed
                 var running = runningMap[desired.Name];
-                if (running.Image != desired.Image)
+                if ((running.ManagedImage ?? running.Image) != desired.Image)
                 {
                     try
                     {
                         _logger.LogInformation(
                             "Updating container {Name}: {OldImage} -> {NewImage}",
-                            desired.Name, running.Image, desired.Image);
+                            desired.Name, running.ManagedImage ?? running.Image, desired.Image);
 
                         // Stop old container
                         await _containerManager.StopContainerAsync(running.Id, cancellationToken);
@@ -146,7 +176,7 @@ public class ReconcileContainersCommandHandler
                         await _containerManager.PullImageAsync(desired.Image, null, cancellationToken);
 
                         // Start new container
-                        await _containerManager.StartContainerAsync(desired, cancellationToken);
+                        await _containerManager.StartContainerAsync(desired, owner, cancellationToken);
 
                         stopped++;
                         started++;
