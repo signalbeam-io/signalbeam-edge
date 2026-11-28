@@ -108,7 +108,7 @@ VITE_AUTH_MODE=apiKey
 2. Enter key on login page (e.g., `dev-api-key-1`)
 3. Hardcoded tenant: `00000000-0000-0000-0000-000000000001`
 
-> ⚠️ **Warning**: API key mode is NOT secure for production use. It has no tenant isolation and should only be used for local testing.
+> ⚠️ **Warning**: API key mode is NOT secure for production use. It maps to one hardcoded tenant and should only be used for local testing.
 
 ## Switching Authentication Modes
 

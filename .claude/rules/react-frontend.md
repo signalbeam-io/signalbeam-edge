@@ -18,7 +18,7 @@ paths:
 - Functions return typed `Promise<T>`
 - Use `URLSearchParams` for query parameters
 - Pagination via `pageNumber` and `pageSize` params
-- All list/detail API calls append tenant scope via `appendTenantId(params)` (or `withTenantId`) from `web/src/api/services/tenant` — multi-tenancy is mandatory on every data-fetching call
+- All list/detail API calls append tenant scope via `appendTenantId(params)` (or `withTenantId`) from `web/src/api/services/tenant` — multi-tenancy is mandatory on every data-fetching call. BundleOrchestrator ignores the parameter and scopes by the caller's `tenant_id` claim (#498); the UI still sends it for the other services
 - Response mapping functions: `mapDevice(response)` to convert API shapes to frontend types
 
 ## State Management

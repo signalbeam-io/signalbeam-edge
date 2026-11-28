@@ -67,12 +67,13 @@ Healthy devices with a desired bundle report `succeeded`, so their rollout statu
 
 ### Assigning a bundle for `deploy-failure`
 
-Fleet devices only reconcile once they have a desired state. With the dev tenant API key:
+Fleet devices only reconcile once they have a desired state. With the dev tenant API key (the tenant
+comes from the key; BundleOrchestrator ignores a `tenantId` parameter):
 
 ```bash
-API=http://localhost:8080; KEY="X-Api-Key: dev-api-key-1"; TENANT=00000000-0000-0000-0000-000000000001
+API=http://localhost:8080; KEY="X-Api-Key: dev-api-key-1"
 BUNDLE=$(curl -s -H "$KEY" -H 'Content-Type: application/json' $API/api/bundles \
-  -d "{\"tenantId\":\"$TENANT\",\"name\":\"sim-app\",\"version\":\"1.0.0\",\"containers\":[{\"name\":\"web\",\"image\":\"nginx:1.27\"}]}" \
+  -d "{\"name\":\"sim-app\",\"version\":\"1.0.0\",\"containers\":[{\"name\":\"web\",\"image\":\"nginx:1.27\"}]}" \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["bundleId"])')
 curl -s -H "$KEY" -H 'Content-Type: application/json' $API/api/devices/<deviceId>/bundle \
   -d "{\"bundleId\":\"$BUNDLE\",\"version\":\"1.0.0\"}"
