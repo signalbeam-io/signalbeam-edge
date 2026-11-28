@@ -11,6 +11,8 @@ public sealed record DeviceCaller(Guid? TenantId, Guid? DeviceId);
 // that exact device; anyone else (operator JWT, dev tenant key) must belong to the device's tenant.
 public class DeviceOwnershipVerifier
 {
+    public const string LookupUnavailableCode = "DEVICE_LOOKUP_UNAVAILABLE";
+
     private readonly IDeviceTenantClient _deviceTenantClient;
 
     public DeviceOwnershipVerifier(IDeviceTenantClient deviceTenantClient)
@@ -34,7 +36,7 @@ public class DeviceOwnershipVerifier
         return lookup.Status switch
         {
             DeviceTenantLookupStatus.Unavailable => Error.Failure(
-                "DEVICE_LOOKUP_UNAVAILABLE", "The device could not be verified right now. Try again later."),
+                LookupUnavailableCode, "The device could not be verified right now. Try again later."),
             // Another tenant's device looks the same as a missing one, so device IDs can't be probed.
             DeviceTenantLookupStatus.NotFound => DeviceNotFound(deviceId),
             _ when lookup.TenantId != caller.TenantId => DeviceNotFound(deviceId),

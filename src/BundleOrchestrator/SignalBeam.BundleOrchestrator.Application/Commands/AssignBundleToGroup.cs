@@ -54,6 +54,7 @@ public class AssignBundleToGroupHandler
 
     public async Task<Result<AssignBundleToGroupResponse>> Handle(
         AssignBundleToGroupCommand command,
+        Guid callerTenantId,
         CancellationToken cancellationToken)
     {
         // Parse and validate device group ID
@@ -71,8 +72,9 @@ public class AssignBundleToGroupHandler
         }
 
         // Check if bundle exists
+        // Another tenant's bundle reads as missing (#498); the group lookup below is scoped to it.
         var bundle = await _bundleRepository.GetByIdAsync(bundleId, cancellationToken);
-        if (bundle is null)
+        if (bundle is null || bundle.TenantId.Value != callerTenantId)
         {
             return Result.Failure<AssignBundleToGroupResponse>(
                 Error.NotFound("BUNDLE_NOT_FOUND", $"Bundle with ID {command.BundleId} not found."));

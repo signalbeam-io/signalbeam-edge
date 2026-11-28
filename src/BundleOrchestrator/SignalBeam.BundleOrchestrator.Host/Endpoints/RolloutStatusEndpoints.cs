@@ -17,15 +17,18 @@ public static class RolloutStatusEndpoints
         // Rollout-status reads are operator/dashboard-facing.
         var group = app.MapGroup("/api/rollouts")
             .WithTags("Rollout Status")
-            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess)
+            .RequireCallerTenant();
 
         group.MapGet("/bundles/{bundleId}", GetRolloutStatus)
             .WithName("GetRolloutStatus")
+            .RequireOwnBundle()
             .WithSummary("Get rollout status for bundle")
             .WithDescription("Retrieves the rollout status for all devices associated with a specific bundle, including statistics.");
 
         group.MapPut("/{rolloutId}/status", UpdateRolloutStatus)
             .WithName("UpdateRolloutStatus")
+            .RequireOwnRolloutStatus()
             .WithSummary("Update rollout status")
             .WithDescription("Updates the status of a specific rollout (e.g., mark as succeeded or failed).");
 

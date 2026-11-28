@@ -39,14 +39,17 @@ public class CreateRolloutHandler
     private readonly IDeviceGroupClient _deviceGroupClient;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
     private readonly IRolloutStatusRepository _rolloutStatusRepository;
+    private readonly DeviceOwnershipVerifier _deviceOwnership;
 
     public CreateRolloutHandler(
         IBundleRepository bundleRepository,
         IBundleVersionRepository bundleVersionRepository,
         IDeviceGroupClient deviceGroupClient,
         IDeviceDesiredStateRepository desiredStateRepository,
-        IRolloutStatusRepository rolloutStatusRepository)
+        IRolloutStatusRepository rolloutStatusRepository,
+        DeviceOwnershipVerifier deviceOwnership)
     {
+        _deviceOwnership = deviceOwnership;
         _bundleRepository = bundleRepository;
         _bundleVersionRepository = bundleVersionRepository;
         _deviceGroupClient = deviceGroupClient;
@@ -56,6 +59,7 @@ public class CreateRolloutHandler
 
     public async Task<Result<CreateRolloutResponse>> Handle(
         CreateRolloutCommand command,
+        Guid callerTenantId,
         CancellationToken cancellationToken)
     {
         // 1. Validate and parse BundleId
@@ -66,8 +70,9 @@ public class CreateRolloutHandler
         }
 
         // 2. Check bundle exists
+        // Another tenant's bundle reads as missing (#498).
         var bundle = await _bundleRepository.GetByIdAsync(bundleId, cancellationToken);
-        if (bundle is null)
+        if (bundle is null || bundle.TenantId.Value != callerTenantId)
         {
             return Result.Failure<CreateRolloutResponse>(
                 Error.NotFound("BUNDLE_NOT_FOUND", $"Bundle {command.BundleId} not found."));
@@ -122,6 +127,12 @@ public class CreateRolloutHandler
                 {
                     return Result.Failure<CreateRolloutResponse>(
                         Error.Validation("INVALID_DEVICE_ID", $"Invalid device ID: {targetId}"));
+                }
+
+                if (await _deviceOwnership.CheckAsync(deviceId.Value, new DeviceCaller(callerTenantId, null), cancellationToken)
+                    is { } deviceError)
+                {
+                    return Result.Failure<CreateRolloutResponse>(deviceError);
                 }
 
                 deviceIds.Add(deviceId);

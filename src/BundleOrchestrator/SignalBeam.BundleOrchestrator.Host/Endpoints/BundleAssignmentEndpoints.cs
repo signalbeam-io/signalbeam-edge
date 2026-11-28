@@ -27,7 +27,8 @@ public static class BundleAssignmentEndpoints
             .WithName("AssignBundleToDevice")
             .WithSummary("Assign bundle to device")
             .WithDescription("Assigns a specific bundle version to a device, updating its desired state.")
-            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess)
+            .RequireCallerTenant();
 
         // Device endpoints (#489). The device's own key, verified through DeviceManager, must name the
         // route's device. Operators may read desired state with a JWT; the tenant key works only
@@ -47,7 +48,8 @@ public static class BundleAssignmentEndpoints
         // Operator action: assigning a bundle to a whole group.
         var groupGroup = app.MapGroup("/api/device-groups")
             .WithTags("Bundle Assignments")
-            .RequireAuthorization(AuthorizationPolicies.OperatorAccess);
+            .RequireAuthorization(AuthorizationPolicies.OperatorAccess)
+            .RequireCallerTenant();
 
         groupGroup.MapPost("/{deviceGroupId}/bundle", AssignBundleToGroup)
             .WithName("AssignBundleToGroup")
@@ -60,21 +62,14 @@ public static class BundleAssignmentEndpoints
     private static async Task<IResult> AssignBundleToDevice(
         string deviceId,
         AssignBundleToDeviceCommand command,
+        HttpContext context,
         AssignBundleToDeviceHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceId from route
         var updatedCommand = command with { DeviceId = deviceId };
-        var result = await handler.Handle(updatedCommand, cancellationToken);
-
-        return result.IsSuccess
-            ? Results.Ok(result.Value)
-            : Results.BadRequest(new
-            {
-                error = result.Error!.Code,
-                message = result.Error.Message,
-                type = result.Error.Type.ToString()
-            });
+        var result = await handler.Handle(updatedCommand, TenantScoping.CallerTenant(context)!.Value, cancellationToken);
+        return result.IsSuccess ? Results.Ok(result.Value) : OperatorErrorResult(result.Error!);
     }
 
     private static async Task<IResult> GetDeviceDesiredState(
@@ -146,18 +141,19 @@ public static class BundleAssignmentEndpoints
     private static async Task<IResult> AssignBundleToGroup(
         string deviceGroupId,
         AssignBundleToGroupCommand command,
+        HttpContext context,
         AssignBundleToGroupHandler handler,
         CancellationToken cancellationToken)
     {
         // Override deviceGroupId from route
         var updatedCommand = command with { DeviceGroupId = deviceGroupId };
-        var result = await handler.Handle(updatedCommand, cancellationToken);
-        if (result.IsSuccess)
-        {
-            return Results.Ok(result.Value);
-        }
+        var result = await handler.Handle(updatedCommand, TenantScoping.CallerTenant(context)!.Value, cancellationToken);
+        return result.IsSuccess ? Results.Ok(result.Value) : OperatorErrorResult(result.Error!);
+    }
 
-        var error = result.Error!;
+    // Missing (or another tenant's) bundle, version, device or group is 404; DeviceManager unreachable 503.
+    private static IResult OperatorErrorResult(Error error)
+    {
         if (DependencyErrors.IsUnavailable(error))
         {
             return DependencyErrors.ServiceUnavailable(error);

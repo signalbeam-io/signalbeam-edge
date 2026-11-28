@@ -1,5 +1,6 @@
 using SignalBeam.BundleOrchestrator.Application.Commands;
 using SignalBeam.BundleOrchestrator.Application.Repositories;
+using SignalBeam.BundleOrchestrator.Application.Services;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
 using SignalBeam.Shared.Infrastructure.InternalServices;
@@ -112,12 +113,13 @@ public class DeviceGroupTargetingTests
     {
         // Arrange
         GroupReturns(new DeviceGroupLookup(status, null));
-        var handler = new CreateRolloutHandler(
-            _bundleRepository, _bundleVersionRepository, _groupClient, _desiredStateRepository, _rolloutStatusRepository);
+        var handler = new CreateRolloutHandler(_bundleRepository, _bundleVersionRepository, _groupClient,
+            _desiredStateRepository, _rolloutStatusRepository, new DeviceOwnershipVerifier(Substitute.For<IDeviceTenantClient>()));
 
         // Act
         var result = await handler.Handle(
             new CreateRolloutCommand(_bundle.Id.Value.ToString(), "1.0.0", "group", [GroupId.ToString()]),
+            Tenant,
             CancellationToken.None);
 
         // Assert
@@ -133,7 +135,7 @@ public class DeviceGroupTargetingTests
         GroupReturns(DeviceGroupLookup.Found(new DeviceGroupMembers(GroupId, "fleet", Devices)));
 
         // Act
-        var result = await AssignHandler().Handle(AssignCommand(), CancellationToken.None);
+        var result = await AssignHandler().Handle(AssignCommand(), Tenant, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -151,7 +153,7 @@ public class DeviceGroupTargetingTests
         GroupReturns(new DeviceGroupLookup(status, null));
 
         // Act
-        var result = await AssignHandler().Handle(AssignCommand(), CancellationToken.None);
+        var result = await AssignHandler().Handle(AssignCommand(), Tenant, CancellationToken.None);
 
         // Assert
         result.Error!.Type.Should().Be(expected);

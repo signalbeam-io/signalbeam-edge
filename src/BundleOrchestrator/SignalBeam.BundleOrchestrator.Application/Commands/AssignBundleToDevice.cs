@@ -1,4 +1,5 @@
 using SignalBeam.BundleOrchestrator.Application.Repositories;
+using SignalBeam.BundleOrchestrator.Application.Services;
 using SignalBeam.Domain.Entities;
 using SignalBeam.Domain.ValueObjects;
 using SignalBeam.Shared.Infrastructure.Results;
@@ -33,13 +34,16 @@ public class AssignBundleToDeviceHandler
     private readonly IBundleVersionRepository _bundleVersionRepository;
     private readonly IDeviceDesiredStateRepository _desiredStateRepository;
     private readonly IRolloutStatusRepository _rolloutStatusRepository;
+    private readonly DeviceOwnershipVerifier _deviceOwnership;
 
     public AssignBundleToDeviceHandler(
         IBundleRepository bundleRepository,
         IBundleVersionRepository bundleVersionRepository,
         IDeviceDesiredStateRepository desiredStateRepository,
-        IRolloutStatusRepository rolloutStatusRepository)
+        IRolloutStatusRepository rolloutStatusRepository,
+        DeviceOwnershipVerifier deviceOwnership)
     {
+        _deviceOwnership = deviceOwnership;
         _bundleRepository = bundleRepository;
         _bundleVersionRepository = bundleVersionRepository;
         _desiredStateRepository = desiredStateRepository;
@@ -48,6 +52,7 @@ public class AssignBundleToDeviceHandler
 
     public async Task<Result<AssignBundleToDeviceResponse>> Handle(
         AssignBundleToDeviceCommand command,
+        Guid callerTenantId,
         CancellationToken cancellationToken)
     {
         // Parse and validate device ID
@@ -64,12 +69,18 @@ public class AssignBundleToDeviceHandler
                 Error.Validation("INVALID_BUNDLE_ID", $"Invalid bundle ID format: {command.BundleId}"));
         }
 
-        // Check if bundle exists
+        // The bundle and the device must both be the caller's; another tenant's read as missing (#498).
         var bundle = await _bundleRepository.GetByIdAsync(bundleId, cancellationToken);
-        if (bundle is null)
+        if (bundle is null || bundle.TenantId.Value != callerTenantId)
         {
             return Result.Failure<AssignBundleToDeviceResponse>(
                 Error.NotFound("BUNDLE_NOT_FOUND", $"Bundle with ID {command.BundleId} not found."));
+        }
+
+        if (await _deviceOwnership.CheckAsync(deviceId.Value, new DeviceCaller(callerTenantId, null), cancellationToken)
+            is { } deviceError)
+        {
+            return Result.Failure<AssignBundleToDeviceResponse>(deviceError);
         }
 
         // Parse and validate version
